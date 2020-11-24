@@ -885,6 +885,26 @@ float3 ChSystemGranularSMC::getPosition(int nSphere){
 	return make_float3(x_UU, y_UU, z_UU);
 }
 
+// return position in user units given sphere index
+double3 ChSystemGranularSMC::getPositionDouble(int nSphere){
+    // owner SD
+	unsigned int ownerSD = sphere_owner_SDs.at(nSphere);
+    int3 ownerSD_trip = getSDTripletFromID(ownerSD);
+    // local position
+	double x_UU = (double)(sphere_local_pos_X[nSphere] * LENGTH_SU2UU);
+    double y_UU = (double)(sphere_local_pos_Y[nSphere] * LENGTH_SU2UU);
+    double z_UU = (double)(sphere_local_pos_Z[nSphere] * LENGTH_SU2UU);
+    // add big domain position
+    x_UU += (double)(gran_params->BD_frame_X * LENGTH_SU2UU);
+	y_UU += (double)(gran_params->BD_frame_Y * LENGTH_SU2UU);
+    z_UU += (double)(gran_params->BD_frame_Z * LENGTH_SU2UU);
+	// add subdomainNum * subdomain size		
+    x_UU += (double)(((int64_t)ownerSD_trip.x * gran_params->SD_size_X_SU) * LENGTH_SU2UU);
+    y_UU += (double)(((int64_t)ownerSD_trip.y * gran_params->SD_size_Y_SU) * LENGTH_SU2UU);
+    z_UU += (double)(((int64_t)ownerSD_trip.z * gran_params->SD_size_Z_SU) * LENGTH_SU2UU);					
+	return make_double3(x_UU, y_UU, z_UU);
+}
+
 // return absolute velocity
 float ChSystemGranularSMC::getAbsVelocity(int nSphere){
     float absv_SU = std::sqrt(pos_X_dt[nSphere]*pos_X_dt[nSphere]
@@ -927,7 +947,11 @@ int ChSystemGranularSMC::getNumContacts(){
     return total_nc/2;
 }
 
-
+// set up parameters related to wave propagation test
+void ChSystemGranularSMC::setWavePropagationParameters(int sphereID, float forceRatio){
+    gran_params->F_ext_ratio = forceRatio;
+    gran_params->top_center_sphereID = sphereID;
+}
 
 // Partitions the big domain (BD) and sets the number of SDs that BD is split in.
 void ChSystemGranularSMC::partitionBD() {

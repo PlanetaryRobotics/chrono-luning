@@ -137,6 +137,10 @@ enum GRAN_OUTPUT_FLAGS { ABSV = 1, VEL_COMPONENTS = 2, FIXITY = 4, ANG_VEL_COMPO
 /// Parameters needed for sphere-based granular dynamics. This structure is stored in CUDA unified memory so that it can
 /// be accessed from both host and device
 struct ChGranParams {
+    // parameters associated with wave propagation test
+    float F_ext_ratio;
+    unsigned int top_center_sphereID;
+
     /// Timestep in SU
     float stepSize_SU;
 
@@ -424,6 +428,9 @@ class CH_GRANULAR_API ChSystemGranularSMC {
         time_integrator = new_integrator;
     }
 
+    // wave propagation test related
+    void setWavePropagationParameters(int sphereID, float forceRatio);
+
     /// Set friction formulation. The frictionless setting uses a streamlined solver and avoids storing any physics
     /// information associated with friction
     void set_friction_mode(GRAN_FRICTION_MODE new_mode) { gran_params->friction_mode = new_mode; }
@@ -496,6 +503,10 @@ class CH_GRANULAR_API ChSystemGranularSMC {
 
     /// return particle position given sphere index
     float3 getPosition(int nSphere);
+
+    /// return particle position in double precision given sphere index
+    double3 getPositionDouble(int nSphere);
+
 
     // return absolute velocity
     float getAbsVelocity(int nSphere);
