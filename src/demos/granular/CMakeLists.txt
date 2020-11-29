@@ -21,7 +21,7 @@ SET(DEMOS
         demo_GRAN_mixer
 		demo_GRAN_compression
 		demo_GRAN_repose
-		goldenburg_settling
+		frictional_waveProp
 )
 
 # ------------------------------------------------------------------------------
