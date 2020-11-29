@@ -140,6 +140,7 @@ struct ChGranParams {
     // parameters associated with wave propagation test
     float F_ext_ratio;
     unsigned int top_center_sphereID;
+    float grav_mag;
 
     /// Timestep in SU
     float stepSize_SU;
@@ -429,7 +430,7 @@ class CH_GRANULAR_API ChSystemGranularSMC {
     }
 
     // wave propagation test related
-    void setWavePropagationParameters(int sphereID, float forceRatio);
+    void setWavePropagationParameters(int sphereID, float forceRatio, float grav);
 
     /// Set friction formulation. The frictionless setting uses a streamlined solver and avoids storing any physics
     /// information associated with friction

@@ -948,9 +948,10 @@ int ChSystemGranularSMC::getNumContacts(){
 }
 
 // set up parameters related to wave propagation test
-void ChSystemGranularSMC::setWavePropagationParameters(int sphereID, float forceRatio){
+void ChSystemGranularSMC::setWavePropagationParameters(int sphereID, float forceRatio, float gravity){
     gran_params->F_ext_ratio = forceRatio;
     gran_params->top_center_sphereID = sphereID;
+    gran_params->grav_mag = gravity;
 }
 
 // Partitions the big domain (BD) and sets the number of SDs that BD is split in.

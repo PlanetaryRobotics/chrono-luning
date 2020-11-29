@@ -834,6 +834,17 @@ static __global__ void computeSphereContactForces(GranSphereDataPtr sphere_data,
         applyExternalForces(mySphereID, myOwnerSD, my_sphere_pos, my_sphere_vel, my_omega, bodyA_force, bodyA_AngAcc,
                             gran_params, sphere_data, bc_type_list, bc_params_list, nBCs);
 
+
+        // add vertical force for a particular sphere (specific for wave propagation)
+        if (mySphereID == gran_params->top_center_sphereID){
+            float force_ratio = gran_params->F_ext_ratio;
+            float grav = gran_params->grav_mag;
+            float acc_unit = gran_params->LENGTH_UNIT/(gran_params->TIME_UNIT * gran_params->TIME_UNIT);
+            float external_force = force_ratio * (gran_params->sphere_mass_SU) * grav / acc_unit;
+            bodyA_force.z = bodyA_force.z - external_force;
+        }
+        
+
         // Write the force back to global memory so that we can apply them AFTER this kernel finishes
         atomicAdd(sphere_data->sphere_acc_X + mySphereID, bodyA_force.x / gran_params->sphere_mass_SU);
         atomicAdd(sphere_data->sphere_acc_Y + mySphereID, bodyA_force.y / gran_params->sphere_mass_SU);
