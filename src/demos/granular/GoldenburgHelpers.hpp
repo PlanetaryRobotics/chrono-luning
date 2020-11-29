@@ -20,6 +20,12 @@
 using namespace chrono;
 using namespace chrono::granular;
 
+struct force_over_x{
+    double pos;
+    double force;
+};
+
+
 double getMass(double rad, double density){
     double volume = 4.0f/3.0f * CH_C_PI * std::pow(rad, 3);
     double mass = volume * density;
@@ -88,6 +94,33 @@ void calculateBoundaryForces(ChSystemGranularSMC &gran_sys,
 
     }
 }
+
+// return boundary force from floor sorted
+std::vector<force_over_x> getSortedBoundaryForces(ChSystemGranularSMC &gran_sys, 
+                                                  int numSpheres, 
+                                                  double rad,
+                                                  double kn,
+                                                  double gn,
+                                                  double mass,
+                                                  double bottom_plate_position){
+    std::vector<ChVector<double>> normalForces;
+    std::vector<int> particlesInContact;
+    calculateBoundaryForces(gran_sys, numSpheres, rad, kn, gn, mass, bottom_plate_position, normalForces, particlesInContact);
+        
+    std::vector<force_over_x> pos_force_array;
+    force_over_x myData;
+    for (int i = 0; i < normalForces.size(); i ++){
+        myData.pos = gran_sys.getPosition(particlesInContact.at(i)).x;
+        myData.force = normalForces.at(i).z();
+        pos_force_array.push_back(myData);
+    }
+
+    // sort data
+    std::sort(pos_force_array.begin(), pos_force_array.end(), [](auto const &a, auto const &b) {return a.pos < b.pos;});
+
+    return pos_force_array;
+}
+
 
 // initialize velocity, dimenstion of the slab: x_dim_num * radius by y_dim_num * radius
 std::vector<ChVector<float>> initializePositions(int x_dim_num, int z_dim_num, float radius){
