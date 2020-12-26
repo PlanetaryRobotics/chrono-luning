@@ -56,14 +56,15 @@ int main(int argc, char* argv[]) {
     
     double sphere_density = 7.8;
 
-    // 61 spheres per layer, total of 15 layers
-    int x_dim_num = 122;
-    int z_dim_num = 30;
+    // 31 spheres per layer, total of 15 layers
+    int x_dim_num = 31;
+    int z_dim_num = 15;
+
 
     // box dim
-    float box_X = x_dim_num * sphere_radius;
+    float box_X = x_dim_num * sphere_radius * 2;
     float box_Y = box_X;
-    float box_Z = z_dim_num * sphere_radius;
+    float box_Z = z_dim_num * sphere_radius * 2;
 
     // material based parameter
     double sphere_volume = 4.0f/3.0f * CH_C_PI * sphere_radius * sphere_radius * sphere_radius;
@@ -99,11 +100,11 @@ int main(int argc, char* argv[]) {
     // double step_size = 5e-6;
 
     // time integrator for testing
-    double time_settling = 1.5f;
-    double time_Fduration = 1.5f;
-    double time_extF = 2.0f;
+    double time_settling = 0.2f;
+    double time_Fduration = 1.0f;
+    double time_extF = 1.0f;
     double time_end = time_settling + time_Fduration + time_extF;
-    double step_size = 1e-5;
+    double step_size = 5e-6;
 
 
 
@@ -117,7 +118,7 @@ int main(int argc, char* argv[]) {
     // intialize particle positions
     std::vector<ChVector<float>> initialPos = initializePositions(x_dim_num, z_dim_num, sphere_radius);
     int numSpheres = initialPos.size();
-    std::cout << "number of spheres: " << initialPos.size();
+    std::cout << "number of spheres: " << initialPos.size() << "\n";
     apiSMC.setElemsPositions(initialPos);
 
     float psi_T = 32.0f;
@@ -156,7 +157,7 @@ int main(int argc, char* argv[]) {
 
     // set output directory
     char out_dir[100];
-    sprintf(out_dir, "radius_%.0ecm_mu_%.1e", sphere_radius, friction_coeff);
+    sprintf(out_dir, "31_radius_%.0ecm_mu_%.1e", sphere_radius, friction_coeff);
 
     // create folder for outputs
     if (!filesystem::create_directory(filesystem::path(out_dir))){
@@ -175,6 +176,7 @@ int main(int argc, char* argv[]) {
     double force_left, force_right, diff; // tracker to make sure force profile is symmetric
 
     clock_t start = std::clock();
+
     // PHASE ONE: SETTLING
 	while (curr_time < time_settling) {
         gran_sys.advance_simulation(frame_size);
@@ -183,7 +185,7 @@ int main(int argc, char* argv[]) {
         pos_force_array = getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, 2*kn, gamma_n, sphere_mass, -box_Z/2.0f);
                 
         force_left = pos_force_array.at(0).force;
-        force_right = pos_force_array.at(60).force;
+        force_right = pos_force_array.at(x_dim_num-1).force;
         diff = std::abs((force_left - force_right)/force_left);
 
         sysKE = getSystemKE(sphere_radius, sphere_density, apiSMC, numSpheres);
@@ -231,7 +233,7 @@ int main(int argc, char* argv[]) {
             pos_force_array = getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, 2*kn, gamma_n, sphere_mass, -box_Z/2.0f);
 
             force_left = pos_force_array.at(0).force;
-            force_right = pos_force_array.at(60).force;
+            force_right = pos_force_array.at(x_dim_num-1).force;
             diff = std::abs((force_left - force_right)/force_left);
 
             sysKE = getSystemKE(sphere_radius, sphere_density, apiSMC, numSpheres);
@@ -254,7 +256,7 @@ int main(int argc, char* argv[]) {
         pos_force_array = getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, 2*kn, gamma_n, sphere_mass, -box_Z/2.0f);
 
         force_left = pos_force_array.at(0).force;
-        force_right = pos_force_array.at(60).force;
+        force_right = pos_force_array.at(x_dim_num-1).force;
         diff = std::abs((force_left - force_right)/force_left);
 
         std::cout << curr_time << ", "  << diff << ", " << avgKE << std::endl;

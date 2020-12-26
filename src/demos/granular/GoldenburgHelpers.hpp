@@ -125,15 +125,15 @@ std::vector<force_over_x> getSortedBoundaryForces(ChSystemGranularSMC &gran_sys,
 // initialize velocity, dimenstion of the slab: x_dim_num * radius by y_dim_num * radius
 std::vector<ChVector<float>> initializePositions(int x_dim_num, int z_dim_num, float radius){
     std::vector<ChVector<float>> pos;
-    double z = (-(double)z_dim_num/2.0f + 1.0f) * radius;
+    double z = (-(double)z_dim_num + 1.0f) * radius;
     double y = 0;
     double z_diff = std::sqrt(3.0f) * radius;
     double x;
     int layers = 0;
-    int total_layers = (int)(z_dim_num/2);
-    while (z <= ((double)z_dim_num/2.0f - 3.0f) * radius - z_diff){
-        x = (-(double)x_dim_num/2.0f + 1.0f) * radius;
-        while (x <= ((double)x_dim_num/2.0f - 1.0f) * radius){
+    int total_layers = (int)(z_dim_num);
+    while (z <= ((double)z_dim_num - 3.0f) * radius - z_diff){
+        x = (-(double)x_dim_num + 1.0f) * radius;
+        while (x <= ((double)x_dim_num - 1.0f) * radius){
             ChVector<float> position(x, y, z);
             pos.push_back(position);
             x = x + 2 * radius;
@@ -144,9 +144,9 @@ std::vector<ChVector<float>> initializePositions(int x_dim_num, int z_dim_num, f
             break;
         }
 
-        x = (-(double)x_dim_num/2.0f + 2.0f) * radius;
+        x = (-(double)x_dim_num + 2.0f) * radius;
         z = z + z_diff;
-        while (x <= ((double)x_dim_num/2.0f - 1.0f) * radius){
+        while (x <= ((double)x_dim_num - 1.0f) * radius){
             ChVector<float> position(x, y, z);
             pos.push_back(position);
             x = x + 2 * radius;
