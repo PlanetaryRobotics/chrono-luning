@@ -508,10 +508,9 @@ class CH_GRANULAR_API ChSystemGranularSMC {
     /// return particle position in double precision given sphere index
     double3 getPositionDouble(int nSphere);
 
-
     // return absolute velocity
     float getAbsVelocity(int nSphere);
-    
+
     // return velocity
     float3 getVelocity(int nSphere);
 
@@ -539,7 +538,7 @@ class CH_GRANULAR_API ChSystemGranularSMC {
     }
 
     // set recording contact info to be true
-    void setRecordingContactInfo(bool record){gran_params->recording_contactInfo = record;};
+    void setRecordingContactInfo(bool record) { gran_params->recording_contactInfo = record; };
 
     /// Set tuning psi factors for tuning the non-dimensionalization
     void setPsiFactors(unsigned int psi_T_new, unsigned int psi_L_new, float psi_R_new = 1.f) {
@@ -554,6 +553,8 @@ class CH_GRANULAR_API ChSystemGranularSMC {
     void writeFile(std::string ofile) const;
     /// Writes out contact info
     void writeContactInfoFile(std::string ofile) const;
+    void writeContactInfo(std::string ofile) const;
+
     /// Safety check velocity to ensure the simulation is still stable
     void setMaxSafeVelocity_SU(float max_vel) { gran_params->max_safe_vel = max_vel; }
 
@@ -841,7 +842,7 @@ class CH_GRANULAR_API ChSystemGranularSMC {
 
     // User-provided sphere angular velocities in UU
     std::vector<float3> user_sphere_ang_vel;
-    
+
     /// User-provided sphere fixity as bools
     std::vector<bool> user_sphere_fixed;
 
