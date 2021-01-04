@@ -57,7 +57,7 @@ int main(int argc, char* argv[]) {
 
     // 31 spheres per layer, total of 15 layers
     int x_dim_num = 31;
-    int z_dim_num = 6;
+    int z_dim_num = 12;
 
     // box dim
     float box_X = x_dim_num * sphere_radius * 2;
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
 
     // stiffness
     double kt_over_kn = 0.5f;
-    double kn = 30000 * sphere_mass * gravity / sphere_radius;
+    double kn = 50000 * sphere_mass * gravity / sphere_radius;
     double kt = kt_over_kn * kn;
     // damping parameters
     double gamma_n = 50000;
@@ -88,7 +88,7 @@ int main(int argc, char* argv[]) {
     // set gravity
     double grav_X = 0.0f;
     double grav_Y = 0.0f;
-    double grav_Z = -1000.0f;
+    double grav_Z = -gravity;
     double grav_mag = std::abs(grav_Z);
 
     // time integrator
@@ -99,11 +99,11 @@ int main(int argc, char* argv[]) {
     // double step_size = 5e-6;
 
     // time integrator for testing
-    double time_settling = 0.2f;
+    double time_settling = 0.5f;
     double time_Fduration = 1.0f;
     double time_extF = 1.0f;
     double time_end = time_settling + time_Fduration + time_extF;
-    double step_size = 5e-6;
+    double step_size = 2e-6;
 
     // setup simulation gran_sys
     ChSystemGranularSMC gran_sys(sphere_radius, sphere_density, make_float3(box_X, box_Y, box_Z));
