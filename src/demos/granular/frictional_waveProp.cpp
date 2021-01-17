@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
     double friction_coeff = std::stof(argv[2]);
     double F_ext_ratio = std::stof(argv[3]);
 
-    double sphere_density = 7.8;
+//    double sphere_density = 7.8;
 
     // 31 spheres per layer, total of 15 layers
     int x_dim_num = 31;
@@ -64,15 +64,19 @@ int main(int argc, char* argv[]) {
     float box_Y = box_X;
     float box_Z = z_dim_num * sphere_radius * 2;
 
+
     // material based parameter
+    // sphere_mass 1000, kn = 3000 mg/r, worked.
     double sphere_volume = 4.0f / 3.0f * CH_C_PI * sphere_radius * sphere_radius * sphere_radius;
-    double sphere_mass = 1.0f;  // sphere_density * sphere_volume;
+    double sphere_mass = 1000.0f;  // sphere_density * sphere_volume;
+
+    double sphere_density = sphere_mass/sphere_volume;
 
     double gravity = 1000.0f;
 
     // stiffness
     double kt_over_kn = 0.5f;
-    double kn = 50000 * sphere_mass * gravity / sphere_radius;
+    double kn = 3000 * sphere_mass * gravity / sphere_radius;
     double kt = kt_over_kn * kn;
     // damping parameters
     double gamma_n = 50000;
@@ -91,19 +95,20 @@ int main(int argc, char* argv[]) {
     double grav_Z = -gravity;
     double grav_mag = std::abs(grav_Z);
 
-    // time integrator
+    // time integrator for testing
     // double time_settling = 5.0f;
-    // double time_Fduration = 2.0f;
+    // double time_Fduration = 3.0f;
     // double time_extF = 4.0f;
     // double time_end = time_settling + time_Fduration + time_extF;
-    // double step_size = 5e-6;
+    // double step_size = 2e-6;
 
     // time integrator for testing
-    double time_settling = 0.5f;
-    double time_Fduration = 1.0f;
-    double time_extF = 1.0f;
+    double time_settling = 5.0f;
+    double time_Fduration = 3.0f;
+    double time_extF = 4.0f;
     double time_end = time_settling + time_Fduration + time_extF;
     double step_size = 2e-6;
+
 
     // setup simulation gran_sys
     ChSystemGranularSMC gran_sys(sphere_radius, sphere_density, make_float3(box_X, box_Y, box_Z));
@@ -131,6 +136,7 @@ int main(int argc, char* argv[]) {
 
     float psi_T = 32.0f;
     float psi_L = 256.0f;
+
     gran_sys.setPsiFactors(psi_T, psi_L);
 
     // normal force model
@@ -146,7 +152,9 @@ int main(int argc, char* argv[]) {
     gran_sys.set_Gamma_t_SPH2SPH(gamma_t);
     gran_sys.set_Gamma_t_SPH2WALL(gamma_t);
     gran_sys.set_static_friction_coeff_SPH2SPH(mu_s_s2s);
+    // modify friction between wall and spheres
     gran_sys.set_static_friction_coeff_SPH2WALL(mu_s_s2w);
+//    gran_sys.set_static_friction_coeff_SPH2WALL(0.f);
 
     // set gravity
     gran_sys.set_gravitational_acceleration(grav_X, grav_Y, grav_Z);
@@ -180,7 +188,7 @@ int main(int argc, char* argv[]) {
 
     // initialize values that I want to keep track of
     double sysKE, avgKE;
-    std::vector<force_over_x> pos_force_array;
+    std::vector<force_over_x> settling_pos_force_array, pos_force_array;
     double force_left, force_right, diff;  // tracker to make sure force profile is symmetric
 
     clock_t start = std::clock();
@@ -190,11 +198,21 @@ int main(int argc, char* argv[]) {
         gran_sys.advance_simulation(frame_size);
         curr_time += frame_size;
 
-        pos_force_array =
+        // write position 
+        char pos_filename[100];
+        sprintf(pos_filename, "%s/position_%04d", out_dir, currframe);
+        gran_sys.writeFile(std::string(pos_filename));
+
+        settling_pos_force_array =
             getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, 2 * kn, gamma_n, sphere_mass, -box_Z / 2.0f);
 
-        force_left = pos_force_array.at(0).force;
-        force_right = pos_force_array.at(x_dim_num - 1).force;
+        if (settling_pos_force_array.size() != x_dim_num){
+            printf("ERROR! bottom layer has only %d spheres, check parameters!\n", settling_pos_force_array.size());
+            return -1;
+        }
+
+        force_left = settling_pos_force_array.at(0).force;
+        force_right = settling_pos_force_array.at(x_dim_num - 1).force;
         diff = std::abs((force_left - force_right) / force_left);
 
         sysKE = getSystemKE(sphere_radius, sphere_density, apiSMC, numSpheres);
@@ -202,6 +220,8 @@ int main(int argc, char* argv[]) {
 
         std::cout << curr_time << ", " << diff << ", " << avgKE << std::endl;
         currframe++;
+
+
     }
 
     // output reaction force at settling stage
@@ -209,10 +229,11 @@ int main(int argc, char* argv[]) {
     sprintf(settling_reactionF_filename, "%s/settling_pos_force.csv", out_dir);
     std::ofstream forcestream(std::string(settling_reactionF_filename), std::ios::out);
 
-    for (int i = 0; i < pos_force_array.size(); i++) {
-        forcestream << std::setprecision(7) << pos_force_array.at(i).pos << ", " << pos_force_array.at(i).force << "\n";
+    for (int i = 0; i < settling_pos_force_array.size(); i++) {
+        forcestream << std::setprecision(7) << settling_pos_force_array.at(i).pos << ", " << settling_pos_force_array.at(i).force << "\n";
     }
     forcestream.close();
+
     // write position at settling stage
     char settling_pos_filename[100];
     sprintf(settling_pos_filename, "%s/settling_position", out_dir);
@@ -224,11 +245,16 @@ int main(int argc, char* argv[]) {
 
     // PHASE TWO: APPLYING FORCE GRADUALLY
     int F_ext_ratio_array_size = std::round(time_Fduration / step_size) + 1;
-    double F_ext_ratio_array[F_ext_ratio_array_size];
+
     double slope = F_ext_ratio / time_Fduration;
+
+    double* F_ext_ratio_array = new double[F_ext_ratio_array_size];
+
     for (int i = 0; i < F_ext_ratio_array_size; i++) {
         F_ext_ratio_array[i] = slope * step_size * i;
     }
+
+
     int force_counter = 0;
     while (curr_time < time_settling + time_Fduration && force_counter < F_ext_ratio_array_size) {
         gran_sys.advance_simulation(step_size);
@@ -249,6 +275,14 @@ int main(int argc, char* argv[]) {
             avgKE = sysKE / numSpheres / (sphere_mass * gravity * sphere_radius);
             std::cout << curr_time << ", " << diff << ", " << avgKE << ", " << F_ext_ratio_array[force_counter - 1]
                       << std::endl;
+
+            currframe++;
+
+            char pos_filename[100];
+            sprintf(pos_filename, "%s/position_%04d", out_dir, currframe);
+            gran_sys.writeFile(std::string(pos_filename));
+
+
         }
     }
 
@@ -270,6 +304,10 @@ int main(int argc, char* argv[]) {
 
         std::cout << curr_time << ", " << diff << ", " << avgKE << std::endl;
         currframe++;
+        char pos_filename[100];
+        sprintf(pos_filename, "%s/position_%04d", out_dir, currframe);
+        gran_sys.writeFile(std::string(pos_filename));
+
     }
 
     char outForceFile_string[100];
@@ -280,6 +318,16 @@ int main(int argc, char* argv[]) {
         outstream << std::setprecision(7) << pos_force_array.at(i).pos << ", " << pos_force_array.at(i).force << "\n";
     }
     outstream.close();
+
+    // write delta F vs position
+    sprintf(outForceFile_string, "%s/pos_dF.csv", out_dir);
+    std::ofstream outstream_df(std::string(outForceFile_string), std::ios::out);
+
+    for (int i = 0; i < pos_force_array.size(); i++) {
+        outstream_df << std::setprecision(7) << pos_force_array.at(i).pos << ", " << pos_force_array.at(i).force - settling_pos_force_array.at(i).force << "\n";
+    }
+    outstream_df.close();
+
 
     char end_pos_filename[100];
     sprintf(end_pos_filename, "%s/ending_position", out_dir, F_ext_ratio);

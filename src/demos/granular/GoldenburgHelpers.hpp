@@ -126,7 +126,7 @@ std::vector<ChVector<float>> initializePositions(int x_dim_num, int z_dim_num, f
     std::vector<ChVector<float>> pos;
     double z = (-(double)z_dim_num + 1.0f) * radius;
     double y = 0;
-    double z_diff = std::sqrt(3.0f) * radius;
+    double z_diff = std::sqrt(3.1f) * radius;  // add some difference and see what happens
     double x;
     int layers = 0;
     int total_layers = (int)(z_dim_num);
