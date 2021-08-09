@@ -37,20 +37,20 @@ namespace hmmwv {
 class CH_MODELS_API HMMWV_VehicleFull : public HMMWV_Vehicle {
   public:
     HMMWV_VehicleFull(const bool fixed,
-                      DrivelineType drive_type,
+                      DrivelineTypeWV drive_type,
                       BrakeType brake_type,
-                      SteeringType steering_type,
+                      SteeringTypeWV steering_type,
                       bool rigid_steering_column,
                       ChContactMethod contact_method,
-                      ChassisCollisionType chassis_collision_type);
+                      CollisionType chassis_collision_type);
 
     HMMWV_VehicleFull(ChSystem* system,
                       const bool fixed,
-                      DrivelineType drive_type,
+                      DrivelineTypeWV drive_type,
                       BrakeType brake_type,
-                      SteeringType steering_type,
+                      SteeringTypeWV steering_type,
                       bool rigid_steering_column,
-                      ChassisCollisionType chassis_collision_type);
+                      CollisionType chassis_collision_type);
 
     ~HMMWV_VehicleFull();
 
@@ -71,9 +71,9 @@ class CH_MODELS_API HMMWV_VehicleFull : public HMMWV_Vehicle {
   private:
     void Create(bool fixed,
                 BrakeType brake_type,
-                SteeringType steering_type,
+                SteeringTypeWV steering_type,
                 bool rigid_steering_column,
-                ChassisCollisionType chassis_collision_type);
+                CollisionType chassis_collision_type);
 };
 
 /// @} vehicle_models_hmmwv

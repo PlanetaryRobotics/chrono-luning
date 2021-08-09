@@ -21,14 +21,16 @@
 // =============================================================================
 
 #include "chrono_synchrono/utils/SynGPSTools.h"
-#include "chrono/core/ChLog.h"
+
+#include "chrono_synchrono/utils/SynLog.h"
 
 using namespace chrono;
+using namespace chrono::vehicle;
 
 namespace chrono {
 namespace synchrono {
 
-SynGPSTools::SynGPSTools(const GPScoord& origin, std::shared_ptr<SynTerrain> terrain)
+SynGPSTools::SynGPSTools(const GPScoord& origin, std::shared_ptr<ChTerrain> terrain)
     : m_origin(origin), m_terrain(terrain) {
     // Store origin info in radians, from degree-based GPScoord
     m_lat_origin = origin.lat_rad();
@@ -41,7 +43,8 @@ std::shared_ptr<ChBezierCurve> SynGPSTools::CurveFromGPS(std::vector<GPScoord>& 
                                                          double vert_offset,
                                                          bool closed) {
     std::vector<ChVector<>> bezier_points;
-    for (auto gps_point : gps_points)
+    bezier_points.reserve(gps_points.size());
+    for (const auto& gps_point : gps_points)
         bezier_points.push_back(To3DCartesian(gps_point, vert_offset));
 
     bool is_already_closed = (gps_points.back().GetVector() - gps_points.front().GetVector()).Length() < 1e-6;
@@ -64,7 +67,7 @@ std::shared_ptr<ChBezierCurve> SynGPSTools::CurveFromGPS(const std::string& file
     try {
         ifile.exceptions(std::ios::failbit | std::ios::badbit | std::ios::eofbit);
         ifile.open(filename.c_str());
-    } catch (std::exception) {
+    } catch (std::exception&) {
         throw ChException("Cannot open input file");
     }
 
@@ -81,7 +84,7 @@ std::shared_ptr<ChBezierCurve> SynGPSTools::CurveFromGPS(const std::string& file
     if (num_cols == 2) {
         // Read points as GPS waypoints
         std::vector<ChVector<>> waypoints;
-
+        waypoints.reserve(num_waypoints);
         for (size_t i = 0; i < num_waypoints; i++) {
             double lat, lon;
 
@@ -103,7 +106,7 @@ std::shared_ptr<ChBezierCurve> SynGPSTools::CurveFromGPS(const std::string& file
 
     if (num_cols == 3 || num_cols == 9) {
         // TODO: This method should actually support numcols=3 b/c of altitude
-        GetLog() << "SynGPSTools::CurveFromGPS: File specified actually describes a ChBezierCurve, not a GPS curve, "
+        SynLog() << "SynGPSTools::CurveFromGPS: File specified actually describes a ChBezierCurve, not a GPS curve, "
                     "reading anyways"
                  << "\n";
 

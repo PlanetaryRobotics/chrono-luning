@@ -41,9 +41,9 @@ namespace fmtv {
 /// @addtogroup vehicle_models_fmtv
 /// @{
 
-/// Definition of the UAZ assembly.
+/// Definition of the MTV assembly.
 /// This class encapsulates a concrete wheeled vehicle model with parameters corresponding to
-/// a UAZ vehicle, the powertrain model, and the 6 tires.
+/// an MTV vehicle, the powertrain model, and the 6 tires.
 class CH_MODELS_API MTV {
   public:
     MTV();
@@ -54,13 +54,13 @@ class CH_MODELS_API MTV {
     void SetContactMethod(ChContactMethod val) { m_contactMethod = val; }
 
     void SetChassisFixed(bool val) { m_fixed = val; }
-    void SetChassisCollisionType(ChassisCollisionType val) { m_chassisCollisionType = val; }
+    void SetChassisCollisionType(CollisionType val) { m_chassisCollisionType = val; }
 
     void SetBrakeType(BrakeType brake_type) { m_brake_type = brake_type; }
     void SetTireType(TireModelType val) { m_tireType = val; }
     void SetPowertrainType(PowertrainModelType val) { m_powertrainType = val; }
 
-    // void setSteeringType(SteeringType val) { m_steeringType = val; }
+    // void setSteeringType(SteeringTypeWV val) { m_steeringType = val; }
 
     void SetInitPosition(const ChCoordsys<>& pos) { m_initPos = pos; }
     void SetInitFwdVel(double fwdVel) { m_initFwdVel = fwdVel; }
@@ -100,7 +100,7 @@ class CH_MODELS_API MTV {
 
   protected:
     ChContactMethod m_contactMethod;
-    ChassisCollisionType m_chassisCollisionType;
+    CollisionType m_chassisCollisionType;
     bool m_fixed;
     bool m_brake_locking;
 
@@ -110,7 +110,7 @@ class CH_MODELS_API MTV {
 
     double m_tire_step_size;
 
-    SteeringType m_steeringType;
+    SteeringTypeWV m_steeringType;
 
     ChCoordsys<> m_initPos;
     double m_initFwdVel;

@@ -36,15 +36,15 @@ class CH_MODELS_API UAZBUS_Vehicle : public ChWheeledVehicle {
   public:
     UAZBUS_Vehicle(const bool fixed,
                    BrakeType brake_type,
-                   SteeringType steering_model,
+                   SteeringTypeWV steering_model,
                    ChContactMethod contact_method = ChContactMethod::NSC,
-                   ChassisCollisionType chassis_collision_type = ChassisCollisionType::NONE);
+                   CollisionType chassis_collision_type = CollisionType::NONE);
 
     UAZBUS_Vehicle(ChSystem* system,
                    const bool fixed,
                    BrakeType brake_type,
-                   SteeringType steering_model,
-                   ChassisCollisionType chassis_collision_type = ChassisCollisionType::NONE);
+                   SteeringTypeWV steering_model,
+                   CollisionType chassis_collision_type = CollisionType::NONE);
 
     ~UAZBUS_Vehicle();
 
@@ -74,10 +74,7 @@ class CH_MODELS_API UAZBUS_Vehicle : public ChWheeledVehicle {
     void DebugLog(int what);       /// shock forces and lengths, constraints, etc.
 
   private:
-    void Create(bool fixed,
-                BrakeType brake_type,
-                SteeringType steering_model,
-                ChassisCollisionType chassis_collision_type);
+    void Create(bool fixed, BrakeType brake_type, SteeringTypeWV steering_model, CollisionType chassis_collision_type);
 
     std::vector<double> m_omega;
 };

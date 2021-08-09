@@ -45,7 +45,7 @@ namespace man {
 MAN_10t_Vehicle::MAN_10t_Vehicle(const bool fixed,
                                  BrakeType brake_type,
                                  ChContactMethod contact_method,
-                                 ChassisCollisionType chassis_collision_type,
+                                 CollisionType chassis_collision_type,
                                  bool useShaftDrivetrain)
     : ChWheeledVehicle("MAN_10t", contact_method),
       m_omega({0, 0, 0, 0, 0, 0, 0, 0}),
@@ -56,7 +56,7 @@ MAN_10t_Vehicle::MAN_10t_Vehicle(const bool fixed,
 MAN_10t_Vehicle::MAN_10t_Vehicle(ChSystem* system,
                                  const bool fixed,
                                  BrakeType brake_type,
-                                 ChassisCollisionType chassis_collision_type,
+                                 CollisionType chassis_collision_type,
                                  bool useShaftDrivetrain)
     : ChWheeledVehicle("MAN_10t", system),
       m_omega({0, 0, 0, 0, 0, 0, 0, 0}),
@@ -64,7 +64,7 @@ MAN_10t_Vehicle::MAN_10t_Vehicle(ChSystem* system,
     Create(fixed, brake_type, chassis_collision_type);
 }
 
-void MAN_10t_Vehicle::Create(bool fixed, BrakeType brake_type, ChassisCollisionType chassis_collision_type) {
+void MAN_10t_Vehicle::Create(bool fixed, BrakeType brake_type, CollisionType chassis_collision_type) {
     // Create the chassis subsystem
     m_chassis = chrono_types::make_shared<MAN_10t_Chassis>("Chassis", fixed, chassis_collision_type);
 
@@ -130,7 +130,7 @@ void MAN_10t_Vehicle::Create(bool fixed, BrakeType brake_type, ChassisCollisionT
 
     // Create the steering subsystem
     m_steerings.resize(2);
-    m_steerings[0] = chrono_types::make_shared<MAN_5t_RotaryArm>("Steering2");
+    m_steerings[0] = chrono_types::make_shared<MAN_5t_RotaryArm>("Steering1");
     m_steerings[1] = chrono_types::make_shared<MAN_10t_RotaryArm2>("Steering2");
 
     // Create the driveline

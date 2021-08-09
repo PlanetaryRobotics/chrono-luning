@@ -20,6 +20,7 @@
 #include "chrono/fea/ChElementCableANCF.h"
 #include "chrono/fea/ChElementBeamANCF.h"
 #include "chrono/fea/ChElementBeamEuler.h"
+#include "chrono/fea/ChElementBeamTaperedTimoshenko.h"
 #include "chrono/fea/ChElementBeamIGA.h"
 #include "chrono/fea/ChElementBrick.h"
 #include "chrono/fea/ChElementBrick_9.h"
@@ -356,6 +357,8 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
                     sectionshape = mycableancf->GetSection()->GetDrawShape();
                 } else if (auto mybeamiga = std::dynamic_pointer_cast<ChElementBeamIGA>(mybeam)) {
                     sectionshape = mybeamiga->GetSection()->GetDrawShape();
+                } else if (auto mybeamtimoshenko = std::dynamic_pointer_cast<ChElementBeamTaperedTimoshenko>(mybeam)) {
+                    sectionshape = mybeamtimoshenko->GetTaperedSection()->GetSectionA()->GetDrawShape();
                 } else if (auto mybeamancf = std::dynamic_pointer_cast<ChElementBeamANCF>(mybeam)) {
                     sectionshape = chrono_types::make_shared<ChBeamSectionShapeRectangular>(mybeamancf->GetThicknessY(), mybeamancf->GetThicknessZ()); // TO DO use ChBeamSection also in ANCF beam
                 }
@@ -460,7 +463,6 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
     unsigned int i_vcols = 0;
     unsigned int i_vnorms = 0;
     unsigned int i_triindex = 0;
-    unsigned int i_normindex = 0;
 
     //   In case of colormap drawing:
     if (this->fem_data_type != E_PLOT_NONE && this->fem_data_type != E_PLOT_LOADSURFACES &&
@@ -628,6 +630,8 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
                     sectionshape = mycableancf->GetSection()->GetDrawShape();
                 } else if (auto mybeamiga = std::dynamic_pointer_cast<ChElementBeamIGA>(mybeam)) {
                     sectionshape = mybeamiga->GetSection()->GetDrawShape();
+                } else if (auto mybeamtimoshenko = std::dynamic_pointer_cast<ChElementBeamTaperedTimoshenko>(mybeam)) {
+                    sectionshape = mybeamtimoshenko->GetTaperedSection()->GetSectionA()->GetDrawShape();
                 } else if (auto mybeamancf = std::dynamic_pointer_cast<ChElementBeamANCF>(mybeam)) {
                     sectionshape = chrono_types::make_shared<ChBeamSectionShapeRectangular>(mybeamancf->GetThicknessY(), mybeamancf->GetThicknessZ());
                 }
@@ -635,7 +639,6 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
                 if (sectionshape) {
 
                     unsigned int ivert_el = i_verts;
-                    unsigned int inorm_el = i_vnorms;
                     int n_section_pts =0;
                     for (int i = 0; i < sectionshape->GetNofLines(); ++i)
                         n_section_pts += sectionshape->GetNofPoints(i);
@@ -881,7 +884,6 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
 										ivert_offset;
 
 									if (this->smooth_faces) {
-										ChVector<int> inorm_offset = ChVector<int>(inorm_el, inorm_el, inorm_el);
 										trianglemesh->getIndicesNormals()[i_triindex] =
 											ChVector<int>(
 												triangle_pt,
@@ -914,7 +916,6 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
 										ivert_offset;
 
 									if (this->smooth_faces) {
-										ChVector<int> inorm_offset = ChVector<int>(inorm_el, inorm_el, inorm_el);
 										trianglemesh->getIndicesNormals()[i_triindex] =
 											ChVector<int>(triangle_pt - 1,
 														  triangle_pt + shell_resolution - iu - 2,
@@ -1081,14 +1082,14 @@ void ChVisualizationFEAmesh::Update(ChPhysicsItem* updater, const ChCoordsys<>& 
     if (this->fem_glyph == ChVisualizationFEAmesh::E_GLYPH_NODE_DOT_POS) {
         glyphs_asset->SetDrawMode(ChGlyphs::GLYPH_POINT);
         for (unsigned int inode = 0; inode < this->FEMmesh->GetNnodes(); ++inode) {
-            if (auto mynode = std::dynamic_pointer_cast<ChNodeFEAxyz>(this->FEMmesh->GetNode(inode))) {
-                glyphs_asset->SetGlyphPoint(inode, mynode->GetPos(), this->symbolscolor);
-            } else if (auto mynode = std::dynamic_pointer_cast<ChNodeFEAxyzrot>(this->FEMmesh->GetNode(inode))) {
-                glyphs_asset->SetGlyphPoint(inode, mynode->GetPos(), this->symbolscolor);
-            } else if (auto mynode = std::dynamic_pointer_cast<ChNodeFEAxyzD>(this->FEMmesh->GetNode(inode))) {
-                glyphs_asset->SetGlyphPoint(inode, mynode->GetPos(), this->symbolscolor);
-            } else if (auto mynode = std::dynamic_pointer_cast<ChNodeFEAxyzDD>(this->FEMmesh->GetNode(inode))) {
-                glyphs_asset->SetGlyphPoint(inode, mynode->GetPos(), this->symbolscolor);            
+            if (auto mynode1 = std::dynamic_pointer_cast<ChNodeFEAxyz>(this->FEMmesh->GetNode(inode))) {
+                glyphs_asset->SetGlyphPoint(inode, mynode1->GetPos(), this->symbolscolor);
+            } else if (auto mynode2 = std::dynamic_pointer_cast<ChNodeFEAxyzrot>(this->FEMmesh->GetNode(inode))) {
+                glyphs_asset->SetGlyphPoint(inode, mynode2->GetPos(), this->symbolscolor);
+            } else if (auto mynode3 = std::dynamic_pointer_cast<ChNodeFEAxyzD>(this->FEMmesh->GetNode(inode))) {
+                glyphs_asset->SetGlyphPoint(inode, mynode3->GetPos(), this->symbolscolor);
+            } else if (auto mynode4 = std::dynamic_pointer_cast<ChNodeFEAxyzDD>(this->FEMmesh->GetNode(inode))) {
+                glyphs_asset->SetGlyphPoint(inode, mynode4->GetPos(), this->symbolscolor);            
             }
         }
     }

@@ -47,7 +47,7 @@ namespace vehicle {
 
 /// Load and return a RapidJSON document from the specified file.
 /// A Null document is returned if the file cannot be opened.
-CH_VEHICLE_API rapidjson::Document ReadFileJSON(const std::string& filename);
+CH_VEHICLE_API void ReadFileJSON(const std::string& filename, rapidjson::Document& d);
 
 // -----------------------------------------------------------------------------
 
@@ -104,7 +104,7 @@ CH_VEHICLE_API std::shared_ptr<ChTire> ReadTireJSON(const std::string& filename)
 // -----------------------------------------------------------------------------
 
 /// Load and return a track assembly from the specified JSON file.
-CH_VEHICLE_API std::shared_ptr<ChTrackAssembly> ReadTrackAssemblySON(const std::string& filename);
+CH_VEHICLE_API std::shared_ptr<ChTrackAssembly> ReadTrackAssemblyJSON(const std::string& filename);
 
 /// Load and return a track driveline from the specified JSON file.
 CH_VEHICLE_API std::shared_ptr<ChDrivelineTV> ReadDrivelineTVJSON(const std::string& filename);

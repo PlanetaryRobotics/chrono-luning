@@ -44,14 +44,22 @@ namespace vehicle {
 // Implementation of the base class ChSteeringController
 // -----------------------------------------------------------------------------
 ChSteeringController::ChSteeringController()
-    : m_dist(0), m_sentinel(0, 0, 0), m_target(0, 0, 0), m_err(0), m_errd(0), m_erri(0), m_collect(false), m_csv(NULL) {
+    : m_dist(0),
+      m_sentinel(0, 0, 0),
+      m_target(0, 0, 0),
+      m_err(0),
+      m_erri(0),
+      m_errd(0),
+      m_csv(nullptr),
+      m_collect(false) {
     // Default PID controller gains all zero (no control).
     SetGains(0, 0, 0);
 }
 
 ChSteeringController::ChSteeringController(const std::string& filename)
-    : m_sentinel(0, 0, 0), m_target(0, 0, 0), m_err(0), m_errd(0), m_erri(0), m_collect(false), m_csv(NULL) {
-    Document d = ReadFileJSON(filename);
+    : m_sentinel(0, 0, 0), m_target(0, 0, 0), m_err(0), m_erri(0), m_errd(0), m_csv(nullptr), m_collect(false) {
+    Document d;
+    ReadFileJSON(filename, d);
     if (d.IsNull())
         return;
 
@@ -190,15 +198,15 @@ ChPathSteeringControllerXT::ChPathSteeringControllerXT(std::shared_ptr<ChBezierC
                                                        bool isClosedPath,
                                                        double max_wheel_turn_angle)
     : m_path(path),
-      m_filters_initialized(false),
       m_R_threshold(100000.0),
       m_max_wheel_turn_angle(25.0 * CH_C_DEG_TO_RAD),
-      m_res(0),
-      m_Kp(0.4),
+      m_filters_initialized(false),
       m_T1_delay(30.0 / 1000.0),
+      m_Kp(0.4),
       m_Wy(1),
       m_Wh(1),
-      m_Wa(1) {
+      m_Wa(1),
+      m_res(0) {
     // Create a tracker object associated with the given path.
     m_tracker = std::unique_ptr<ChBezierCurveTracker>(new ChBezierCurveTracker(path, isClosedPath));
     if (max_wheel_turn_angle > 0.0) {
@@ -211,22 +219,23 @@ ChPathSteeringControllerXT::ChPathSteeringControllerXT(const std::string& filena
                                                        bool isClosedPath,
                                                        double max_wheel_turn_angle)
     : m_path(path),
-      m_filters_initialized(false),
       m_R_threshold(100000.0),
       m_max_wheel_turn_angle(25.0 * CH_C_DEG_TO_RAD),
-      m_res(0),
+      m_filters_initialized(false),
       m_T1_delay(30.0 / 1000.0),
       m_Kp(0.4),
       m_Wy(1),
       m_Wh(1),
-      m_Wa(1) {
+      m_Wa(1),
+      m_res(0) {
     // Create a tracker object associated with the given path.
     m_tracker = std::unique_ptr<ChBezierCurveTracker>(new ChBezierCurveTracker(path, isClosedPath));
     if (max_wheel_turn_angle > 0.0) {
         m_max_wheel_turn_angle = max_wheel_turn_angle;
     }
 
-    Document d = ReadFileJSON(filename);
+    Document d;
+    ReadFileJSON(filename, d);
     if (d.IsNull())
         return;
 
@@ -463,7 +472,8 @@ ChPathSteeringControllerSR::ChPathSteeringControllerSR(const std::string& filena
     // retireve points
     CalcPathPoints();
 
-    Document d = ReadFileJSON(filename);
+    Document d;
+    ReadFileJSON(filename, d);
     if (d.IsNull())
         return;
 
@@ -563,11 +573,8 @@ double ChPathSteeringControllerSR::Advance(const ChVehicle& vehicle, double step
     ChVector<> Pt = m_sentinel - S_l[m_idx_curr];
     double rt = R_l[m_idx_curr].Length();
 
-    bool crit = false;
     double t = std::abs(Pt.Dot(R_lu[m_idx_curr]));
-    if (t < rt) {
-        crit = true;
-    } else {
+    if (t >= rt) {
         while (t > rt) {
             m_idx_curr++;
             if (m_isClosedPath) {
@@ -606,6 +613,184 @@ double ChPathSteeringControllerSR::Advance(const ChVehicle& vehicle, double step
 
     // Return steering value
     return m_delta / m_delta_max;
+}
+
+// -----------------------------------------------------------------------------
+// Implementation of the derived class ChPathSteeringControllerStanley.
+// -----------------------------------------------------------------------------
+// This is called the "Stanley" Controller named after an autonomous vehicle called Stanley.
+// It minimizes lateral error and heading error. Time delay of the driver's reaction is considered.
+// This driver can be parametrized by a PID json file. It can consider a dead zone left and right to the
+// path, where no path information is recognized. This can be useful when the path information contains
+// lateral disturbances, that could cause bad disturbances of the controller.
+// dead_zone = 0.05 means:
+//     0 <= lat_err <= 0.05        no driver reaction
+//     0.05 < lat_err <= 2*0.05    smooth transition interval to complete controller engagement
+// The Stanley driver should find 'always' back to the path, despite of great heading or lateral error.
+// If an integral term is used, its state is getting reset every 30 secs to avoid controller wind-up.
+//
+// The algorithm comes from from :
+//
+// Gabriel M. Hoffmann, Claire J. Tomlin, Michael Montemerlo, Sebastian Thrun:
+// "Autonomous Automobile Trajectory Tracking for Off-Road Driving", 2005
+// Stanford University
+// Stanford, CA 94305, USA
+
+ChPathSteeringControllerStanley::ChPathSteeringControllerStanley(std::shared_ptr<ChBezierCurve> path,
+                                                                 bool isClosedPath,
+                                                                 double max_wheel_turn_angle)
+    : m_delayFilter(nullptr),
+      m_path(path),
+      m_isClosedPath(isClosedPath),
+      m_delta(0),
+      m_delta_max(max_wheel_turn_angle),
+      m_umin(1),
+      m_Treset(30.0),
+      m_deadZone(0.0),
+      m_Tdelay(0.4) {
+    SetGains(0.0, 0.0, 0.0);
+    m_tracker = std::unique_ptr<ChBezierCurveTracker>(new ChBezierCurveTracker(path, isClosedPath));
+    if (m_isClosedPath) {
+        GetLog() << "Path is closed.\n";
+    } else {
+        GetLog() << "Path is open.\n";
+    }
+}
+
+ChPathSteeringControllerStanley::ChPathSteeringControllerStanley(const std::string& filename,
+                                                                 std::shared_ptr<ChBezierCurve> path,
+                                                                 bool isClosedPath,
+                                                                 double max_wheel_turn_angle)
+    : m_delayFilter(nullptr),
+      m_path(path),
+      m_isClosedPath(isClosedPath),
+      m_delta(0),
+      m_delta_max(max_wheel_turn_angle),
+      m_umin(1),
+      m_Treset(30.0),
+      m_deadZone(0.0),
+      m_Tdelay(0.4) {
+    SetGains(0.0, 0.0, 0.0);
+    m_tracker = std::unique_ptr<ChBezierCurveTracker>(new ChBezierCurveTracker(path, isClosedPath));
+    Document d;
+    ReadFileJSON(filename, d);
+    if (d.IsNull())
+        return;
+
+    m_Kp = d["Gains"]["Kp"].GetDouble();
+    m_Kd = d["Gains"]["Kd"].GetDouble();
+    m_Ki = d["Gains"]["Ki"].GetDouble();
+
+    if (d.HasMember("Lookahead Distance")) {
+        m_dist = d["Lookahead Distance"].GetDouble();
+    }
+    if (d.HasMember("Dead Zone")) {
+        m_deadZone = d["Dead Zone"].GetDouble();
+    }
+    GetLog() << "Loaded JSON: " << filename.c_str() << "\n";
+}
+
+void ChPathSteeringControllerStanley::Reset(const ChVehicle& vehicle) {
+    // Let the base class calculate the current location of the sentinel point.
+    ChSteeringController::Reset(vehicle);
+}
+
+void ChPathSteeringControllerStanley::SetGains(double Kp, double Ki, double Kd) {
+    m_Kp = std::abs(Kp);
+    m_Ki = std::abs(Ki);
+    m_Kd = std::abs(Kd);
+}
+
+double ChPathSteeringControllerStanley::Advance(const ChVehicle& vehicle, double step) {
+    if (m_delayFilter == nullptr) {
+        m_delayFilter = std::shared_ptr<utils::ChFilterPT1>(new utils::ChFilterPT1(step, m_Tdelay));
+    }
+    auto& chassis_frame = vehicle.GetChassisBody()->GetFrame_REF_to_abs();  // chassis ref-to-world frame (ISO frame)
+    auto& chassis_rot = chassis_frame.GetRot();                             // chassis ref-to-world rotation (ISO frame)
+    double u = vehicle.GetVehicleSpeed();                                   // vehicle speed
+
+    // Calculate current "sentinel" location.  This is a point at the look-ahead
+    // distance in front of the vehicle.
+    m_sentinel =
+        vehicle.GetChassisBody()->GetFrame_REF_to_abs().TransformPointLocalToParent(m_dist * ChWorldFrame::Forward());
+
+    // Calculate current "target" location.
+    CalcTargetLocation();
+
+    // If data collection is enabled, append current target and sentinel locations.
+    if (m_collect) {
+        *m_csv << vehicle.GetChTime() << m_target << m_sentinel << std::endl;
+    }
+
+    // The "error" vector is the projection onto the horizontal plane of the vector between sentinel and target.
+    ChVector<> err_vec = m_target - m_sentinel;
+    ChWorldFrame::Project(err_vec);
+
+    // Calculate the sign of the angle between the projections of the sentinel
+    // vector and the target vector (with origin at vehicle location).
+    // ChVector<> sentinel_vec = m_sentinel - vehicle.GetVehiclePos();
+    ChVector<> sentinel_vec = m_sentinel - vehicle.GetVehiclePos();
+    ChWorldFrame::Project(sentinel_vec);
+    ChVector<> target_vec = m_target - vehicle.GetVehiclePos();
+    ChWorldFrame::Project(target_vec);
+
+    double temp = Vdot(Vcross(sentinel_vec, target_vec), ChWorldFrame::Vertical());
+
+    // Calculate current lateral error
+    double err = ChSignum(temp) * err_vec.Length();
+    double w = 1.0;
+    if (m_deadZone > 0.0)
+        w = ChSineStep(std::abs(err), m_deadZone, 0.0, 2.0 * m_deadZone, 1.0);
+    err *= w;
+    double err_dot = -u * sin(atan(m_Kp * err / ChClamp(u, m_umin, u)));
+    // Calculate the heading error
+    ChVector<> veh_head = chassis_rot.GetXaxis();  // vehicle forward direction (ISO frame)
+    ChVector<> path_head = m_ptangent;
+
+    // Calculate current error integral (trapezoidal rule).
+    m_erri += (err + m_err) * step / 2;
+
+    // Cache new error
+    m_err = err;
+
+    double h_err = CalcHeadingError(veh_head, path_head);
+
+    // control law
+    m_delta = h_err + atan(m_Kp * err / ChClamp(u, m_umin, u)) + m_Kd * err_dot + m_Ki * m_erri;
+    double steer = ChClamp(m_delta / m_delta_max, -1.0, 1.0);
+    m_Treset -= step;
+    if (m_Treset <= 0.0) {
+        m_Treset = 30.0;
+        m_err = 0.0;
+    }
+    // Return steering value
+    return m_delayFilter->Filter(steer);
+}
+
+void ChPathSteeringControllerStanley::CalcTargetLocation() {
+    // Let the underlying tracker do its magic.
+    // we need more information about the path properties here:
+    ChFrame<> tnb;
+
+    m_tracker->calcClosestPoint(m_sentinel, tnb, m_pcurvature);
+    m_target = tnb.GetPos();
+    m_ptangent = tnb.GetRot().GetXaxis();
+}
+
+double ChPathSteeringControllerStanley::CalcHeadingError(ChVector<>& a, ChVector<>& b) {
+    double ang = 0.0;
+
+    // chassis orientation
+    ChWorldFrame::Project(a);
+    ChWorldFrame::Project(b);
+    a.Normalize();
+    b.Normalize();
+
+    ChVector<> vpc;
+    vpc = Vcross(a, b);
+    ang = std::asin(ChWorldFrame::Height(vpc));
+
+    return ang;
 }
 
 }  // end namespace vehicle

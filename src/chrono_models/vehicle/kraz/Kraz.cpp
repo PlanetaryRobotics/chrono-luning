@@ -33,7 +33,7 @@ Kraz::Kraz()
       m_tractor(nullptr),
       m_trailer(nullptr),
       m_contactMethod(ChContactMethod::NSC),
-      m_chassisCollisionType(ChassisCollisionType::NONE),
+      m_chassisCollisionType(CollisionType::NONE),
       m_fixed(false),
       m_tire_step_size(-1),
       m_initFwdVel(0),
@@ -45,7 +45,7 @@ Kraz::Kraz(ChSystem* system)
       m_tractor(nullptr),
       m_trailer(nullptr),
       m_contactMethod(ChContactMethod::NSC),
-      m_chassisCollisionType(ChassisCollisionType::NONE),
+      m_chassisCollisionType(CollisionType::NONE),
       m_fixed(false),
       m_tire_step_size(-1),
       m_initFwdVel(0),
@@ -81,11 +81,10 @@ void Kraz::SetTireVisualizationType(VisualizationType vis_tractor, Visualization
         for (auto& wheel : axle->GetWheels()) {
             wheel->GetTire()->SetVisualizationType(vis_tractor);
         }
-
-        for (auto& axle : m_trailer->GetAxles()) {
-            for (auto& wheel : axle->GetWheels()) {
-                wheel->GetTire()->SetVisualizationType(vis_trailer);
-            }
+    }
+    for (auto& axle : m_trailer->GetAxles()) {
+        for (auto& wheel : axle->GetWheels()) {
+            wheel->GetTire()->SetVisualizationType(vis_trailer);
         }
     }
 }

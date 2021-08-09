@@ -42,30 +42,28 @@ namespace hmmwv {
 // -----------------------------------------------------------------------------
 
 static const double in2m = 0.0254;
-static const double lb2kg = 0.453592;
-static const double lbf2N = 4.44822162;
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 HMMWV_VehicleReduced::HMMWV_VehicleReduced(const bool fixed,
-                                           DrivelineType drive_type,
+                                           DrivelineTypeWV drive_type,
                                            BrakeType brake_type,
                                            ChContactMethod contact_method,
-                                           ChassisCollisionType chassis_collision_type)
+                                           CollisionType chassis_collision_type)
     : HMMWV_Vehicle("HMMWVreduced", contact_method, drive_type) {
     Create(fixed, brake_type, chassis_collision_type);
 }
 
 HMMWV_VehicleReduced::HMMWV_VehicleReduced(ChSystem* system,
                                            const bool fixed,
-                                           DrivelineType drive_type,
+                                           DrivelineTypeWV drive_type,
                                            BrakeType brake_type,
-                                           ChassisCollisionType chassis_collision_type)
+                                           CollisionType chassis_collision_type)
     : HMMWV_Vehicle("HMMWVreduced", system, drive_type) {
     Create(fixed, brake_type, chassis_collision_type);
 }
 
-void HMMWV_VehicleReduced::Create(bool fixed, BrakeType brake_type, ChassisCollisionType chassis_collision_type) {
+void HMMWV_VehicleReduced::Create(bool fixed, BrakeType brake_type, CollisionType chassis_collision_type) {
     // Create the chassis subsystem
     m_chassis = chrono_types::make_shared<HMMWV_Chassis>("Chassis", fixed, chassis_collision_type);
 
@@ -105,14 +103,15 @@ void HMMWV_VehicleReduced::Create(bool fixed, BrakeType brake_type, ChassisColli
 
     // Create the driveline
     switch (m_driveType) {
-        case DrivelineType::FWD:
-        case DrivelineType::RWD:
+        case DrivelineTypeWV::FWD:
+        case DrivelineTypeWV::RWD:
             m_driveline = chrono_types::make_shared<HMMWV_Driveline2WD>("Driveline");
             break;
-        case DrivelineType::AWD:
+        default:
+        case DrivelineTypeWV::AWD:
             m_driveline = chrono_types::make_shared<HMMWV_Driveline4WD>("Driveline");
             break;
-        case DrivelineType::SIMPLE:
+        case DrivelineTypeWV::SIMPLE:
             m_driveline = chrono_types::make_shared<HMMWV_SimpleDriveline>("Driveline");
             break;
     }
@@ -141,14 +140,15 @@ void HMMWV_VehicleReduced::Initialize(const ChCoordsys<>& chassisPos, double cha
     std::vector<int> driven_susp_indexes(m_driveline->GetNumDrivenAxles());
 
     switch (m_driveType) {
-        case DrivelineType::FWD:
+        case DrivelineTypeWV::FWD:
             driven_susp_indexes[0] = 0;
             break;
-        case DrivelineType::RWD:
+        case DrivelineTypeWV::RWD:
             driven_susp_indexes[0] = 1;
             break;
-        case DrivelineType::AWD:
-        case DrivelineType::SIMPLE:
+        default:
+        case DrivelineTypeWV::AWD:
+        case DrivelineTypeWV::SIMPLE:
             driven_susp_indexes[0] = 0;
             driven_susp_indexes[1] = 1;
             break;

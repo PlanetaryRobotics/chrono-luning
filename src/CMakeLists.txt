@@ -32,12 +32,13 @@ set(CH_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 # Allow user to enforce strict C++11 standard
 option(CH_ENFORCE_CXX11 "Enforce strict C++11 standard" OFF)
 
-find_package(ModernCXX)
 
 if (CH_ENFORCE_CXX11)
-  set(CH_CXX_FLAGS "${CH_CXX_FLAGS} ${CMAKE_CXX11_STANDARD_COMPILE_OPTION}")
+	#  set(CH_CXX_FLAGS "${CH_CXX_FLAGS} ${CMAKE_CXX11_STANDARD_COMPILE_OPTION}")
+	set(CMAKE_CXX_STANDARD 11)
 else()
-  set(CH_CXX_FLAGS "${CH_CXX_FLAGS} ${CMAKE_CXX14_STANDARD_COMPILE_OPTION}")
+	#  set(CH_CXX_FLAGS "${CH_CXX_FLAGS} ${CMAKE_CXX14_STANDARD_COMPILE_OPTION}")
+	set(CMAKE_CXX_STANDARD 14)
 endif()
 
 # This is a hack -- look for a more robust solution
@@ -61,7 +62,7 @@ elseif(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
 endif()
 message(STATUS "Compiler supports C++14:  ${CH_CXX14}")
 
-# cmake/FindModernCXX.cmake behaves strangely with PGI compilers, don't trust it
+# CMake's standard support flags behave strangely with PGI compilers, don't trust them
 if (CMAKE_CXX_COMPILER_ID MATCHES "PGI")
   set(CH_CXX_FLAGS "")
   message(STATUS "PGI version: ${CMAKE_CXX_COMPILER_VERSION}")
@@ -144,7 +145,7 @@ if(ENABLE_OPENMP)
   set(OPENMP_INCLUDE_DIR "${OpenMP_CXX_INCLUDE_DIRS}")
   set(OPENMP_LIBRARIES "${OpenMP_CXX_LIBRARIES}")
 else()
-	# As an alternative, if TBB is located the Parallel module will use it for all thrust calls
+	# As an alternative, if TBB is located the Multicore module will use it for all thrust calls
 	find_package("TBB")
 	cmake_dependent_option(ENABLE_TBB "Enable TBB support in Chrono::Engine" ON "TBB_FOUND" OFF)
 endif()
@@ -158,7 +159,7 @@ option(USE_SIMD "Enable use of SIMD if supported (SSE, AVX, NEON)" ON)
 if(USE_SIMD)
 
    # Figure out SIMD level support
-   message(STATUS "Seaching for SSE...")
+   message(STATUS "Searching for SSE...")
    find_package(SSE)
    
    # Set substitution variables for configuration file
@@ -343,6 +344,37 @@ if(CUDA_FOUND)
 endif()
 
 #-----------------------------------------------------------------------------
+# Thrust library
+#-----------------------------------------------------------------------------
+
+message(STATUS "Searching for Thrust...")
+
+if (${CMAKE_SYSTEM_NAME} MATCHES "FreeBSD")
+  find_path(THRUST_INCLUDE_DIR NAMES thrust/version.h PATHS "/usr/local" "/usr/local/include")
+  if (THRUST_INCLUDE_DIR)
+    set(${THRUST_FOUND} TRUE)
+  else()
+    message("THRUST_INCLUDE_DIR is not set, but it is required.")
+    set(${THRUST_FOUND} FALSE)
+  endif()
+else()
+  find_package(Thrust)
+endif()
+
+if(THRUST_FOUND)
+  message(STATUS "  Thrust version:     ${THRUST_VERSION}")
+  message(STATUS "  Thrust include dir: ${THRUST_INCLUDE_DIR}")
+  mark_as_advanced(FORCE THRUST_INCLUDE_DIR)
+else()
+  message(STATUS "  Thrust not found (consider manually setting THRUST_INCLUDE_DIR)")
+  set(THRUST_INCLUDE_DIR "")
+  mark_as_advanced(CLEAR THRUST_INCLUDE_DIR)
+endif()
+
+
+#-----------------------------------------------------------------------------
+# Miscellaneous compiler flags
+#-----------------------------------------------------------------------------
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     if(MSVC)
@@ -365,6 +397,38 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
             set(CH_C_FLAGS "${CH_C_FLAGS} -m64")
         endif()
     endif()
+endif()
+
+
+# Compiler warning level and disbaled warnings
+
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    message(STATUS "[Clang] Warning level set to default")
+    #add_compile_options(-Wall)
+    add_compile_options(-Wno-unknown-warning-option)
+    add_compile_options(-Wno-reorder-ctor)
+    add_compile_options(-Wno-pragma-pack)
+    add_compile_options(-Wno-unused-local-typedef)
+    add_compile_options(-Wno-unused-function)
+    add_compile_options(-Wno-unused-parameter)
+elseif(MSVC)
+    message(STATUS "[MSVC] Warning level set to /W4")
+    add_compile_options(/W4)
+    add_compile_options(/wd4100)   # unreferenced formal parameter
+    add_compile_options(/wd4127)   # conditional expression is constant
+    add_compile_options(/wd4201)   # nameless struct/union
+    add_compile_options(/wd4244)   # conversion; possible loss of data
+    add_compile_options(/wd4251)   # class needs to have dll-interface
+    add_compile_options(/wd4324)   # structure padded due to alignment specifier
+    add_compile_options(/wd4505)   # unreferenced local function
+    add_compile_options(/wd4458)   # declaration hides class member
+    add_compile_options(/wd4515)   # namespace uses itself
+else()
+    message(STATUS "Warning level set to -Wall")
+    add_compile_options(-Wall)
+    add_compile_options(-Wno-sign-compare)
+    add_compile_options(-Wno-reorder)
+    add_compile_options(-Wno-unused-function)
 endif()
 
 #-----------------------------------------------------------------------------
@@ -393,7 +457,7 @@ if(ENABLE_HDF5)
 
         if (HDF5_FOUND)
             set(HDF5_INCLUDE_DIRS ${HDF5_INCLUDE_DIR})
-            set(HDF5_C_LIBRARIES ${HDF5_C_${LIB_TYPE{_LIBRARY})
+            set(HDF5_C_LIBRARIES ${HDF5_C_${LIB_TYPE}_LIBRARY})
             set(HDF5_CXX_LIBRARIES ${HDF5_CXX_${LIB_TYPE}_LIBRARY)
         endif()
     endif()
@@ -446,6 +510,7 @@ include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 include_directories(${PROJECT_BINARY_DIR})
 include_directories(${EIGEN3_INCLUDE_DIR})
 include_directories(${OPENMP_INCLUDE_DIR})
+include_directories(${THRUST_INCLUDE_DIR})
 
 #------------------------------------------------------------
 # Build submodules
@@ -531,16 +596,18 @@ add_subdirectory(chrono_matlab)
 add_subdirectory(chrono_irrlicht)
 add_subdirectory(chrono_cascade)
 add_subdirectory(chrono_postprocess)
+add_subdirectory(chrono_pardisoproject)
 add_subdirectory(chrono_cosimulation)
 add_subdirectory(chrono_python)
-add_subdirectory(chrono_parallel)
-add_subdirectory(chrono_granular)
+add_subdirectory(chrono_multicore)
 add_subdirectory(chrono_opengl)
+add_subdirectory(chrono_gpu)
 add_subdirectory(chrono_distributed)
 add_subdirectory(chrono_vehicle)
 add_subdirectory(chrono_fsi)
 add_subdirectory(chrono_sensor)
 add_subdirectory(chrono_synchrono)
+add_subdirectory(chrono_csharp)
 
 # Add directories for model libraries
 add_subdirectory(chrono_models)
@@ -560,9 +627,52 @@ endif()
 # Install headers from chrono_thirdparty folder
 #------------------------------------------------------------
 
-install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/chrono_thirdparty
-        DESTINATION include
-	FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp")
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/filesystem
+        DESTINATION include/chrono_thirdparty
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/cxxopts
+        DESTINATION include/chrono_thirdparty
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/HACD
+        DESTINATION include/chrono_thirdparty
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/HACDv2
+        DESTINATION include/chrono_thirdparty
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/rapidjson
+        DESTINATION include/chrono_thirdparty
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/rapidxml
+        DESTINATION include/chrono_thirdparty
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/tinyobjloader
+        DESTINATION include/chrono_thirdparty
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+
+install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/yafel
+        DESTINATION include/chrono_thirdparty
+        FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+
+if(BUILD_TESTING)
+   install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/googletest/googletest/include
+           DESTINATION include/chrono_thirdparty/googletest/googletest
+           FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+   install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/googletest/googlemock/include
+           DESTINATION include/chrono_thirdparty/googletest/googlemock
+           FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+endif()
+
+if(BUILD_BENCHMARKING)
+   install(DIRECTORY ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/googlebenchmark/include
+           DESTINATION include/chrono_thirdparty/googlebenchmark
+           FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh" PATTERN "*.hpp" PATTERN "*.inl")
+endif()
 
 #------------------------------------------------------------
 # Generate and install the Chrono configuration header
@@ -615,10 +725,10 @@ else()
   set(CHRONO_MUMPS "#undef CHRONO_MUMPS")
 endif()
 
-if(ENABLE_MODULE_PARALLEL)
-  set(CHRONO_PARALLEL "#define CHRONO_PARALLEL")
+if(ENABLE_MODULE_MULTICORE)
+  set(CHRONO_MULTICORE "#define CHRONO_MULTICORE")
 else()
-  set(CHRONO_PARALLEL "#undef CHRONO_PARALLEL")
+  set(CHRONO_MULTICORE "#undef CHRONO_MULTICORE")
 endif()
 
 if(ENABLE_MODULE_OPENGL)
@@ -627,16 +737,16 @@ else()
   set(CHRONO_OPENGL "#undef CHRONO_OPENGL")
 endif()
 
-if(ENABLE_MODULE_OGRE)
-  set(CHRONO_OGRE "#define CHRONO_OGRE")
-else()
-  set(CHRONO_OGRE "#undef CHRONO_OGRE")
-endif()
-
 if(ENABLE_MODULE_POSTPROCESS)
   set(CHRONO_POSTPROCESS "#define CHRONO_POSTPROCESS")
 else()
   set(CHRONO_POSTPROCESS "#undef CHRONO_POSTPROCESS")
+endif()
+
+if(ENABLE_MODULE_PARDISO_PROJECT)
+  set(CHRONO_PARDISOPROJECT "#define CHRONO_PARDISOPROJECT")
+else()
+  set(CHRONO_PARDISOPROJECT "#undef CHRONO_PARDISOPROJECT")
 endif()
 
 if(ENABLE_MODULE_PYTHON)
@@ -657,6 +767,12 @@ else()
   set(CHRONO_FSI "#undef CHRONO_FSI")
 endif()
 
+if(ENABLE_MODULE_GPU)
+  set(CHRONO_GPU "#define CHRONO_GPU")
+else()
+  set(CHRONO_GPU "#undef CHRONO_GPU")
+endif()
+
 if(ENABLE_MODULE_SENSOR)
   set(CHRONO_SENSOR "#define CHRONO_SENSOR")
 else()
@@ -669,6 +785,12 @@ else()
   set(CHRONO_SYNCHRONO "#undef CHRONO_SYNCHRONO")
 endif()
 
+if (USE_SIMD)
+   set(CHRONO_SIMD_ENABLED "#define CHRONO_SIMD_ENABLED")
+else()
+   set(CHRONO_SIMD_ENABLED "#undef CHRONO_SIMD_ENABLED")
+endif()
+
 if(ENABLE_OPENMP)
   set(CHRONO_OPENMP_ENABLED "#define CHRONO_OPENMP_ENABLED")
 else()
@@ -679,6 +801,24 @@ if(ENABLE_TBB)
   set(CHRONO_TBB_ENABLED "#define CHRONO_TBB_ENABLED")
 else()
   set(CHRONO_TBB_ENABLED "#undef CHRONO_TBB_ENABLED")
+endif()
+
+if(CUDA_FOUND)
+  set(CHRONO_HAS_CUDA "#define CHRONO_HAS_CUDA")
+  set(CHRONO_CUDA_VERSION "#define CHRONO_CUDA_VERSION \"${CUDA_VERSION_STRING}\"")
+else()
+  set(CHRONO_HAS_CUDA "#undef CHRONO_HAS_CUDA")
+  set(CHRONO_CUDA_VERSION "#undef CHRONO_CUDA_VERSION")
+endif()
+
+if(THRUST_FOUND)
+  set(CHRONO_HAS_THRUST "#define CHRONO_HAS_THRUST")
+  set(CHRONO_THRUST_VERSION "#define CHRONO_THRUST_VERSION \"${THRUST_VERSION}\"")
+  set(CHRONO_COLLISION "#define CHRONO_COLLISION")
+else()
+  set(CHRONO_HAS_THRUST "#undef CHRONO_HAS_THRUST")
+  set(CHRONO_THRUST_VERSION "#undef CHRONO_THRUST_VERSION")
+  set(CHRONO_COLLISION "#undef CHRONO_COLLISION")
 endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/chrono/ChConfig.h.in"
@@ -713,6 +853,7 @@ set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${PROJECT_SOURCE_DIR}/src/chrono_thirdpa
 set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${PROJECT_BINARY_DIR}")
 set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${EIGEN3_INCLUDE_DIR}")
 set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${OPENMP_INCLUDE_DIR}")
+set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${THRUST_INCLUDE_DIR}")
 
 set(CH_BINARY_DIR "${PROJECT_BINARY_DIR}")
 set(CH_DATA_DIR "${PROJECT_SOURCE_DIR}/data/")
@@ -730,6 +871,7 @@ set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${CMAKE_INSTALL_PREFIX}/include/chrono_t
 set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${CMAKE_INSTALL_PREFIX}/include/chrono_thirdparty/HACDv2")
 set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${EIGEN3_INCLUDE_DIR}")
 set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${OPENMP_INCLUDE_DIR}")
+set(CH_INCLUDE_DIRS ${CH_INCLUDE_DIRS} "${THRUST_INCLUDE_DIR}")
 
 set(CH_BINARY_DIR ${CMAKE_INSTALL_PREFIX})
 set(CH_DATA_DIR "${CMAKE_INSTALL_PREFIX}/${CH_INSTALL_DATA}/")

@@ -55,10 +55,10 @@ int main(int argc, char* argv[]) {
     // Create the vehicle
     Sedan my_sedan;
     my_sedan.SetContactMethod(ChContactMethod::SMC);
-    my_sedan.SetChassisCollisionType(ChassisCollisionType::NONE);
+    my_sedan.SetChassisCollisionType(CollisionType::NONE);
     my_sedan.SetChassisFixed(false);
     my_sedan.SetInitPosition(ChCoordsys<>(ChVector<>(-40, 0, 1.0)));
-    my_sedan.SetTireType(TireModelType::PAC02);
+    my_sedan.SetTireType(TireModelType::TMEASY);
     my_sedan.SetTireStepSize(1e-3);
     my_sedan.Initialize();
 

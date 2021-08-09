@@ -40,27 +40,27 @@ namespace gator {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 Gator_Vehicle::Gator_Vehicle(const bool fixed,
-                             DrivelineType driveline_type,
+                             DrivelineTypeWV driveline_type,
                              BrakeType brake_type,
                              ChContactMethod contact_method,
-                             ChassisCollisionType chassis_collision_type)
+                             CollisionType chassis_collision_type)
     : ChWheeledVehicle("Gator", contact_method), m_omega({0, 0, 0, 0}) {
     Create(fixed, driveline_type, brake_type, chassis_collision_type);
 }
 
 Gator_Vehicle::Gator_Vehicle(ChSystem* system,
                              const bool fixed,
-                             DrivelineType driveline_type,
+                             DrivelineTypeWV driveline_type,
                              BrakeType brake_type,
-                             ChassisCollisionType chassis_collision_type)
+                             CollisionType chassis_collision_type)
     : ChWheeledVehicle("Gator", system), m_omega({0, 0, 0, 0}) {
     Create(fixed, driveline_type, brake_type, chassis_collision_type);
 }
 
 void Gator_Vehicle::Create(bool fixed,
-                           DrivelineType driveline_type,
+                           DrivelineTypeWV driveline_type,
                            BrakeType brake_type,
-                           ChassisCollisionType chassis_collision_type) {
+                           CollisionType chassis_collision_type) {
     // Create the chassis subsystem
     m_chassis = chrono_types::make_shared<Gator_Chassis>("Chassis", fixed, chassis_collision_type);
 
@@ -97,13 +97,11 @@ void Gator_Vehicle::Create(bool fixed,
 
     // Create the driveline
     switch (driveline_type) {
-        case DrivelineType::FWD:
-        case DrivelineType::AWD:
-            // fall through
-        case DrivelineType::SIMPLE:
+        default:
+        case DrivelineTypeWV::SIMPLE:
             m_driveline = chrono_types::make_shared<Gator_SimpleDriveline>("Driveline");
             break;
-        case DrivelineType::RWD:
+        case DrivelineTypeWV::RWD:
             m_driveline = chrono_types::make_shared<Gator_Driveline2WD>("Driveline");
             break;
     }

@@ -32,14 +32,14 @@ CityBus::CityBus()
     : m_system(nullptr),
       m_vehicle(nullptr),
       m_contactMethod(ChContactMethod::NSC),
-      m_chassisCollisionType(ChassisCollisionType::NONE),
+      m_chassisCollisionType(CollisionType::NONE),
       m_fixed(false),
       m_brake_locking(false),
       m_brake_type(BrakeType::SIMPLE),
       m_tireType(TireModelType::TMEASY),
       m_tire_step_size(-1),
-      m_initFwdVel(0),
       m_initPos(ChCoordsys<>(ChVector<>(0, 0, 1), QUNIT)),
+      m_initFwdVel(0),
       m_initOmega({0, 0, 0, 0}),
       m_apply_drag(false) {}
 
@@ -47,14 +47,14 @@ CityBus::CityBus(ChSystem* system)
     : m_system(system),
       m_vehicle(nullptr),
       m_contactMethod(ChContactMethod::NSC),
-      m_chassisCollisionType(ChassisCollisionType::NONE),
+      m_chassisCollisionType(CollisionType::NONE),
       m_fixed(false),
       m_brake_locking(false),
       m_brake_type(BrakeType::SIMPLE),
       m_tireType(TireModelType::RIGID),
       m_tire_step_size(-1),
-      m_initFwdVel(0),
       m_initPos(ChCoordsys<>(ChVector<>(0, 0, 1), QUNIT)),
+      m_initFwdVel(0),
       m_initOmega({0, 0, 0, 0}),
       m_apply_drag(false) {}
 

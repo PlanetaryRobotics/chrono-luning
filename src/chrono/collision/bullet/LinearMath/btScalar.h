@@ -240,7 +240,7 @@ inline int btGetVersion()
 				if(!(x))\
 				{\
 					printf("Assert %s in line %d, file %s\n",#x, __LINE__, __FILE__);\
-					asm volatile ("btInt3");\
+					/*asm volatile ("int3");*/\
 				}\
 				}
 				#else//defined (__i386__) || defined (__x86_64__)
@@ -318,7 +318,12 @@ inline int btGetVersion()
 			}
 		#endif
 
-
+	    //***CHRONO***
+#ifdef _MSC_VER
+#ifdef __clang__
+#define BT_NO_SIMD_OPERATOR_OVERLOADS
+#endif
+#endif
 
 	//use this, in case there are clashes (such as xnamath.h)
 	#ifndef BT_NO_SIMD_OPERATOR_OVERLOADS

@@ -36,7 +36,7 @@
 
 #include "chrono_thirdparty/cxxopts/ChCLI.h"
 
-#include "chrono_parallel/solver/ChIterativeSolverParallel.h"
+#include "chrono_multicore/solver/ChIterativeSolverMulticore.h"
 
 using namespace chrono;
 using namespace chrono::collision;
@@ -45,7 +45,6 @@ using namespace chrono::collision;
 
 int num_ranks;
 int my_rank;
-std::string outdir;
 
 // Granular Properties
 float Y = 2e7f;
@@ -65,7 +64,7 @@ double out_fps = 60;
 double tolerance = 1e-4;
 
 // TODO: binary output
-void WriteCSV(ChSystemDistributed& m_sys, size_t frame) {
+void WriteCSV(const ChSystemDistributed& m_sys, const std::string& outdir, size_t frame) {
     std::stringstream ss_particles;
     ss_particles << "x,y,z,U\n" << std::flush;
 
@@ -90,7 +89,7 @@ void WriteCSV(ChSystemDistributed& m_sys, size_t frame) {
     file.close();
 }
 
-void Monitor(chrono::ChSystemParallel* system, int rank) {
+void Monitor(chrono::ChSystemMulticore* system, int rank) {
     double TIME = system->GetChTime();
     double STEP = system->GetTimerStep();
     double BROD = system->GetTimerCollisionBroad();
@@ -100,8 +99,8 @@ void Monitor(chrono::ChSystemParallel* system, int rank) {
     double EXCH = system->data_manager->system_timer.GetTime("Exchange");
     int BODS = system->GetNbodies();
     int CNTC = system->GetNcontacts();
-    double RESID = std::static_pointer_cast<chrono::ChIterativeSolverParallel>(system->GetSolver())->GetResidual();
-    int ITER = std::static_pointer_cast<chrono::ChIterativeSolverParallel>(system->GetSolver())->GetIterations();
+    double RESID = std::static_pointer_cast<chrono::ChIterativeSolverMulticore>(system->GetSolver())->GetResidual();
+    int ITER = std::static_pointer_cast<chrono::ChIterativeSolverMulticore>(system->GetSolver())->GetIterations();
 
     printf("%d|   %8.5f | %7.4f | E%7.4f | B%7.4f | N%7.4f | %7.4f | %7.4f | %7d | %7d | %7d | %7.4f\n", rank, TIME,
            STEP, EXCH, BROD, NARR, SOLVER, UPDT, BODS, CNTC, ITER, RESID);
@@ -121,7 +120,7 @@ std::shared_ptr<ChBoundary> AddContainer(ChSystemDistributed* sys,
     mat->SetRestitution(cr);
     mat->SetPoissonRatio(nu);
 
-    auto bin = chrono_types::make_shared<ChBody>(chrono_types::make_shared<ChCollisionModelParallel>());
+    auto bin = chrono_types::make_shared<ChBody>(chrono_types::make_shared<ChCollisionModelDistributed>());
     bin->SetIdentifier(binId);
     bin->SetMass(1);
     bin->SetPos(ChVector<>(0, 0, 0));
@@ -267,7 +266,7 @@ int main(int argc, char* argv[]) {
     if (num_threads < 1 || time_end <= 0 || hx < 0 || hy < 0 || height < 0) {
         if (my_rank == MASTER)
             std::cout << "Invalid parameter or missing required parameter." << std::endl;
-        return false;
+        return 1;
     }
 
     // Output directory and files
@@ -333,7 +332,7 @@ int main(int argc, char* argv[]) {
     my_sys.GetSettings()->solver.contact_force_model = ChSystemSMC::ContactForceModel::Hooke;
     my_sys.GetSettings()->solver.adhesion_force_model = ChSystemSMC::AdhesionForceModel::Constant;
 
-    my_sys.GetSettings()->collision.narrowphase_algorithm = NarrowPhaseType::NARROWPHASE_HYBRID_MPR;
+    my_sys.GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::HYBRID;
 
     int binX;
     int binY;
@@ -351,7 +350,7 @@ int main(int argc, char* argv[]) {
         binY = 1;
 
     // Acounts for the amount of filling for the desired setup
-    binZ = (int)std::ceil(subsize.z()) * 0.75 / factor;
+    binZ = (int)(std::ceil(subsize.z()) * 0.75 / factor);
     if (binZ == 0)
         binZ = 1;
 
@@ -386,7 +385,7 @@ int main(int argc, char* argv[]) {
             if (my_rank == MASTER)
                 std::cout << "Time: " << time << "    elapsed: " << MPI_Wtime() - t_start << std::endl;
             if (output_data) {
-                WriteCSV(my_sys, out_frame);
+                WriteCSV(my_sys, outdir, out_frame);
                 out_frame++;
             }
         }

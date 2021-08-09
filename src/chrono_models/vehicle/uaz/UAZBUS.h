@@ -52,12 +52,12 @@ class CH_MODELS_API UAZBUS {
     void SetContactMethod(ChContactMethod val) { m_contactMethod = val; }
 
     void SetChassisFixed(bool val) { m_fixed = val; }
-    void SetChassisCollisionType(ChassisCollisionType val) { m_chassisCollisionType = val; }
+    void SetChassisCollisionType(CollisionType val) { m_chassisCollisionType = val; }
 
     void SetBrakeType(BrakeType brake_type) { m_brake_type = brake_type; }
     void SetTireType(TireModelType val) { m_tireType = val; }
 
-    // void setSteeringType(SteeringType val) { m_steeringType = val; }
+    // void setSteeringType(SteeringTypeWV val) { m_steeringType = val; }
 
     void SetInitPosition(const ChCoordsys<>& pos) { m_initPos = pos; }
     void SetInitFwdVel(double fwdVel) { m_initFwdVel = fwdVel; }
@@ -94,8 +94,11 @@ class CH_MODELS_API UAZBUS {
     void DebugLog(int what) { m_vehicle->DebugLog(what); }
 
   protected:
+    ChSystem* m_system;
+    UAZBUS_Vehicle* m_vehicle;
+
     ChContactMethod m_contactMethod;
-    ChassisCollisionType m_chassisCollisionType;
+    CollisionType m_chassisCollisionType;
     bool m_fixed;
     bool m_brake_locking;
 
@@ -104,7 +107,7 @@ class CH_MODELS_API UAZBUS {
 
     double m_tire_step_size;
 
-    SteeringType m_steeringType;
+    SteeringTypeWV m_steeringType;
 
     ChCoordsys<> m_initPos;
     double m_initFwdVel;
@@ -114,9 +117,6 @@ class CH_MODELS_API UAZBUS {
     double m_Cd;
     double m_area;
     double m_air_density;
-
-    ChSystem* m_system;
-    UAZBUS_Vehicle* m_vehicle;
 
     double m_tire_mass;
 };

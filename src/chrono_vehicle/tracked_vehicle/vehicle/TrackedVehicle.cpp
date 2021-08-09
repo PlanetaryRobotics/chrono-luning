@@ -43,7 +43,7 @@ void TrackedVehicle::Create(const std::string& filename) {
     // -------------------------------------------
     // Open and parse the input file
     // -------------------------------------------
-    Document d = ReadFileJSON(filename);
+    Document d; ReadFileJSON(filename, d);
     if (d.IsNull())
         return;
 
@@ -79,12 +79,11 @@ void TrackedVehicle::Create(const std::string& filename) {
 
     assert(d.HasMember("Track Assemblies"));
     assert(d["Track Assemblies"].IsArray());
-    int num_tracks = d["Track Assemblies"].Size();
-    assert(num_tracks == 2);
+    assert(d["Track Assemblies"].Size() == 2); 
 
     {
         std::string file_name = d["Track Assemblies"][0u]["Input File"].GetString();
-        m_tracks[VehicleSide::LEFT] = ReadTrackAssemblySON(vehicle::GetDataFile(file_name));
+        m_tracks[VehicleSide::LEFT] = ReadTrackAssemblyJSON(vehicle::GetDataFile(file_name));
         if (d["Track Assemblies"][0u].HasMember("Output")) {
             m_tracks[VehicleSide::LEFT]->SetOutput(d["Track Assemblies"][0u]["Output"].GetBool());
         }
@@ -92,7 +91,7 @@ void TrackedVehicle::Create(const std::string& filename) {
     }
     {
         std::string file_name = d["Track Assemblies"][1u]["Input File"].GetString();
-        m_tracks[VehicleSide::RIGHT] = ReadTrackAssemblySON(vehicle::GetDataFile(file_name));
+        m_tracks[VehicleSide::RIGHT] = ReadTrackAssemblyJSON(vehicle::GetDataFile(file_name));
         if (d["Track Assemblies"][1u].HasMember("Output")) {
             m_tracks[VehicleSide::RIGHT]->SetOutput(d["Track Assemblies"][1u]["Output"].GetBool());
         }

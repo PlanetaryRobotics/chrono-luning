@@ -93,14 +93,28 @@ endif()
  
 # Set location of SWIG-generated files.
 # Note that *.py files are also generated in this location.
-set(CMAKE_SWIG_OUTDIR "${PROJECT_BINARY_DIR}/swig")
-SET(CMAKE_SWIG_FLAGS "-c++")
+set(CMAKE_SWIG_OUTDIR "${PROJECT_BINARY_DIR}/chrono_python")
+
+# Set SWIG flags.  Disable selected SWIG warnings 
+set(CMAKE_SWIG_FLAGS "-c++;-w302,362,389,401,509")
 
 if(DBG_SCRIPT)
   message("SWIG_USE_FILE:      ${SWIG_USE_FILE}")
   message("CMAKE_SWIG_OUTDIR:  ${CMAKE_SWIG_OUTDIR}")
   message("Installation path:  ${CMAKE_INSTALL_PREFIX}/${CH_INSTALL_PYTHON}")
   message("Installation prefix path:  ${CMAKE_INSTALL_PREFIX}")
+endif()
+
+# Disable additional warnings for generated C++ code
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+elseif(MSVC)
+   add_compile_options(/wd4189)  # local variable is initialized but not referenced
+   add_compile_options(/wd4275)  # non-DLL-interface class used as base for DLL-interface class
+   add_compile_options(/wd4456)  # declaration hides previous local declaration
+   add_compile_options(/wd4702)  # unreachable code
+   add_compile_options(/wd4706)  # assignment within conditional expression
+else()
+   add_compile_options(-Wno-unused-variable)
 endif()
 
 #-----------------------------------------------------------------------------
@@ -141,6 +155,8 @@ install(TARGETS ChronoEngine_pyparser
         RUNTIME DESTINATION bin
         LIBRARY DESTINATION lib
         ARCHIVE DESTINATION lib)
+
+INSTALL(FILES ${ChronoEngine_PYPARSER_HEADERS} DESTINATION include/chrono_python)
 
 #-----------------------------------------------------------------------------
 # MODULE for the core wrapper, including most of the C::E
@@ -393,9 +409,6 @@ if(ENABLE_MODULE_IRRLICHT)
 
   if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set_source_files_properties(${CHPY_IRRLICHT_MODULE_FILE} PROPERTIES COMPILE_FLAGS "-D_WIN32")
-    if(CMAKE_CXX_COMPILER_ID MATCHES "MSVC")
-      add_compile_options(/wd4275)
-    endif()
   endif()
   set_source_files_properties(${CHPY_IRRLICHT_MODULE_FILE} PROPERTIES CPLUSPLUS ON)
 
@@ -615,7 +628,7 @@ if(ENABLE_MODULE_VEHICLE)
 
   # Make sure CHRONO_IRRLICHT is defined for the SWIG processor
   if (ENABLE_MODULE_IRRLICHT)
-    set(CMAKE_SWIG_FLAGS -DCHRONO_IRRLICHT)
+    set(CMAKE_SWIG_FLAGS "${CMAKE_SWIG_FLAGS};-DCHRONO_IRRLICHT")
   endif()
 
   if(${CMAKE_VERSION} VERSION_LESS "3.8.0")
@@ -686,7 +699,15 @@ if(ENABLE_MODULE_SENSOR)
   message(STATUS "...add Chrono::Python SENSOR module")
 
   set(NUMPY_INCLUDE_DIR "${NUMPY_INCLUDE_DIR}" CACHE PATH "")
-  message("NUMPY_INCLUDE_DIR:   ${NUMPY_INCLUDE_DIR}")
+
+  if(NUMPY_INCLUDE_DIR)
+      message(STATUS "NUMPY_INCLUDE_DIR:   ${NUMPY_INCLUDE_DIR}")
+  else()
+      message("Warning: Numpy include add_subdirectory not set.  The PyChrono sensor module will not be built!")
+  endif()
+endif()
+
+if(ENABLE_MODULE_SENSOR AND NUMPY_INCLUDE_DIR)
 
   # Python module name
   set(CHPY_SENSOR sensor)
@@ -752,6 +773,73 @@ if(ENABLE_MODULE_SENSOR)
 
 endif()
 
+
+#-----------------------------------------------------------------------------
+# Module for the robot models
+#-----------------------------------------------------------------------------
+
+  message(STATUS "...add python robot module:  pychrono.robot")
+
+  # Python module name
+  set(CHPY_RS robot)
+
+  # Interface files
+  set(CHPY_ROBOT_MODULE_FILE 
+      robot/ChModuleRobot.i
+      )
+
+  #include_directories(${VEHICLE_INCLUDE_DIR})
+
+  set_source_files_properties(${CHPY_ROBOT_MODULE_FILE} PROPERTIES CPLUSPLUS ON)
+
+  # Create the SWIG module.
+  if(${CMAKE_VERSION} VERSION_LESS "3.8.0")
+    SWIG_ADD_MODULE(${CHPY_RS} python ${CHPY_ROBOT_MODULE_FILE})
+  else()
+    SWIG_ADD_LIBRARY(${CHPY_RS} LANGUAGE python SOURCES ${CHPY_ROBOT_MODULE_FILE})
+  endif()
+  SWIG_LINK_LIBRARIES(${CHPY_RS} ${PYTHON_LIBRARY} ChronoEngine ChronoModels_robot)
+
+  IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    ADD_DEFINITIONS( "/DWNT" )
+  ELSEIF(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    ADD_DEFINITIONS(-DHAVE_IOSTREAM)
+    ADD_DEFINITIONS(-DHAVE_LIMITS_H)
+  ENDIF()
+
+  #if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+  #  set_target_properties(${SWIG_MODULE_${CHPY_RS}_REAL_NAME} PROPERTIES SWIG_COMPILE_OPTIONS "-D_WIN32 -DWNT")
+  #endif()
+  
+  # Ensure that the PYD library file is generated in the bin/ directory.
+  set_target_properties(${SWIG_MODULE_${CHPY_RS}_REAL_NAME} PROPERTIES 
+                        PROJECT_LABEL "ChronoEngine_python_${CHPY_RS}"
+                        OUTPUT_NAME   "${SWIG_MODULE_${CHPY_RS}_REAL_NAME}"
+                        LIBRARY_OUTPUT_DIRECTORY "${EXECUTABLE_OUTPUT_PATH}"
+                        )
+
+  ADD_DEPENDENCIES(${SWIG_MODULE_${CHPY_RS}_REAL_NAME} ChronoEngine)
+  ADD_DEPENDENCIES(${SWIG_MODULE_${CHPY_RS}_REAL_NAME} ChronoModels_robot)
+  ADD_DEPENDENCIES(${SWIG_MODULE_${CHPY_RS}_REAL_NAME} ${SWIG_MODULE_${CHPY_CORE}_REAL_NAME})
+
+  # Copy PY file in a package dir 
+  set(CHPY_VEHICLE_PY_FILE "${CMAKE_SWIG_OUTDIR}/${CHPY_RS}.py")
+  get_target_property(CHPY_RS_PYD_FILE ${SWIG_MODULE_${CHPY_RS}_REAL_NAME} LOCATION)
+  get_filename_component(CHPY_VEHICLE_PYD_PATH "${CHPY_RS_PYD_FILE}" PATH)
+  add_custom_command(TARGET ${SWIG_MODULE_${CHPY_RS}_REAL_NAME}
+                   POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E make_directory ${CHPY_VEHICLE_PYD_PATH}/${CHPY_PACKAGENAME})
+  add_custom_command(TARGET ${SWIG_MODULE_${CHPY_RS}_REAL_NAME}
+                     POST_BUILD
+                     COMMAND ${CMAKE_COMMAND} -E copy ${CHPY_VEHICLE_PY_FILE} ${CHPY_VEHICLE_PYD_PATH}/${CHPY_PACKAGENAME})
+
+  # Install .pyd binary module (.so on linux)
+  install(TARGETS ${SWIG_MODULE_${CHPY_RS}_REAL_NAME}
+          RUNTIME DESTINATION "${CH_INSTALL_PYTHON}/${CHPY_PACKAGENAME}"
+      LIBRARY DESTINATION "${CH_INSTALL_PYTHON}/${CHPY_PACKAGENAME}"
+          ARCHIVE DESTINATION "${CH_INSTALL_PYTHON}/${CHPY_PACKAGENAME}")
+  # Install .py module wrapper
+  install(FILES "${CHPY_VEHICLE_PY_FILE}" DESTINATION "${CH_INSTALL_PYTHON}/${CHPY_PACKAGENAME}")
 
 #-----------------------------------------------------------------------------
 # Display information about setting the PYTHONPATH environment variable
