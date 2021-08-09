@@ -15,13 +15,13 @@ SET(LIBRARIES
 # ------------------------------------------------------------------------------
 
 SET(DEMOS
-        demo_GRAN_terrainBox_SMC
-        demo_GRAN_ballcosim
-        demo_GRAN_movingBoundary
-        demo_GRAN_fixedterrain
-        demo_GRAN_mixer
-				demo_GRAN_compression
-				demo_GRAN_repose
+        demo_GPU_terrainBox_SMC
+        demo_GPU_ballcosim
+        demo_GPU_movingBoundary
+        demo_GPU_fixedterrain
+        demo_GPU_mixer
+				demo_GPU_compression
+				demo_GPU_repose
 				frictional_waveProp
 )
 

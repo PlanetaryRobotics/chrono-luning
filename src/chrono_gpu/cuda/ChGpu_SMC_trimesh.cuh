@@ -35,10 +35,6 @@ using chrono::gpu::ChSystemGpuMesh_impl;
 // are getting some love
 const int SAFETY_PARAM = 1000;
 
-// Triangle bounding box will be enlarged by 1/SAFETY_PARAM, ensuring triangles lie between 2 SDs
-// are getting some love
-const int SAFETY_PARAM = 1000;
-
 /// Point is in the LRF, rot_mat rotates LRF to GRF, pos translates LRF to GRF
 /// LRF: local reference frame
 /// GRF: global reference frame

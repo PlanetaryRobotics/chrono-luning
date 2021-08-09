@@ -359,6 +359,9 @@ class ChSystemGpu_impl {
     /// Requires initialize() to have been called
     virtual double AdvanceSimulation(float duration);
 
+    // wave propagation related parameters
+    void setWavePropagationParameters(int sphereID, float forceRatio, float gravity);
+
     /// This method figures out how big a SD is, and how many SDs are going to be necessary
     /// in order to cover the entire BD.
     /// Nomenclature: BD: Big domain, SD: Sub-domain.

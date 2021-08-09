@@ -539,7 +539,7 @@ void ChSystemGpu_impl::copyConstSphereDataToDevice() {
     gran_params->max_y_pos_unsigned = ((int64_t)gran_params->SD_size_Y_SU * gran_params->nSDs_Y);
     gran_params->max_z_pos_unsigned = ((int64_t)gran_params->SD_size_Z_SU * gran_params->nSDs_Z);
 
-    INFO_PRINTF("max pos is is %llu, %llu, %llu\n", gran_params->max_x_pos_unsigned, gran_params->max_y_pos_unsigned,
+    INFO_PRINTF("max pos is is %ld, %ld, %ld\n", gran_params->max_x_pos_unsigned, gran_params->max_y_pos_unsigned,
                 gran_params->max_z_pos_unsigned);
 
     int64_t true_max_pos = std::max(std::max(gran_params->max_x_pos_unsigned, gran_params->max_y_pos_unsigned),
@@ -948,26 +948,6 @@ float ChSystemGpu_impl::ComputeTotalKE() {
     return 0.5 * m * v2_UU + 0.2 * m * sphere_radius_UU * sphere_radius_UU * w2_UU;
 }
 
-// return position in user units given sphere index
-double3 ChSystemGranularSMC::getPositionDouble(int nSphere) {
-    // owner SD
-    unsigned int ownerSD = sphere_owner_SDs.at(nSphere);
-    int3 ownerSD_trip = getSDTripletFromID(ownerSD);
-    // local position
-    double x_UU = (double)(sphere_local_pos_X[nSphere] * LENGTH_SU2UU);
-    double y_UU = (double)(sphere_local_pos_Y[nSphere] * LENGTH_SU2UU);
-    double z_UU = (double)(sphere_local_pos_Z[nSphere] * LENGTH_SU2UU);
-    // add big domain position
-    x_UU += (double)(gran_params->BD_frame_X * LENGTH_SU2UU);
-    y_UU += (double)(gran_params->BD_frame_Y * LENGTH_SU2UU);
-    z_UU += (double)(gran_params->BD_frame_Z * LENGTH_SU2UU);
-    // add subdomainNum * subdomain size
-    x_UU += (double)(((int64_t)ownerSD_trip.x * gran_params->SD_size_X_SU) * LENGTH_SU2UU);
-    y_UU += (double)(((int64_t)ownerSD_trip.y * gran_params->SD_size_Y_SU) * LENGTH_SU2UU);
-    z_UU += (double)(((int64_t)ownerSD_trip.z * gran_params->SD_size_Z_SU) * LENGTH_SU2UU);
-    return make_double3(x_UU, y_UU, z_UU);
-}
-
 // return absolute velocity
 float ChSystemGpu_impl::getAbsVelocity(int nSphere) {
     float absv_SU = std::sqrt(pos_X_dt[nSphere] * pos_X_dt[nSphere] + pos_Y_dt[nSphere] * pos_Y_dt[nSphere] +
@@ -1010,7 +990,7 @@ int ChSystemGpu_impl::GetNumContacts() const {
 }
 
 // set up parameters related to wave propagation test
-void ChSystemGranularSMC::setWavePropagationParameters(int sphereID, float forceRatio, float gravity) {
+void ChSystemGpu_impl::setWavePropagationParameters(int sphereID, float forceRatio, float gravity) {
     gran_params->F_ext_ratio = forceRatio;
     gran_params->top_center_sphereID = sphereID;
     gran_params->grav_mag = gravity;

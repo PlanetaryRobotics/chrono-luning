@@ -695,38 +695,6 @@ static __global__ void computeSphereContactForces(ChSystemGpu_impl::GranSphereDa
             }
         }
 
-        size_t body_A_offset = MAX_SPHERES_TOUCHED_BY_SPHERE * mySphereID;
-
-        // Put spheres contacting this sphere into a vector, then sort based on their sphere IDs
-        // This is because if we don't sort, we have no control over the order the contact forces are added together
-        // And if that's the case, due to the non-associative property of float addition, our result is not
-        // deterministic
-        unsigned int theirIDList[MAX_SPHERES_TOUCHED_BY_SPHERE];
-        unsigned char contactIDList[MAX_SPHERES_TOUCHED_BY_SPHERE];
-        unsigned char numActiveContacts = 0;
-        for (unsigned char body_B_offset = 0; body_B_offset < MAX_SPHERES_TOUCHED_BY_SPHERE; body_B_offset++) {
-            bool active_contact = sphere_data->contact_active_map[body_A_offset + body_B_offset];
-            if (active_contact) {
-                theirIDList[numActiveContacts] = sphere_data->contact_partners_map[body_A_offset + body_B_offset];
-                contactIDList[numActiveContacts] = body_B_offset;
-                numActiveContacts++;
-            }
-        }
-
-        // Sort. Simple but should be effective since we have 12 contacts max
-        for (unsigned char ii = 0; ii < numActiveContacts; ii++) {
-            for (unsigned char jj = ii + 1; jj < numActiveContacts; jj++) {
-                if (theirIDList[ii] > theirIDList[jj]) {
-                    unsigned int tmp_int = theirIDList[ii];
-                    theirIDList[ii] = theirIDList[jj];
-                    theirIDList[jj] = tmp_int;
-                    unsigned char tmp_char = contactIDList[ii];
-                    contactIDList[ii] = contactIDList[jj];
-                    contactIDList[jj] = tmp_char;
-                }
-            }
-        }
-
         // Now compute the force each contact partner exerts
         // Force applied to this sphere
         float3 bodyA_force = {0.f, 0.f, 0.f};
@@ -1074,15 +1042,9 @@ static __global__ void integrateSpheres(const float stepsize_SU,
                 break;
             }
         }
-<<<<<<< HEAD:src/chrono_granular/physics/ChGranularGPU_SMC.cuh
         int3 sphere_pos_local = make_int3(sphere_data->sphere_local_pos_X[mySphereID] + (lround)(position_update_x),
                                           sphere_data->sphere_local_pos_Y[mySphereID] + (lround)(position_update_y),
                                           sphere_data->sphere_local_pos_Z[mySphereID] + (lround)(position_update_z));
-=======
-        int3 sphere_pos_local = make_int3(sphere_data->sphere_local_pos_X[mySphereID] + (lround)(position_update_x),
-                                          sphere_data->sphere_local_pos_Y[mySphereID] + (lround)(position_update_y),
-                                          sphere_data->sphere_local_pos_Z[mySphereID] + (lround)(position_update_z));
->>>>>>> develop:src/chrono_gpu/cuda/ChGpu_SMC.cuh
 
         int64_t3 sphPos_global =
             convertPosLocalToGlobal(sphere_data->sphere_owner_SDs[mySphereID], sphere_pos_local, gran_params);
