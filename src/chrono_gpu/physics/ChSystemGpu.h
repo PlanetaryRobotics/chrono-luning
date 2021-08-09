@@ -196,6 +196,9 @@ class CH_GPU_API ChSystemGpu {
     /// Prescribe the motion of the big domain, allows wavetank-style simulations.
     void setBDWallsMotionFunction(const GranPositionFunction& pos_fn);
 
+    /// set method related to wave propagation
+    void setWavePropagationParameters(int sphereID, float forceRatio, float gravity);
+
     // -------------------------- A plethora of "Get" methods -------------------------------- //
 
     /// Return current simulation time.
@@ -279,14 +282,14 @@ class CH_GPU_API ChSystemGpu {
 
     /// Give a string identifier, set the corresponding simulation parameter, using a switch statement.
     /// ReadDatParams() is its wrapper.
-    /// It must be virtual, because derived classes also use it (and may call it from a inherited method), and read some
-    /// more data (thus built on top of it). We must ensure those derived classes call the correct version of it.
+    /// It must be virtual, because derived classes also use it (and may call it from a inherited method), and read
+    /// some more data (thus built on top of it). We must ensure those derived classes call the correct version of
+    /// it.
     virtual bool SetParamsFromIdentifier(const std::string& identifier, std::istringstream& iss1, bool overwrite);
 
     /// Set simulation params from a DAT checkpoint file stream. Returns the number of particles.
-    /// If instructed to overwrite, then overwrite current simulation parameters with the values in the checkpoint file;
-    /// else, when an inconsistency is found, throw an error.
-    /// ReadCheckpointFile() is its wrapper.
+    /// If instructed to overwrite, then overwrite current simulation parameters with the values in the checkpoint
+    /// file; else, when an inconsistency is found, throw an error. ReadCheckpointFile() is its wrapper.
     unsigned int ReadDatParams(std::ifstream& ifile, bool overwrite);
 
     /// Write simulation params to a stream. WriteCheckpointFile() is its wrapper.
@@ -326,13 +329,13 @@ class CH_GPU_API ChSystemGpuMesh : public ChSystemGpu {
     ~ChSystemGpuMesh();
 
     /// Add a trimesh to the granular system.
-    /// The return value is a mesh identifier which can be used during the simulation to apply rigid body motion to the
-    /// mesh; see ApplyMeshMotion(). This function must be called before Initialize().
+    /// The return value is a mesh identifier which can be used during the simulation to apply rigid body motion to
+    /// the mesh; see ApplyMeshMotion(). This function must be called before Initialize().
     unsigned int AddMesh(std::shared_ptr<geometry::ChTriangleMeshConnected> mesh, float mass);
 
     /// Add a trimesh from the specified Wavefront OBJ file to the granular system.
-    /// The return value is a mesh identifier which can be used during the simulation to apply rigid body motion to the
-    /// mesh; see ApplyMeshMotion(). This function must be called before Initialize().
+    /// The return value is a mesh identifier which can be used during the simulation to apply rigid body motion to
+    /// the mesh; see ApplyMeshMotion(). This function must be called before Initialize().
     unsigned int AddMesh(const std::string& filename,
                          const ChVector<float>& translation,
                          const ChMatrix33<float>& rotscale,
@@ -431,8 +434,8 @@ class CH_GPU_API ChSystemGpuMesh : public ChSystemGpu {
     CHGPU_MESH_VERBOSITY mesh_verbosity;                                       ///< mesh operations verbosity level
     std::vector<std::shared_ptr<geometry::ChTriangleMeshConnected>> m_meshes;  ///< list of meshes used in cosimulation
     std::vector<float> m_mesh_masses;                                          ///< associated mesh masses
-    bool use_mesh_normals =
-        false;  ///< true: use mesh normals in file to correct mesh orientation; false: do nothing, implicitly use RHR
+    bool use_mesh_normals = false;  ///< true: use mesh normals in file to correct mesh orientation; false: do
+                                    ///< nothing, implicitly use RHR
 
     /// GpuMesh version of setting simulation params based on identifiers in the checkpoint file.
     virtual bool SetParamsFromIdentifier(const std::string& identifier,

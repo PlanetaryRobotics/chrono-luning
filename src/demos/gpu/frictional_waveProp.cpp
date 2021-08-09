@@ -25,11 +25,11 @@
 
 #include "chrono_thirdparty/filesystem/path.h"
 #include "chrono_gpu/physics/ChSystemGpu.h"
-
+#include "chrono/core/ChGlobal.h"
+#include "chrono/core/ChVector.h"
 #include "chrono/utils/ChUtilsSamplers.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
-#include "demos/gpu/ChGranularDemoUtils.hpp"
 #include "demos/gpu/GoldenburgHelpers.hpp"
 
 using namespace chrono;
@@ -54,7 +54,7 @@ int main(int argc, char* argv[]) {
     double sphere_density = 7.8;
 
     // 31 spheres per layer, total of 15 layers
-    int x_dim_num = 31;
+    int x_dim_num = 61;
     int z_dim_num = 15;
 
     // box dim
@@ -97,61 +97,54 @@ int main(int argc, char* argv[]) {
     // double step_size = 5e-6;
 
     // time integrator for testing
-    double time_settling = 0.2f;
+    double time_settling = 1.0f;
     double time_Fduration = 1.0f;
     double time_extF = 1.0f;
     double time_end = time_settling + time_Fduration + time_extF;
-    double step_size = 5e-6;
+    double step_size = 1e-5;
 
     // setup simulation gran_sys
-    ChSystemGranularSMC gran_sys(sphere_radius, sphere_density, make_float3(box_X, box_Y, box_Z));
-
-    ChGranularSMC_API apiSMC;
-    apiSMC.setGranSystem(&gran_sys);
+    ChSystemGpu gran_sys(sphere_radius, sphere_density, ChVector<float>(box_X, box_Y, box_Z));
 
     // intialize particle positions
     std::vector<ChVector<float>> initialPos = initializePositions(x_dim_num, z_dim_num, sphere_radius);
     int numSpheres = initialPos.size();
     std::cout << "number of spheres: " << initialPos.size() << "\n";
-    apiSMC.setElemsPositions(initialPos);
-
-    float psi_T = 32.0f;
-    float psi_L = 256.0f;
-    gran_sys.setPsiFactors(psi_T, psi_L);
+    gran_sys.SetParticles(initialPos);
 
     // normal force model
-    gran_sys.set_K_n_SPH2SPH(kn);
-    gran_sys.set_K_n_SPH2WALL(2 * kn);
-    gran_sys.set_Gamma_n_SPH2SPH(gamma_n);
-    gran_sys.set_Gamma_n_SPH2WALL(gamma_n);
+    gran_sys.SetKn_SPH2SPH(kn);
+    gran_sys.SetKn_SPH2WALL(2 * kn);
+    gran_sys.SetGn_SPH2SPH(gamma_n);
+    gran_sys.SetGn_SPH2WALL(gamma_n);
 
     // tangential force model
-    gran_sys.set_friction_mode(GRAN_FRICTION_MODE::MULTI_STEP);
-    gran_sys.set_K_t_SPH2SPH(kt);
-    gran_sys.set_K_t_SPH2WALL(kt);
-    gran_sys.set_Gamma_t_SPH2SPH(gamma_t);
-    gran_sys.set_Gamma_t_SPH2WALL(gamma_t);
-    gran_sys.set_static_friction_coeff_SPH2SPH(mu_s_s2s);
-    gran_sys.set_static_friction_coeff_SPH2WALL(mu_s_s2w);
+    gran_sys.SetFrictionMode(CHGPU_FRICTION_MODE::MULTI_STEP);
+    gran_sys.SetKt_SPH2SPH(kt);
+    gran_sys.SetKt_SPH2WALL(kt);
+    gran_sys.SetGt_SPH2SPH(gamma_t);
+    gran_sys.SetGt_SPH2WALL(gamma_t);
+    gran_sys.SetStaticFrictionCoeff_SPH2SPH(mu_s_s2s);
+    gran_sys.SetStaticFrictionCoeff_SPH2WALL(mu_s_s2w);
 
     // set gravity
-    gran_sys.set_gravitational_acceleration(grav_X, grav_Y, grav_Z);
+    gran_sys.SetGravitationalAcceleration(ChVector<float>(grav_X, grav_Y, grav_Z));
 
     // Set the position of the BD
-    gran_sys.set_BD_Fixed(true);
+    gran_sys.SetBDFixed(true);
 
     // set time integrator
-    gran_sys.set_timeIntegrator(GRAN_TIME_INTEGRATOR::FORWARD_EULER);
-    gran_sys.set_fixed_stepSize(step_size);
+    gran_sys.SetTimeIntegrator(CHGPU_TIME_INTEGRATOR::FORWARD_EULER);
+    gran_sys.SetFixedStepSize(step_size);
 
     // record contact info
-    gran_sys.setRecordingContactInfo(true);
-    gran_sys.initialize();
+    gran_sys.SetRecordingContactInfo(true);
+    gran_sys.Initialize();
     int top_center_sphereID = findTopCenterSphereID(gran_sys, numSpheres);
 
     // set output directory
     char out_dir[100];
-    sprintf(out_dir, "31_radius_%.0ecm_mu_%.1e", sphere_radius, friction_coeff);
+    sprintf(out_dir, "61_radius_%.0ecm_mu_%.1e", sphere_radius, friction_coeff);
 
     // create folder for outputs
     if (!filesystem::create_directory(filesystem::path(out_dir))) {
@@ -173,7 +166,7 @@ int main(int argc, char* argv[]) {
 
     // PHASE ONE: SETTLING
     while (curr_time < time_settling) {
-        gran_sys.advance_simulation(frame_size);
+        gran_sys.AdvanceSimulation(frame_size);
         curr_time += frame_size;
 
         pos_force_array =
@@ -183,7 +176,7 @@ int main(int argc, char* argv[]) {
         force_right = pos_force_array.at(x_dim_num - 1).force;
         diff = std::abs((force_left - force_right) / force_left);
 
-        sysKE = getSystemKE(sphere_radius, sphere_density, apiSMC, numSpheres);
+        sysKE = getSystemKE(sphere_radius, sphere_density, gran_sys, numSpheres);
         avgKE = sysKE / numSpheres / (sphere_mass * gravity * sphere_radius);
 
         std::cout << curr_time << ", " << diff << ", " << avgKE << std::endl;
@@ -191,7 +184,7 @@ int main(int argc, char* argv[]) {
     }
 
     // output reaction force at settling stage
-    char settling_reactionF_filename[100];
+    char settling_reactionF_filename[500];
     sprintf(settling_reactionF_filename, "%s/settling_pos_force.csv", out_dir);
     std::ofstream forcestream(std::string(settling_reactionF_filename), std::ios::out);
 
@@ -200,13 +193,13 @@ int main(int argc, char* argv[]) {
     }
     forcestream.close();
     // write position at settling stage
-    char settling_pos_filename[100];
-    sprintf(settling_pos_filename, "%s/settling_position", out_dir);
-    gran_sys.writeFile(std::string(settling_pos_filename));
+    char settling_pos_filename[500];
+    sprintf(settling_pos_filename, "%s/settling_position.csv", out_dir);
+    gran_sys.WriteParticleFile(std::string(settling_pos_filename));
     // write contact network at settling stage
-    char settling_contact_filename[100];
-    sprintf(settling_contact_filename, "%s/settling_contact_forces", out_dir, currframe);
-    gran_sys.writeContactInfoFile(std::string(settling_contact_filename));
+    char settling_contact_filename[500];
+    sprintf(settling_contact_filename, "%s/settling_contact_forces.csv", out_dir);
+    gran_sys.WriteContactInfoFile(std::string(settling_contact_filename));
 
     // PHASE TWO: APPLYING FORCE GRADUALLY
     int F_ext_ratio_array_size = std::round(time_Fduration / step_size) + 1;
@@ -217,7 +210,7 @@ int main(int argc, char* argv[]) {
     }
     int force_counter = 0;
     while (curr_time < time_settling + time_Fduration && force_counter < F_ext_ratio_array_size) {
-        gran_sys.advance_simulation(step_size);
+        gran_sys.AdvanceSimulation(step_size);
         curr_time += step_size;
 
         gran_sys.setWavePropagationParameters(top_center_sphereID, F_ext_ratio_array[force_counter], grav_mag);
@@ -231,7 +224,7 @@ int main(int argc, char* argv[]) {
             force_right = pos_force_array.at(x_dim_num - 1).force;
             diff = std::abs((force_left - force_right) / force_left);
 
-            sysKE = getSystemKE(sphere_radius, sphere_density, apiSMC, numSpheres);
+            sysKE = getSystemKE(sphere_radius, sphere_density, gran_sys, numSpheres);
             avgKE = sysKE / numSpheres / (sphere_mass * gravity * sphere_radius);
             std::cout << curr_time << ", " << diff << ", " << avgKE << ", " << F_ext_ratio_array[force_counter - 1]
                       << std::endl;
@@ -241,10 +234,10 @@ int main(int argc, char* argv[]) {
     // PHASE THREE: KEEPING EXTERNAL FORCE CONSTANT
     gran_sys.setWavePropagationParameters(top_center_sphereID, F_ext_ratio, grav_mag);
     while (curr_time < time_end) {
-        gran_sys.advance_simulation(frame_size);
+        gran_sys.AdvanceSimulation(frame_size);
         curr_time += frame_size;
 
-        sysKE = getSystemKE(sphere_radius, sphere_density, apiSMC, numSpheres);
+        sysKE = getSystemKE(sphere_radius, sphere_density, gran_sys, numSpheres);
         avgKE = sysKE / numSpheres / (sphere_mass * gravity * sphere_radius);
 
         pos_force_array =
@@ -258,7 +251,7 @@ int main(int argc, char* argv[]) {
         currframe++;
     }
 
-    char outForceFile_string[100];
+    char outForceFile_string[500];
     sprintf(outForceFile_string, "%s/ending_pos_force_F_%.1fmg.csv", out_dir, F_ext_ratio);
     std::ofstream outstream(std::string(outForceFile_string), std::ios::out);
 
@@ -267,13 +260,13 @@ int main(int argc, char* argv[]) {
     }
     outstream.close();
 
-    char end_pos_filename[100];
-    sprintf(end_pos_filename, "%s/ending_position_F_%.1fmg", out_dir, F_ext_ratio);
-    gran_sys.writeFile(std::string(end_pos_filename));
+    char end_pos_filename[500];
+    sprintf(end_pos_filename, "%s/ending_position_F_%.1fmg.csv", out_dir, F_ext_ratio);
+    gran_sys.WriteParticleFile(std::string(end_pos_filename));
 
-    char end_contact_filename[100];
-    sprintf(end_contact_filename, "%s/ending_contact_forces_network_F_%.1fmg", out_dir, F_ext_ratio);
-    gran_sys.writeContactInfoFile(std::string(end_contact_filename));
+    char end_contact_filename[500];
+    sprintf(end_contact_filename, "%s/ending_contact_forces_network_F_%.1fmg.csv", out_dir, F_ext_ratio);
+    gran_sys.WriteContactInfoFile(std::string(end_contact_filename));
 
     clock_t end_time = std::clock();
     double computation_time = ((double)(end_time - start)) / CLOCKS_PER_SEC;

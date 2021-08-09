@@ -314,6 +314,10 @@ void ChSystemGpu::setBDWallsMotionFunction(const GranPositionFunction& pos_fn) {
     m_sys->setBDWallsMotionFunction(pos_fn);
 }
 
+void ChSystemGpu::setWavePropagationParameters(int sphereID, float forceRatio, float gravity) {
+    m_sys->setWavePropagationParameters(sphereID, forceRatio, gravity);
+}
+
 // -----------------------------------------------------------------------------
 
 unsigned int ChSystemGpu::GetNumSDs() const {
