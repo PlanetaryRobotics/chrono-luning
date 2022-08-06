@@ -296,9 +296,6 @@ class CH_GPU_API ChSystemGpu {
     /// Set BC plane rotation
     void SetBCPlaneRotation(size_t plane_id, ChVector<double> center, ChVector<double> omega);
 
-    /// Set wave proagation test parameters
-    void setWavePropagationParameters(int sphereID, float forceRatio, float gravity);
-    
     /// Get the reaction forces on a boundary by ID, returns false if the forces are invalid (bad BC ID)
     bool GetBCReactionForces(size_t BC_id, ChVector<float>& force) const;
 

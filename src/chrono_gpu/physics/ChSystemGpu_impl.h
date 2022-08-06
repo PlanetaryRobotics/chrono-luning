@@ -384,9 +384,6 @@ class ChSystemGpu_impl {
     /// Return number of particle-particle contacts.
     int GetNumContacts() const;
 
-    /// set up wave propagation test parameters
-    void setWavePropagationParameters(int sphereID, float forceRatio, float gravity);
-    
     /// Return position of BC plane.
     float3 GetBCPlanePosition(size_t plane_id) const;
 
