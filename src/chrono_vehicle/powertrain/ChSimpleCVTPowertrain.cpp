@@ -27,15 +27,13 @@ namespace vehicle {
 ChSimpleCVTPowertrain::ChSimpleCVTPowertrain(const std::string& name)
     : ChPowertrain(name), m_motorSpeed(0), m_motorTorque(0), m_shaftTorque(0), m_critical_speed(1e4) {}
 
-void ChSimpleCVTPowertrain::Initialize(std::shared_ptr<ChChassis> chassis, std::shared_ptr<ChDriveline> driveline) {
-    ChPowertrain::Initialize(chassis, driveline);
+void ChSimpleCVTPowertrain::Initialize(std::shared_ptr<ChChassis> chassis) {
+    ChPowertrain::Initialize(chassis);
     m_critical_speed = GetMaxPower() / GetMaxTorque();
 }
 
-void ChSimpleCVTPowertrain::Synchronize(double time, double throttle) {
-    double shaft_speed = m_driveline->GetDriveshaftSpeed();
-
-    // The motor speed is the shaft speed multiplied by gear ratio inversed:
+void ChSimpleCVTPowertrain::Synchronize(double time, const DriverInputs& driver_inputs, double shaft_speed) {
+    // The motor speed is the shaft speed multiplied by gear ratio inversed
     m_motorSpeed = std::abs(shaft_speed / m_current_gear_ratio);
 
     // The torque depends on a hyperbolic speed-torque curve of the motor
@@ -45,14 +43,16 @@ void ChSimpleCVTPowertrain::Synchronize(double time, double throttle) {
     } else {
         m_motorTorque = GetMaxPower() / m_motorSpeed;
     }
-    // limit the speed range
+
+    // Limit the speed range
     if (m_motorSpeed >= GetMaxSpeed()) {
         m_motorTorque = 0.0;
     }
-    // Motor torque is linearly modulated by throttle gas value:
-    m_motorTorque *= throttle;
 
-    // The torque at motor shaft:
+    // Motor torque is linearly modulated by throttle gas value:
+    m_motorTorque *= driver_inputs.m_throttle;
+
+    // The torque at motor shaft
     m_shaftTorque = m_motorTorque / m_current_gear_ratio;
 }
 

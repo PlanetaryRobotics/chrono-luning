@@ -52,7 +52,7 @@ namespace chrono {
 const size_t ChBezierCurve::m_maxNumIters = 50;
 const double ChBezierCurve::m_sqrDistTol = 1e-6;
 const double ChBezierCurve::m_cosAngleTol = 1e-4;
-const double ChBezierCurve::m_paramTol = 1e-8;
+const double ChBezierCurve::m_paramTol = 1e-5;
 
 // -----------------------------------------------------------------------------
 // ChBezierCurve::ChBezierCurve()
@@ -88,6 +88,46 @@ ChBezierCurve::ChBezierCurve(const std::vector<ChVector<> >& points) : m_points(
         m_inCV[1] = (points[0] + 2.0 * points[1]) / 3.0;
         return;
     }
+
+    /*
+    // Calculate control points
+    // Use heuristic approach from http://www.antigrain.com/research/bezier_interpolation/index.html
+
+    //// NOTE: Does not produce a proper Bezier vurve and as such requires a different eval() function!!!
+
+    static const double smooth_value = 0.2;
+
+    // Calculate centers and lengths
+    size_t numIntervals = numPoints - 1;
+    std::vector<ChVector<>> center(numIntervals);
+    std::vector<double> length(numIntervals);
+    for (int i = 0; i < numIntervals; i++) {
+        center[i] = (points[i] + points[i + 1]) / 2;
+        length[i] = (points[i + 1] - points[i]).Length();
+    }
+
+    // Calculate control points
+    for (size_t i = 0; i < numIntervals; i++) {
+        // Interval i: [p(i), p(i+1)] -> set outCV(i) & inCV(i+1)
+
+        double len1 = (i == 0) ? 0 : length[i-1];
+        double len2 = length[i];
+        double len3 = (i == numIntervals - 1) ? 0 : length[i + 1];
+
+        auto c1 = (i == 0) ? points[0] : center[i - 1];
+        auto c2 = center[i];
+        auto c3 = (i == numIntervals - 1) ? points[i + 1] : center[i + 1];
+
+        double k1 = len1 / (len1 + len2);
+        double k2 = len2 / (len2 + len3);
+
+        auto m1 = c1 + (c2 - c1) * k1;
+        auto m2 = c2 + (c2 - c2) * k2;
+
+        m_outCV[i] = m1 + (c2 - m1) * smooth_value + points[i] - m1;
+        m_inCV[i + 1] = m2 + (c2 - m2) * smooth_value + points[i + 1] - m2;
+    }
+    */
 
     // Calculate coordinates of the outCV control points.
     size_t n = numPoints - 1;
@@ -362,11 +402,46 @@ ChVector<> ChBezierCurve::eval(double t) const {
 //  - no significant change in the curve parameter (along the Q' direction).
 // -----------------------------------------------------------------------------
 ChVector<> ChBezierCurve::calcClosestPoint(const ChVector<>& loc, size_t i, double& t) const {
+    // Bracket location of projection
+    int m_numEvals = 20;
+    double dt = 1.0 / m_numEvals;
+    int min_idx = -1;
+    double d2_min = std::numeric_limits<double>::max();
+    for (int j = 0; j <= m_numEvals; j++) {
+        double d2 = (eval(i, j * dt) - loc).Length2();
+        if (d2 < d2_min) {
+            min_idx = j;
+            d2_min = d2;
+        }
+    }
+
+    // Bisection
+    int count = m_numEvals + 1;
+    double t0 = std::max((min_idx - 1) * dt, 0.0);
+    double t1 = std::min((min_idx + 1) * dt, 1.0);
+    while (t1 - t0 > m_paramTol) {
+        t = (t0 + t1) / 2;
+        double d2_0 = (eval(i, t - m_paramTol) - loc).Length2();
+        double d2_1 = (eval(i, t + m_paramTol) - loc).Length2();
+        if (d2_0 < d2_1)
+            t1 = t;
+        else
+            t0 = t;
+        count += 2;
+    }
+
+    ////std::cout << "num. evaluations: " << count << std::endl;
+
+    return eval(i, t);
+
+    /*
+    // Newton method
     ChVector<> Q = eval(i, t);
     ChVector<> Qd;
     ChVector<> Qdd;
 
-    for (size_t j = 0; j < m_maxNumIters; j++) {
+    size_t j = 0;
+    for (j = 0; j < m_maxNumIters; j++) {
         ChVector<> vec = Q - loc;
         double d2 = vec.Length2();
 
@@ -387,36 +462,38 @@ ChVector<> ChBezierCurve::calcClosestPoint(const ChVector<>& loc, size_t i, doub
 
         t -= dt;
 
-        if (t < m_paramTol || t > 1 - m_paramTol) {
-            ChClampValue(t, 0.0, 1.0);
-            Q = eval(i, t);
-            break;
-        }
-
         Q = eval(i, t);
 
         if ((dt * Qd).Length2() < m_sqrDistTol)
             break;
-    };
-
-    ChVector<> Q_0 = eval(i, 0.0);
-    ChVector<> Q_1 = eval(i, 1.0);
-
-    double d2 = (Q - loc).Length2();
-    double d2_0 = (Q_0 - loc).Length2();
-    double d2_1 = (Q_1 - loc).Length2();
-
-    if (d2_0 < d2) {
-        t = 0;
-        Q = Q_0;
-        d2 = d2_0;
     }
-    if (d2_1 < d2) {
-        t = 1;
-        Q = Q_1;
+
+    ////std::cout << "num iterations: " << j << "   max: " << m_maxNumIters << std::endl;
+
+    if (t < m_paramTol || t > 1 - m_paramTol) {
+        ChClampValue(t, 0.0, 1.0);
+        Q = eval(i, t);
+    } else {
+        ChVector<> Q_0 = eval(i, 0.0);
+        ChVector<> Q_1 = eval(i, 1.0);
+
+        double d2 = (Q - loc).Length2();
+        double d2_0 = (Q_0 - loc).Length2();
+        double d2_1 = (Q_1 - loc).Length2();
+
+        if (d2_0 < d2) {
+            t = 0;
+            Q = Q_0;
+            d2 = d2_0;
+        }
+        if (d2_1 < d2) {
+            t = 1;
+            Q = Q_1;
+        }
     }
 
     return Q;
+    */
 }
 
 // -----------------------------------------------------------------------------
@@ -522,6 +599,52 @@ void ChBezierCurveTracker::reset(const ChVector<>& loc) {
 //    the previous iteration the parameter was close to 0.
 // -----------------------------------------------------------------------------
 int ChBezierCurveTracker::calcClosestPoint(const ChVector<>& loc, ChVector<>& point) {
+    // Evaluate in current interval
+    point = m_path->calcClosestPoint(loc, m_curInterval, m_curParam);
+
+    if (m_curParam < ChBezierCurve::m_paramTol) {
+        // Close to lower limit
+        if ((m_curInterval == 0) && (!m_isClosedPath))
+            return -1;
+
+        // Check previous interval
+        double p_m;
+        auto pt_m = m_path->calcClosestPoint(loc, m_curInterval - 1, p_m);
+
+        if ((pt_m - loc).Length2() < (point - loc).Length2()) {
+            ////std::cout << "loc = " << loc << "  DECREASE to " << m_curInterval - 1 << "  p = " << p_m
+            ////          << "    point: " << point << "  point minus: " << pt_m << std::endl;
+            m_curInterval--;
+            m_curParam = p_m;
+            point = pt_m;
+        }
+
+        return 0;
+
+    } else if (m_curParam > 1 - ChBezierCurve::m_paramTol) {
+        // Close to upper limit
+        if ((m_curInterval == m_path->getNumPoints() - 2) && (!m_isClosedPath))
+            return +1;
+
+        // Check next interval
+        double p_p;
+        auto pt_p = m_path->calcClosestPoint(loc, m_curInterval + 1, p_p);
+
+        if ((pt_p - loc).Length2() < (point - loc).Length2()) {
+            ////std::cout << "loc = " << loc << "  INCREASE to " << m_curInterval + 1 << "  p = " << p_p
+            ////          << "    point: " << point << "  point plus: " << pt_p << std::endl;
+            m_curInterval++;
+            m_curParam = p_p;
+            point = pt_p;
+        }
+
+        return 0;
+    } else {
+        // Not close to interval bounds. Done
+        return 0;
+    }
+    
+    /*
     bool lastAtMin = false;
     bool lastAtMax = false;
 
@@ -565,6 +688,7 @@ int ChBezierCurveTracker::calcClosestPoint(const ChVector<>& loc, ChVector<>& po
         } else
             return 0;
     }
+    */
 }
 
 int ChBezierCurveTracker::calcClosestPoint(const ChVector<>& loc, ChFrame<>& tnb, double& curvature) {

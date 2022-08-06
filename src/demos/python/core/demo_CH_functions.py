@@ -1,14 +1,17 @@
-#------------------------------------------------------------------------------
-# Name:        using the ChFunction objects for specifying functions y=f(x)
-# Purpose:
+# =============================================================================
+# PROJECT CHRONO - http://projectchrono.org
 #
-# Author:      Radu Serban
+# Copyright (c) 2014 projectchrono.org
+# All rights reserved.
 #
-# Created:     6/27/2020
-# Copyright:   (c) ProjectChrono 2019
-#------------------------------------------------------------------------------
+# Use of this source code is governed by a BSD-style license that can be found
+# in the LICENSE file at the top level of the distribution and at
+# http://projectchrono.org/license-chrono.txt.
+#
+# =============================================================================
 
 import pychrono as chrono
+import errno
 import os
 import math
 
@@ -26,11 +29,12 @@ print ('Demonstration of functions for y = f(x)')
 
 # Create the output directory
 out_dir = os.path.join(os.path.dirname(__file__), "Functions_demo")
-if not os.path.exists(out_dir):
+try:
     os.mkdir(out_dir)
-    print("Directory " , out_dir ,  " created ")
-else:    
-    print("Directory " , out_dir ,  " already exists")
+except OSError as exc:
+    if exc.errno != errno.EEXIST:
+       print("Error creating output directory " )
+
 
 # Ramp function
 # -------------

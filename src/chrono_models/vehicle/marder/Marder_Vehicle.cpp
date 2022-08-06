@@ -73,18 +73,18 @@ void Marder_Vehicle::Create(bool fixed,
             m_tracks[1] = chrono_types::make_shared<Marder_TrackAssemblySinglePin>(RIGHT, brake_type);
             break;
         case TrackShoeType::DOUBLE_PIN:
-            // m_tracks[0] = chrono_types::make_shared<Marder_TrackAssemblyDoublePin>(LEFT, brake_type);
-            // m_tracks[1] = chrono_types::make_shared<Marder_TrackAssemblyDoublePin>(RIGHT, brake_type);
+            ////m_tracks[0] = chrono_types::make_shared<Marder_TrackAssemblyDoublePin>(LEFT, brake_type);
+            ////m_tracks[1] = chrono_types::make_shared<Marder_TrackAssemblyDoublePin>(RIGHT, brake_type);
             GetLog() << "Unimplemented track assembly model.\n";
             break;
         case TrackShoeType::BAND_BUSHING:
-            // m_tracks[0] = chrono_types::make_shared<Marder_TrackAssemblyBandBushing>(LEFT, brake_type);
-            // m_tracks[1] = chrono_types::make_shared<Marder_TrackAssemblyBandBushing>(RIGHT, brake_type);
+            ////m_tracks[0] = chrono_types::make_shared<Marder_TrackAssemblyBandBushing>(LEFT, brake_type);
+            ////m_tracks[1] = chrono_types::make_shared<Marder_TrackAssemblyBandBushing>(RIGHT, brake_type);
             GetLog() << "Unimplemented track assembly model.\n";
             break;
         case TrackShoeType::BAND_ANCF:
-            // m_tracks[0] = chrono_types::make_shared<Marder_TrackAssemblyBandANCF>(LEFT, brake_type);
-            // m_tracks[1] = chrono_types::make_shared<Marder_TrackAssemblyBandANCF>(RIGHT, brake_type);
+            ////m_tracks[0] = chrono_types::make_shared<Marder_TrackAssemblyBandANCF>(LEFT, brake_type);
+            ////m_tracks[1] = chrono_types::make_shared<Marder_TrackAssemblyBandANCF>(RIGHT, brake_type);
             GetLog() << "Unimplemented track assembly model.\n";
             break;
     }
@@ -95,19 +95,17 @@ void Marder_Vehicle::Create(bool fixed,
             m_driveline = chrono_types::make_shared<Marder_SimpleDriveline>();
             break;
         case DrivelineTypeTV::BDS:
-            // m_driveline = chrono_types::make_shared<Marder_DrivelineBDS>();
+            ////m_driveline = chrono_types::make_shared<Marder_DrivelineBDS>();
             GetLog() << "Unimplemented driveline model.\n";
             break;
     }
-
-    GetLog() << "Marder vehicle mass = " << GetVehicleMass() << " kg.\n";
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 void Marder_Vehicle::Initialize(const ChCoordsys<>& chassisPos, double chassisFwdVel) {
-    // Invoke base class method to initialize the chassis.
-    ChTrackedVehicle::Initialize(chassisPos, chassisFwdVel);
+    // Initialize the chassis subsystem.
+    m_chassis->Initialize(m_system, chassisPos, chassisFwdVel, WheeledCollisionFamily::CHASSIS);
 
     // Initialize the left and right track assemblies.
     double track_offset = 1.36;
@@ -116,6 +114,9 @@ void Marder_Vehicle::Initialize(const ChCoordsys<>& chassisPos, double chassisFw
 
     // Initialize the driveline subsystem
     m_driveline->Initialize(m_chassis, m_tracks[0], m_tracks[1]);
+
+    // Invoke base class method
+    ChTrackedVehicle::Initialize(chassisPos, chassisFwdVel);
 }
 
 }  // namespace marder

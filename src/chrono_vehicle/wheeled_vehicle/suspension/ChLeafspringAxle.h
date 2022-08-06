@@ -40,8 +40,6 @@
 
 #include <vector>
 
-#include "chrono/assets/ChColorAsset.h"
-
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/wheeled_vehicle/ChSuspension.h"
 
@@ -67,7 +65,7 @@ class CH_VEHICLE_API ChLeafspringAxle : public ChSuspension {
     ChLeafspringAxle(const std::string& name  ///< [in] name of the subsystem
     );
 
-    virtual ~ChLeafspringAxle() {}
+    virtual ~ChLeafspringAxle();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "LeafspringAxle"; }
@@ -98,12 +96,6 @@ class CH_VEHICLE_API ChLeafspringAxle : public ChSuspension {
 
     /// Remove visualization assets for the suspension subsystem.
     virtual void RemoveVisualizationAssets() override;
-
-    /// Get the total mass of the suspension subsystem.
-    virtual double GetMass() const override;
-
-    /// Get the current global COM location of the suspension subsystem.
-    virtual ChVector<> GetCOMPos() const override;
 
     /// Get the wheel track for the suspension subsystem.
     virtual double GetTrack() override;
@@ -151,6 +143,9 @@ class CH_VEHICLE_API ChLeafspringAxle : public ChSuspension {
         NUM_POINTS
     };
 
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
     /// Return the location of the specified hardpoint.
     /// The returned location must be expressed in the suspension reference frame.
     virtual const ChVector<> getLocation(PointId which) = 0;
@@ -182,10 +177,8 @@ class CH_VEHICLE_API ChLeafspringAxle : public ChSuspension {
     virtual std::shared_ptr<ChLinkTSDA::ForceFunctor> getShockForceFunctor() const = 0;
 
     std::shared_ptr<ChBody> m_axleTube;  ///< handles to the axle tube body
-    std::shared_ptr<ChBody> m_tierod;    ///< handles to the tierod body
 
     std::shared_ptr<ChLinkLockRevolutePrismatic> m_axleTubeGuide;  ///< allows translation Z and rotation X
-    std::shared_ptr<ChLinkLockSpherical> m_sphericalTierod;        ///< knuckle-tierod spherical joint (left)
 
     std::shared_ptr<ChLinkTSDA> m_shock[2];   ///< handles to the spring links (L/R)
     std::shared_ptr<ChLinkTSDA> m_spring[2];  ///< handles to the shock links (L/R)

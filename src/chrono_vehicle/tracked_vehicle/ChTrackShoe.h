@@ -22,12 +22,8 @@
 #ifndef CH_TRACK_SHOE_H
 #define CH_TRACK_SHOE_H
 
-#include "chrono/physics/ChSystem.h"
-#include "chrono/physics/ChBody.h"
-#include "chrono/physics/ChBodyAuxRef.h"
-
 #include "chrono_vehicle/ChApiVehicle.h"
-#include "chrono_vehicle/ChPart.h"
+#include "chrono_vehicle/ChChassis.h"
 
 namespace chrono {
 namespace vehicle {
@@ -40,10 +36,7 @@ class ChTrackAssembly;
 /// Base class for a track shoe.
 class CH_VEHICLE_API ChTrackShoe : public ChPart {
   public:
-    ChTrackShoe(const std::string& name  ///< [in] name of the subsystem
-                );
-
-    virtual ~ChTrackShoe() {}
+    virtual ~ChTrackShoe();
 
     /// Return the type of track shoe (guiding pin).
     /// A derived class must specify the type of track shoe (which must be
@@ -53,8 +46,12 @@ class CH_VEHICLE_API ChTrackShoe : public ChPart {
     /// Get the index of this track shoe within its containing track assembly.
     size_t GetIndex() const { return m_index; }
 
-    /// Get a handle to the shoe body.
+    /// Get the shoe body.
     std::shared_ptr<ChBody> GetShoeBody() const { return m_shoe; }
+
+    /// Get track tension at this track shoe.
+    /// Return is the force due to the connections of this track shoe, expressed in the track shoe reference frame.
+    virtual ChVector<> GetTension() const = 0;
 
     /// Return the height of the track shoe.
     virtual double GetHeight() const = 0;
@@ -62,9 +59,6 @@ class CH_VEHICLE_API ChTrackShoe : public ChPart {
     /// Return the pitch length of the track shoe.
     /// This quantity must agree with the pitch of the sprocket gear.
     virtual double GetPitch() const = 0;
-
-    /// Get the mass of the track shoe assembly.
-    virtual double GetMass() const = 0;
 
     /// Return the location for lateral contact with the sprocket, expressed in the shoe reference frame.
     /// This point, which must be in the median plane of the track shoe, is used to enforce lateral contact with the
@@ -86,7 +80,6 @@ class CH_VEHICLE_API ChTrackShoe : public ChPart {
                             const ChQuaternion<>& rotation          ///< [in] orientation relative to the chassis frame
                             ) = 0;
 
-  protected:
     /// Set the index of this track shoe within its containing track assembly.
     void SetIndex(size_t index) { m_index = index; }
 
@@ -94,8 +87,13 @@ class CH_VEHICLE_API ChTrackShoe : public ChPart {
     /// This function must be called only after all track shoes have been initialized.
     virtual void Connect(std::shared_ptr<ChTrackShoe> next,  ///< [in] handle to the neighbor track shoe
                          ChTrackAssembly* assembly,          ///< [in] containing track assembly
+                         ChChassis* chassis,                 ///< [in] associated chassis
                          bool ccw                            ///< [in] track assembled in counter clockwise direction
                          ) = 0;
+
+  protected:
+    /// Construct a track shoe subsystem with given name.
+    ChTrackShoe(const std::string& name);
 
     size_t m_index;                  ///< index of this track shoe within its containing track assembly
     std::shared_ptr<ChBody> m_shoe;  ///< handle to the shoe body

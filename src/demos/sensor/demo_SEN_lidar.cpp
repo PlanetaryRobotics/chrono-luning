@@ -23,14 +23,14 @@
 
 #include "chrono/assets/ChTriangleMeshShape.h"
 #include "chrono/assets/ChVisualMaterial.h"
-#include "chrono/assets/ChVisualization.h"
+#include "chrono/assets/ChVisualShape.h"
 #include "chrono/geometry/ChTriangleMeshConnected.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono_thirdparty/filesystem/path.h"
 
-#include "chrono_sensor/ChLidarSensor.h"
+#include "chrono_sensor/sensors/ChLidarSensor.h"
 #include "chrono_sensor/ChSensorManager.h"
 #include "chrono_sensor/filters/ChFilterAccess.h"
 #include "chrono_sensor/filters/ChFilterPCfromDepth.h"
@@ -39,7 +39,7 @@
 #include "chrono_sensor/filters/ChFilterLidarReduce.h"
 #include "chrono_sensor/filters/ChFilterLidarNoise.h"
 #include "chrono_sensor/filters/ChFilterSavePtCloud.h"
-#include "chrono_sensor/Sensor.h"
+#include "chrono_sensor/sensors/Sensor.h"
 
 using namespace chrono;
 using namespace chrono::geometry;
@@ -56,11 +56,6 @@ enum NoiseModel {
 };
 NoiseModel noise_model = CONST_NORMAL_XYZI;
 
-// Lidar method for generating data
-// Just RAYCAST for now
-// TODO: implement PATH_TRACE
-LidarModelType lidar_model = LidarModelType::RAYCAST;
-
 // Lidar return mode
 // Either STRONGEST_RETURN, MEAN_RETURN, FIRST_RETURN, LAST_RETURN
 LidarReturnMode return_mode = LidarReturnMode::STRONGEST_RETURN;
@@ -73,9 +68,9 @@ unsigned int horizontal_samples = 4500;
 unsigned int vertical_samples = 32;
 
 // Horizontal and vertical field of view (radians)
-float horizontal_fov = (float) (2 * CH_C_PI);   // 360 degree scan
-float max_vert_angle = (float) CH_C_PI / 12;  // 15 degrees up
-float min_vert_angle = (float) -CH_C_PI / 6;  // 30 degrees down
+float horizontal_fov = (float)(2 * CH_C_PI);  // 360 degree scan
+float max_vert_angle = (float)CH_C_PI / 12;   // 15 degrees up
+float min_vert_angle = (float)-CH_C_PI / 6;   // 30 degrees down
 
 // Lag time
 float lag = 0.f;
@@ -108,25 +103,25 @@ int main(int argc, char* argv[]) {
     // -----------------
     // Create the system
     // -----------------
-    ChSystemNSC mphysicalSystem;
+    ChSystemNSC sys;
 
     // ----------------------------------
     // add a mesh to be sensed by a lidar
     // ----------------------------------
-    auto mmesh = chrono_types::make_shared<ChTriangleMeshConnected>();
-    mmesh->LoadWavefrontMesh(GetChronoDataFile("vehicle/hmmwv/hmmwv_chassis.obj"), false, true);
+    auto mmesh = ChTriangleMeshConnected::CreateFromWavefrontFile(GetChronoDataFile("vehicle/hmmwv/hmmwv_chassis.obj"),
+                                                                  false, true);
     mmesh->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(1));  // scale to a different size
 
     auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
     trimesh_shape->SetMesh(mmesh);
     trimesh_shape->SetName("HMMWV Chassis Mesh");
-    trimesh_shape->SetStatic(true);
+    trimesh_shape->SetMutable(false);
 
     auto mesh_body = chrono_types::make_shared<ChBody>();
     mesh_body->SetPos({0, 0, 0});
-    mesh_body->AddAsset(trimesh_shape);
+    mesh_body->AddVisualShape(trimesh_shape,ChFrame<>());
     mesh_body->SetBodyFixed(true);
-    // mphysicalSystem.Add(mesh_body);
+    // sys.Add(mesh_body);
 
     // --------------------------------------------
     // add a few box bodies to be sensed by a lidar
@@ -134,38 +129,38 @@ int main(int argc, char* argv[]) {
     auto box_body = chrono_types::make_shared<ChBodyEasyBox>(100, 100, 1, 1000, true, false);
     box_body->SetPos({0, 0, -1});
     box_body->SetBodyFixed(true);
-    mphysicalSystem.Add(box_body);
+    sys.Add(box_body);
 
     auto box_body_1 = chrono_types::make_shared<ChBodyEasyBox>(100, 1, 100, 1000, true, false);
     box_body_1->SetPos({0, -10, -3});
     box_body_1->SetBodyFixed(true);
-    mphysicalSystem.Add(box_body_1);
+    sys.Add(box_body_1);
 
     auto box_body_2 = chrono_types::make_shared<ChBodyEasyBox>(100, 1, 100, 1000, true, false);
     box_body_2->SetPos({0, 10, -3});
     box_body_2->SetBodyFixed(true);
-    mphysicalSystem.Add(box_body_2);
+    sys.Add(box_body_2);
 
     // -----------------------
     // Create a sensor manager
     // -----------------------
-    auto manager = chrono_types::make_shared<ChSensorManager>(&mphysicalSystem);
+    auto manager = chrono_types::make_shared<ChSensorManager>(&sys);
     manager->SetVerbose(false);
-    manager->SetKeyframeSizeFromTimeStep((float)step_size, .2f);
 
     // -----------------------------------------------
     // Create a lidar and add it to the sensor manager
     // -----------------------------------------------
     auto offset_pose = chrono::ChFrame<double>({-4, 0, 1}, Q_from_AngAxis(0, {0, 1, 0}));
 
-    auto lidar = chrono_types::make_shared<ChLidarSensor>(box_body,        // body lidar is attached to
-                                                          update_rate,     // scanning rate in Hz
-                                                          offset_pose,     // offset pose
-                                                          900,             // number of horizontal samples
-                                                          30,              // number of vertical channels
-                                                          horizontal_fov,  // horizontal field of view
-                                                          max_vert_angle, min_vert_angle, 100.0f  // vertical field of view
-    );
+    auto lidar =
+        chrono_types::make_shared<ChLidarSensor>(box_body,                               // body lidar is attached to
+                                                 update_rate,                            // scanning rate in Hz
+                                                 offset_pose,                            // offset pose
+                                                 900,                                    // number of horizontal samples
+                                                 30,                                     // number of vertical channels
+                                                 horizontal_fov,                         // horizontal field of view
+                                                 max_vert_angle, min_vert_angle, 100.0f  // vertical field of view
+        );
     lidar->SetName("Lidar Sensor 1");
     lidar->SetLag(lag);
     lidar->SetCollectionWindow(collection_time);
@@ -214,23 +209,24 @@ int main(int argc, char* argv[]) {
     // Create a multi-sample lidar, where each beam
     // is traced by multiple rays
     // -----------------------------------------------------------------------
-    unsigned int sample_radius = 2;                                           // radius of samples to use, 1->1
-                                                                              // sample,2->9 samples, 3->25 samples...
-    float divergence_angle = 0.003f;                                          // 3mm radius (as cited by velodyne)
-    auto lidar2 = chrono_types::make_shared<ChLidarSensor>(box_body,          // body lidar is attached to
-                                                           update_rate,       // scanning rate in Hz
-                                                           offset_pose,       // offset pose
-                                                           1080,              // number of horizontal samples
-                                                           32,                // number of vertical channels
-                                                           horizontal_fov,    // horizontal field of view
-                                                           max_vert_angle,    //
-                                                           min_vert_angle,    // vertical field of view
-                                                           100.0f,            // max distance
-                                                           sample_radius,     // sample radius
-                                                           divergence_angle,  // divergence angle
-                                                           return_mode,       // return mode for the lidar
-                                                           lidar_model        // method/model to use for
-                                                                              // generating data
+    unsigned int sample_radius = 2;        // radius of samples to use, 1->1
+                                           // sample,2->9 samples, 3->25 samples...
+    float vert_divergence_angle = 0.003f;  // 3mm radius (as cited by velodyne)
+    float hori_divergence_angle = 0.003f;
+    auto lidar2 = chrono_types::make_shared<ChLidarSensor>(box_body,        // body lidar is attached to
+                                                           update_rate,     // scanning rate in Hz
+                                                           offset_pose,     // offset pose
+                                                           1080,            // number of horizontal samples
+                                                           32,              // number of vertical channels
+                                                           horizontal_fov,  // horizontal field of view
+                                                           max_vert_angle,
+                                                           min_vert_angle,              // vertical field of view
+                                                           100,                         // max distance
+                                                           LidarBeamShape::ELLIPTICAL,  // beam shape
+                                                           sample_radius,               // sample radius
+                                                           vert_divergence_angle,       // vertical divergence angle
+                                                           hori_divergence_angle,       // horizontal divergence angle
+                                                           return_mode                  // return mode for the lidar
     );
     lidar2->SetName("Lidar Sensor 2");
     lidar2->SetLag(lag);
@@ -289,8 +285,6 @@ int main(int argc, char* argv[]) {
     // ---------------
     // Simulate system
     // ---------------
-    double render_time = 0;
-    float orbit_radius = 10.f;
     float orbit_rate = 2.5;
     float ch_time = 0.0;
 
@@ -370,10 +364,10 @@ int main(int argc, char* argv[]) {
         manager->Update();
 
         // Perform step of dynamics
-        mphysicalSystem.DoStepDynamics(step_size);
+        sys.DoStepDynamics(step_size);
 
         // Get the current time of the simulation
-        ch_time = (float)mphysicalSystem.GetChTime();
+        ch_time = (float)sys.GetChTime();
     }
 
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();

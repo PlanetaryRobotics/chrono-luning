@@ -36,13 +36,13 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 #include "chrono/utils/ChUtilsValidation.h"
 
-#include "chrono/fea/ChElementShellANCF.h"
+#include "chrono/fea/ChElementShellANCF_3423.h"
 #include "chrono/fea/ChLinkDirFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 #include "chrono/fea/ChMesh.h"
 
 #ifdef CHRONO_PARDISO_MKL
-#include "chrono_pardisomkl/ChSolverPardisoMKL.h"
+    #include "chrono_pardisomkl/ChSolverPardisoMKL.h"
 #endif
 
 using namespace chrono;
@@ -76,7 +76,7 @@ int main(int argc, char* argv[]) {
     // Create the system
     // -----------------
 
-    ChSystemNSC my_system;
+    ChSystemNSC sys;
 
     // Geometry of the plate
     double plate_lenght_x = 1;
@@ -112,7 +112,8 @@ int main(int argc, char* argv[]) {
         double dir_z = 1;
 
         // Create the node
-        auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(loc_x, loc_y, loc_z), ChVector<>(dir_x, dir_y, dir_z));
+        auto node =
+            chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(loc_x, loc_y, loc_z), ChVector<>(dir_x, dir_y, dir_z));
 
         node->SetMass(0);
 
@@ -142,7 +143,7 @@ int main(int argc, char* argv[]) {
         int node3 = (i / (numDiv_x)) * (N_x) + i % numDiv_x + N_x;
 
         // Create the element and set its nodes.
-        auto element = chrono_types::make_shared<ChElementShellANCF>();
+        auto element = chrono_types::make_shared<ChElementShellANCF_3423>();
         element->SetNodes(std::dynamic_pointer_cast<ChNodeFEAxyzD>(my_mesh->GetNode(node0)),
                           std::dynamic_pointer_cast<ChNodeFEAxyzD>(my_mesh->GetNode(node1)),
                           std::dynamic_pointer_cast<ChNodeFEAxyzD>(my_mesh->GetNode(node2)),
@@ -155,8 +156,7 @@ int main(int argc, char* argv[]) {
         element->AddLayer(dz, 0 * CH_C_DEG_TO_RAD, mat);
 
         // Set other element properties
-        element->SetAlphaDamp(0.08);   // Structural damping for this element
-        element->SetGravityOn(false);  // no gravitational forces
+        element->SetAlphaDamp(0.08);  // Structural damping for this element
 
         // Add element to mesh
         my_mesh->AddElement(element);
@@ -166,7 +166,7 @@ int main(int argc, char* argv[]) {
     my_mesh->SetAutomaticGravity(false);
 
     // Add the mesh to the system
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
 #ifndef CHRONO_PARDISO_MKL
     use_mkl = false;
@@ -178,11 +178,11 @@ int main(int argc, char* argv[]) {
         auto mkl_solver = chrono_types::make_shared<ChSolverPardisoMKL>();
         mkl_solver->LockSparsityPattern(true);
         mkl_solver->SetVerbose(true);
-        my_system.SetSolver(mkl_solver);
+        sys.SetSolver(mkl_solver);
 #endif
     } else {
         auto solver = chrono_types::make_shared<ChSolverMINRES>();
-        my_system.SetSolver(solver);
+        sys.SetSolver(solver);
         solver->SetMaxIterations(100);
         solver->SetTolerance(1e-10);
         solver->EnableDiagonalPreconditioner(true);
@@ -190,8 +190,8 @@ int main(int argc, char* argv[]) {
     }
 
     // Setup integrator
-    my_system.SetTimestepperType(ChTimestepper::Type::HHT);
-    auto mystepper = std::static_pointer_cast<ChTimestepperHHT>(my_system.GetTimestepper());
+    sys.SetTimestepperType(ChTimestepper::Type::HHT);
+    auto mystepper = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
     mystepper->SetAlpha(0.0);
     mystepper->SetMaxiters(100);
     mystepper->SetAbsTolerances(1e-06);
@@ -217,8 +217,8 @@ int main(int argc, char* argv[]) {
     double max_err = 0;
     for (unsigned int it = 0; it < num_steps; it++) {
         nodetip->SetForce(mforce);
-        my_system.DoStepDynamics(time_step);
-        std::cout << "Time t = " << my_system.GetChTime() << "s \n";
+        sys.DoStepDynamics(time_step);
+        std::cout << "Time t = " << sys.GetChTime() << "s \n";
         // Checking tip Z displacement
         double err = std::abs(nodetip->pos.z() - FileInputMat(it, 1));
         max_err = std::max(max_err, err);
@@ -233,7 +233,7 @@ int main(int argc, char* argv[]) {
     std::cout << "Unit test check succeeded" << std::endl;
 
     // Code snippet to generate golden file
-    /*m_data[0][it] = my_system.GetChTime();
+    /*m_data[0][it] = sys.GetChTime();
     m_data[1][it] = nodetip->pos.z;
     csv << m_data[0][it] << m_data[1][it]  << std::endl;
     csv.write_to_file("UT_ANCFShellIso.txt");*/

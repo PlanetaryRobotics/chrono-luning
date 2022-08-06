@@ -28,7 +28,6 @@
 #include <cstdio>
 
 #include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChColorAsset.h"
 #include "chrono/assets/ChCylinderShape.h"
 
 #include "chrono_vehicle/ChSubsysDefs.h"
@@ -56,32 +55,15 @@ namespace vehicle {
 // -----------------------------------------------------------------------------
 class ChTrackTestRigChassis : public ChRigidChassis {
   public:
-    ChTrackTestRigChassis();
-    virtual double GetMass() const override { return m_mass; }
-    virtual const ChMatrix33<>& GetInertia() const override { return m_inertia; }
-    virtual const ChVector<>& GetLocalPosCOM() const override { return m_COM_loc; }
-    virtual ChCoordsys<> GetLocalDriverCoordsys() const override { return m_driverCsys; }
-
-  private:
-    ChMatrix33<> m_inertia;
-
-    static const double m_mass;
-    static const ChVector<> m_inertiaXX;
-    static const ChVector<> m_COM_loc;
-    static const ChCoordsys<> m_driverCsys;
+    ChTrackTestRigChassis() : ChRigidChassis("Ground") {}
+    virtual double GetBodyMass() const override { return 1; }
+    virtual ChFrame<> GetBodyCOMFrame() const override { return ChFrame<>(); }
+    virtual ChMatrix33<> GetBodyInertia() const override { return ChMatrix33<>(1); }
+    virtual ChCoordsys<> GetLocalDriverCoordsys() const override { return ChCoordsys<>(); }
 };
 
-const double ChTrackTestRigChassis::m_mass = 1;
-const ChVector<> ChTrackTestRigChassis::m_inertiaXX(1, 1, 1);
-const ChVector<> ChTrackTestRigChassis::m_COM_loc(0, 0, 0);
-const ChCoordsys<> ChTrackTestRigChassis::m_driverCsys(ChVector<>(0, 0, 0), ChQuaternion<>(1, 0, 0, 0));
-
-ChTrackTestRigChassis::ChTrackTestRigChassis() : ChRigidChassis("Ground") {
-    m_inertia = ChMatrix33<>(m_inertiaXX);
-}
-
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+
 ChTrackTestRig::ChTrackTestRig(const std::string& filename,
                                bool create_track,
                                ChContactMethod contact_method,
@@ -90,11 +72,13 @@ ChTrackTestRig::ChTrackTestRig(const std::string& filename,
       m_ride_height(-1),
       m_max_torque(0),
       m_displ_limit(0),
+      m_displ_delay(0),
       m_driver_logfile(""),
       m_collide_flags(0xFFFF),
       m_vis_sprocket(VisualizationType::NONE),
       m_vis_idler(VisualizationType::NONE),
-      m_vis_roadwheel_assembly(VisualizationType::NONE),
+      m_vis_suspension(VisualizationType::NONE),
+      m_vis_idlerwheel(VisualizationType::NONE),
       m_vis_roadwheel(VisualizationType::NONE),
       m_vis_shoe(VisualizationType::NONE),
       m_plot_output(false),
@@ -123,6 +107,7 @@ ChTrackTestRig::ChTrackTestRig(const std::string& filename,
     GetLog() << "Loaded JSON: " << filename.c_str() << "\n";
 
     Create(create_track, detracking_control);
+    m_contact_manager = chrono_types::make_shared<ChTrackContactManager>();
 }
 
 ChTrackTestRig::ChTrackTestRig(std::shared_ptr<ChTrackAssembly> assembly,
@@ -134,11 +119,13 @@ ChTrackTestRig::ChTrackTestRig(std::shared_ptr<ChTrackAssembly> assembly,
       m_ride_height(-1),
       m_max_torque(0),
       m_displ_limit(0),
+      m_displ_delay(0),
       m_driver_logfile(""),
       m_collide_flags(0xFFFF),
       m_vis_sprocket(VisualizationType::NONE),
       m_vis_idler(VisualizationType::NONE),
-      m_vis_roadwheel_assembly(VisualizationType::NONE),
+      m_vis_suspension(VisualizationType::NONE),
+      m_vis_idlerwheel(VisualizationType::NONE),
       m_vis_roadwheel(VisualizationType::NONE),
       m_vis_shoe(VisualizationType::NONE),
       m_plot_output(false),
@@ -146,6 +133,7 @@ ChTrackTestRig::ChTrackTestRig(std::shared_ptr<ChTrackAssembly> assembly,
       m_next_plot_output_time(0),
       m_csv(nullptr) {
     Create(create_track, detracking_control);
+    m_contact_manager = chrono_types::make_shared<ChTrackContactManager>();
 }
 
 ChTrackTestRig::~ChTrackTestRig() {
@@ -171,8 +159,8 @@ void ChTrackTestRig::Create(bool create_track, bool detracking_control) {
     m_track->Initialize(m_chassis, ChVector<>(0, 0, 0), create_track);
 
     // Create and initialize the shaker post body
-    auto num_wheels = m_track->GetNumRoadWheelAssemblies();
-    double rw_radius = m_track->GetRoadWheel(0)->GetWheelRadius();
+    auto num_wheels = m_track->GetNumTrackSuspensions();
+    double rw_radius = m_track->GetRoadWheel(0)->GetRadius();
 
     m_post_hheight = 0.05;
     m_post_radius = 0.9 * rw_radius;
@@ -183,14 +171,14 @@ void ChTrackTestRig::Create(bool create_track, bool detracking_control) {
     // Find center height of the lowest road-wheel
     double zmin = 100;
     for (size_t i = 0; i < num_wheels; ++i) {
-        if (m_track->GetRoadWheel(i)->GetWheelBody()->GetPos().z() < zmin)
-            zmin = m_track->GetRoadWheel(i)->GetWheelBody()->GetPos().z();
+        if (m_track->GetRoadWheel(i)->GetBody()->GetPos().z() < zmin)
+            zmin = m_track->GetRoadWheel(i)->GetBody()->GetPos().z();
     }
     zmin -= create_track ? (rw_radius + m_track->GetTrackShoe(0)->GetHeight() + 0.2) : rw_radius;
 
     // Create posts and associated actuators under each road wheel
     for (size_t i = 0; i < num_wheels; ++i) {
-        auto post_pos = m_track->GetRoadWheel(i)->GetWheelBody()->GetPos();
+        auto post_pos = m_track->GetRoadWheel(i)->GetBody()->GetPos();
         post_pos.z() = zmin;
 
         auto post = std::shared_ptr<ChBody>(m_system->NewBody());
@@ -232,17 +220,18 @@ void ChTrackTestRig::Initialize() {
     // Set visualization modes
     m_track->SetSprocketVisualizationType(m_vis_sprocket);
     m_track->SetIdlerVisualizationType(m_vis_idler);
-    m_track->SetRoadWheelAssemblyVisualizationType(m_vis_roadwheel_assembly);
+    m_track->SetSuspensionVisualizationType(m_vis_suspension);
+    m_track->SetIdlerWheelVisualizationType(m_vis_idlerwheel);
     m_track->SetRoadWheelVisualizationType(m_vis_roadwheel);
     m_track->SetTrackShoeVisualizationType(m_vis_shoe);
 
     // Set collisions
-    m_track->GetIdler()->SetCollide((m_collide_flags & static_cast<int>(TrackedCollisionFlag::IDLER_LEFT)) != 0);
+    m_track->GetIdlerWheel()->SetCollide((m_collide_flags & static_cast<int>(TrackedCollisionFlag::IDLER_LEFT)) != 0);
 
     m_track->GetSprocket()->SetCollide((m_collide_flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_LEFT)) != 0);
 
     bool collide_wheels = (m_collide_flags & static_cast<int>(TrackedCollisionFlag::WHEELS_LEFT)) != 0;
-    for (size_t i = 0; i < m_track->GetNumRoadWheelAssemblies(); ++i)
+    for (size_t i = 0; i < m_track->GetNumTrackSuspensions(); ++i)
         m_track->GetRoadWheel(i)->SetCollide(collide_wheels);
 
     bool collide_shoes = (m_collide_flags & static_cast<int>(TrackedCollisionFlag::SHOES_LEFT)) != 0;
@@ -250,25 +239,36 @@ void ChTrackTestRig::Initialize() {
         m_track->GetTrackShoe(i)->SetCollide(collide_shoes);
 
     // Post locations (in X direction)
+    auto idler_x = m_track->GetIdlerWheel()->GetBody()->GetPos().x();
+    bool front_sprocket = m_track->GetSprocket()->GetGearBody()->GetPos().x() > idler_x;
     std::vector<double> locations;
     for (int i = 0; i < m_post.size(); i++) {
-        locations.push_back(m_post[i]->GetPos().x());
+        auto loc = front_sprocket ? m_post[i]->GetPos().x() : m_post[i]->GetPos().x() - idler_x;
+        locations.push_back(loc);
     }
 
     // Initialize the driver system
     m_driver->SetTimeDelay(m_displ_delay);
     m_driver->Initialize(m_post.size(), locations);
     m_driver->LogInit(m_driver_logfile);
+
+    // Invoke base class method
+    ChVehicle::Initialize(ChCoordsys<>(), 0.0);
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+
 void ChTrackTestRig::SetDriver(std::shared_ptr<ChDriverTTR> driver) {
     m_driver = std::move(driver);
 }
 
+void ChTrackTestRig::SetPostCollide(bool flag) {
+    for (auto& p : m_post)
+        p->SetCollide(flag);
+}
+
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+
 double ChTrackTestRig::GetActuatorDisp(int index) {
     double time = GetSystem()->GetChTime();
     return m_post_linact[index]->GetMotionFunction()->Get_y(time);
@@ -289,7 +289,7 @@ double ChTrackTestRig::GetRideHeight() const {
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+
 void ChTrackTestRig::Advance(double step) {
     double time = GetChTime();
 
@@ -332,6 +332,9 @@ void ChTrackTestRig::Advance(double step) {
     // Advance state of entire system
     ChVehicle::Advance(step);
 
+    // Process contacts.
+    m_contact_manager->Process(this);
+
     // Generate output for plotting if requested
     time = GetChTime();
     if (!m_driver->Started()) {
@@ -343,7 +346,7 @@ void ChTrackTestRig::Advance(double step) {
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+
 double ChTrackTestRig::GetMass() const {
     return m_track->GetMass();
 }
@@ -367,34 +370,36 @@ void ChTrackTestRig::LogConstraintViolations() {
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
+
 void ChTrackTestRig::AddPostVisualization(std::shared_ptr<ChBody> post,
                                           std::shared_ptr<ChBody> chassis,
                                           const ChColor& color) {
+    auto mat = chrono_types::make_shared<ChVisualMaterial>();
+    mat->SetDiffuseColor({color.R, color.G, color.B});
+
     // Platform (on post body)
     auto base_cyl = chrono_types::make_shared<ChCylinderShape>();
     base_cyl->GetCylinderGeometry().rad = m_post_radius;
     base_cyl->GetCylinderGeometry().p1 = ChVector<>(0, 0, 0);
     base_cyl->GetCylinderGeometry().p2 = ChVector<>(0, 0, -2 * m_post_hheight);
-    post->AddAsset(base_cyl);
-
-    auto col = chrono_types::make_shared<ChColorAsset>();
-    col->SetColor(color);
-    post->AddAsset(col);
+    base_cyl->AddMaterial(mat);
+    post->AddVisualShape(base_cyl);
 
     // Piston (on post body)
     auto piston = chrono_types::make_shared<ChCylinderShape>();
     piston->GetCylinderGeometry().rad = m_post_radius / 6.0;
     piston->GetCylinderGeometry().p1 = ChVector<>(0, 0, -2 * m_post_hheight);
     piston->GetCylinderGeometry().p2 = ChVector<>(0, 0, -30 * m_post_hheight);
-    post->AddAsset(piston);
+    piston->AddMaterial(mat);
+    post->AddVisualShape(piston);
 
     // Post sleeve (on chassis/ground body)
     auto cyl = chrono_types::make_shared<ChCylinderShape>();
     cyl->GetCylinderGeometry().rad = m_post_radius / 4.0;
     cyl->GetCylinderGeometry().p1 = post->GetPos() - ChVector<>(0, 0, 16 * m_post_hheight);
     cyl->GetCylinderGeometry().p2 = post->GetPos() - ChVector<>(0, 0, 32 * m_post_hheight);
-    chassis->AddAsset(cyl);
+    cyl->AddMaterial(mat);
+    chassis->AddVisualShape(cyl);
 }
 
 // -----------------------------------------------------------------------------
@@ -429,8 +434,8 @@ void ChTrackTestRig::CollectPlotData(double time) {
     *m_csv << m_track->GetSprocket()->GetGearBody()->GetPos();
     *m_csv << m_track->GetIdler()->GetWheelBody()->GetPos();
 
-    for (auto suspension : m_track->GetRoadWheelAssemblies()) {
-        *m_csv << suspension->GetRoadWheel()->GetWheelBody()->GetPos();
+    for (auto suspension : m_track->GetTrackSuspensions()) {
+        *m_csv << suspension->GetRoadWheel()->GetBody()->GetPos();
         //// TODO: spring and shock forces
     }
 
@@ -457,7 +462,7 @@ void ChTrackTestRig::PlotOutput(const std::string& out_dir, const std::string& o
     mplot.SetCommand("set terminal wxt size 800, 600");
     mplot.Plot(out_file.c_str(), 1, 4, "sprocket", " with lines lw 2");
     mplot.Plot(out_file.c_str(), 1, 7, "idler", " with lines lw 2");
-    for (int i = 0; i < m_track->GetNumRoadWheelAssemblies(); i++) {
+    for (int i = 0; i < m_track->GetNumTrackSuspensions(); i++) {
         std::string label = "wheel #" + std::to_string(i);
         mplot.Plot(out_file.c_str(), 1, 7 + 3 * i + 3, label.c_str(), " with lines lw 2");
     }

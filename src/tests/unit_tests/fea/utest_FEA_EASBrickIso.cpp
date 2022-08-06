@@ -30,11 +30,11 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 #include "chrono/fea/ChElementBar.h"
-#include "chrono/fea/ChElementBrick.h"
+#include "chrono/fea/ChElementHexaANCF_3813.h"
 #include "chrono/fea/ChElementSpring.h"
 #include "chrono/fea/ChLinkDirFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
-#include "chrono/fea/ChVisualizationFEAmesh.h"
+#include "chrono/assets/ChVisualShapeFEA.h"
 
 #include "chrono_thirdparty/filesystem/path.h"
 
@@ -72,7 +72,7 @@ int main(int argc, char* argv[]) {
     // --------------------------
     // Create the physical system
     // --------------------------
-    ChSystemNSC my_system;
+    ChSystemNSC sys;
 
     GetLog() << "-----------------------------------------------------------\n";
     GetLog() << "     Brick Element Unit Test \n";
@@ -193,8 +193,8 @@ int main(int argc, char* argv[]) {
 
     int elemcount = 0;
     while (elemcount < TotalNumElements) {
-        auto element = chrono_types::make_shared<ChElementBrick>();
-        ChVectorN<double, 3> InertFlexVec;  // read element length, used in ChElementBrick
+        auto element = chrono_types::make_shared<ChElementHexaANCF_3813>();
+        ChVectorN<double, 3> InertFlexVec;  // read element length, used in ChElementHexaANCF_3813
         InertFlexVec.setZero();
         InertFlexVec(0) = ElemLengthXY(elemcount, 0);
         InertFlexVec(1) = ElemLengthXY(elemcount, 1);
@@ -211,7 +211,6 @@ int main(int argc, char* argv[]) {
 
         element->SetMaterial(mmaterial);
         element->SetElemNum(elemcount);   // for EAS
-        element->SetGravityOn(false);     // turn gravity on/off from within the element
         element->SetMooneyRivlin(false);  // turn on/off Mooney Rivlin (Linear Isotropic by default)
         ChVectorN<double, 9> stock_alpha_EAS;
         stock_alpha_EAS.setZero();
@@ -225,18 +224,18 @@ int main(int argc, char* argv[]) {
     // Deactivate automatic gravity in mesh
     my_mesh->SetAutomaticGravity(false);
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Perform a dynamic time integration:
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(200);
     solver->SetTolerance(1e-10);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(false);
 
-    my_system.SetTimestepperType(ChTimestepper::Type::HHT);
-    auto mystepper = std::static_pointer_cast<ChTimestepperHHT>(my_system.GetTimestepper());
+    sys.SetTimestepperType(ChTimestepper::Type::HHT);
+    auto mystepper = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
     mystepper->SetAlpha(-0.2);
     mystepper->SetMaxiters(10000);
     mystepper->SetAbsTolerances(1e-09);
@@ -259,16 +258,16 @@ int main(int argc, char* argv[]) {
         out.stream().precision(7);
 
         // Simulate to final time, while saving position of tip node.
-        while (my_system.GetChTime() < sim_time) {
-            t_sim = my_system.GetChTime();
+        while (sys.GetChTime() < sim_time) {
+            t_sim = sys.GetChTime();
             if (t_sim < T_F)
                 nodetip->SetForce(ChVector<>(0, 0, -50 / 2 * (1 - cos((t_sim / T_F) * 3.1415926535))));
             else {
                 nodetip->SetForce(ChVector<>(0, 0, -50));
             }
-            my_system.DoStepDynamics(step_size);
-            out << my_system.GetChTime() << nodetip->GetPos().z() << nodetip->GetForce().z() << std::endl;
-            GetLog() << "time = " << my_system.GetChTime() << "\t" << nodetip->GetPos().z() << "\t"
+            sys.DoStepDynamics(step_size);
+            out << sys.GetChTime() << nodetip->GetPos().z() << nodetip->GetForce().z() << std::endl;
+            GetLog() << "time = " << sys.GetChTime() << "\t" << nodetip->GetPos().z() << "\t"
                      << nodetip->GetForce().z() << "\n";
         }
         // Write results to output file.
@@ -280,16 +279,16 @@ int main(int argc, char* argv[]) {
         int stepNo = 0;
         double AbsVal = 0.0;
         // Simulate to final time, while accumulating number of iterations.
-        while (my_system.GetChTime() < sim_time_UT) {
-            t_sim = my_system.GetChTime();
+        while (sys.GetChTime() < sim_time_UT) {
+            t_sim = sys.GetChTime();
             if (t_sim < T_F)
                 nodetip->SetForce(ChVector<>(0, 0, -50 / 2 * (1 - cos((t_sim / T_F) * 3.1415926535))));
             else {
                 nodetip->SetForce(ChVector<>(0, 0, -50));
             }
-            my_system.DoStepDynamics(step_size);
+            sys.DoStepDynamics(step_size);
             AbsVal = std::abs(nodetip->GetPos().z() - FileInputMat(stepNo, 1));
-            GetLog() << "time = " << my_system.GetChTime() << "\t" << nodetip->GetPos().z() << "\n";
+            GetLog() << "time = " << sys.GetChTime() << "\t" << nodetip->GetPos().z() << "\n";
             if (AbsVal > precision) {
                 std::cout << "Unit test check failed \n";
                 return 1;

@@ -40,11 +40,11 @@ const double Marder_Suspension::m_shock_c = 17771.53175;
 // -----------------------------------------------------------------------------
 // Marder spring functor class - implements a (non)linear rotational spring
 // -----------------------------------------------------------------------------
-class Marder_SpringTorque : public ChLinkRotSpringCB::TorqueFunctor {
+class Marder_SpringTorque : public ChLinkRSDA::TorqueFunctor {
   public:
     Marder_SpringTorque(double k, double c, double t) : m_k(k), m_c(c), m_t(t) {}
 
-    virtual double operator()(double time, double angle, double vel, ChLinkRotSpringCB* link) override {
+    virtual double evaluate(double time, double angle, double vel, const ChLinkRSDA& link) override {
         return m_t - m_k * angle - m_c * vel;
     }
 
@@ -61,7 +61,11 @@ class Marder_ShockForce : public ChLinkTSDA::ForceFunctor {
   public:
     Marder_ShockForce(double c) : m_c(c) {}
 
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return -m_c * vel;
     }
 
@@ -72,7 +76,7 @@ class Marder_ShockForce : public ChLinkTSDA::ForceFunctor {
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 Marder_Suspension::Marder_Suspension(const std::string& name, VehicleSide side, int index, bool has_shock)
-    : ChLinearDamperRWAssembly(name, has_shock), m_side(side) {
+    : ChTranslationalDamperSuspension(name, has_shock), m_side(side) {
     // Instantiate the force callback for the shock (damper).
     m_shock_forceCB = chrono_types::make_shared<Marder_ShockForce>(m_shock_c);
 

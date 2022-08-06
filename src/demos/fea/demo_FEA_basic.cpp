@@ -20,10 +20,10 @@
 #include "chrono/solver/ChIterativeSolverLS.h"
 
 #include "chrono/fea/ChElementSpring.h"
-#include "chrono/fea/ChElementTetra_4.h"
-#include "chrono/fea/ChElementTetra_10.h"
-#include "chrono/fea/ChElementHexa_8.h"
-#include "chrono/fea/ChElementHexa_20.h"
+#include "chrono/fea/ChElementTetraCorot_4.h"
+#include "chrono/fea/ChElementTetraCorot_10.h"
+#include "chrono/fea/ChElementHexaCorot_8.h"
+#include "chrono/fea/ChElementHexaCorot_20.h"
 #include "chrono/fea/ChMesh.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 
@@ -39,7 +39,7 @@ void test_1() {
     GetLog() << "TEST: spring element FEM  \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -73,12 +73,12 @@ void test_1() {
     my_mesh->AddElement(melementA);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
     truss->SetBodyFixed(true);
-    my_system.Add(truss);
+    sys.Add(truss);
 
     // Create a constraint between a node and the truss
     auto constraintA = chrono_types::make_shared<ChLinkPointFrame>();
@@ -86,20 +86,20 @@ void test_1() {
     constraintA->Initialize(mnodeA,  // node to connect
                             truss);  // body to be connected to
 
-    my_system.Add(constraintA);
+    sys.Add(constraintA);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a linear static analysis
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(40);
     solver->SetTolerance(1e-10);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(true);
 
-    my_system.DoStaticLinear();
+    sys.DoStaticLinear();
 
     // Output result
     GetLog() << "poss after linear static analysis: \n";
@@ -119,7 +119,7 @@ void test_2() {
     GetLog() << "TEST: LINEAR tetrahedral element FEM  \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -151,7 +151,7 @@ void test_2() {
 
     // Create the tetrahedron element, and assign
     // nodes and material
-    auto melement1 = chrono_types::make_shared<ChElementTetra_4>();
+    auto melement1 = chrono_types::make_shared<ChElementTetraCorot_4>();
     melement1->SetNodes(mnode1, mnode2, mnode3, mnode4);
     melement1->SetMaterial(mmaterial);
 
@@ -159,12 +159,12 @@ void test_2() {
     my_mesh->AddElement(melement1);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
     truss->SetBodyFixed(true);
-    my_system.Add(truss);
+    sys.Add(truss);
 
     // Create a constraint between a node and the truss
     auto constraint1 = chrono_types::make_shared<ChLinkPointFrame>();
@@ -180,22 +180,22 @@ void test_2() {
     constraint3->Initialize(mnode4,  // node
                             truss);   // body to be connected to
 
-    my_system.Add(constraint1);
-    my_system.Add(constraint2);
-    my_system.Add(constraint3);
+    sys.Add(constraint1);
+    sys.Add(constraint2);
+    sys.Add(constraint3);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a linear static analysis
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(100);
     solver->SetTolerance(1e-10);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(true);
 
-    my_system.DoStaticLinear();
+    sys.DoStaticLinear();
 
     // Output result
     GetLog() << "Resulting node positions:\n";
@@ -220,7 +220,7 @@ void test_3() {
     GetLog() << "TEST: QUADRATIC tetrahedral element FEM  \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -264,7 +264,7 @@ void test_3() {
 
     // Create the tetrahedron element, and assign
     // it nodes and material
-    auto melement1 = chrono_types::make_shared<ChElementTetra_10>();
+    auto melement1 = chrono_types::make_shared<ChElementTetraCorot_10>();
     melement1->SetNodes(mnode1, mnode2, mnode3, mnode4, mnode5, mnode6, mnode7, mnode8, mnode9, mnode10);
     melement1->SetMaterial(mmaterial);
 
@@ -272,11 +272,11 @@ void test_3() {
     my_mesh->AddElement(melement1);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
-    my_system.Add(truss);
+    sys.Add(truss);
     truss->SetBodyFixed(true);
 
     // Create a constraint between a node and the truss
@@ -293,22 +293,22 @@ void test_3() {
     constraint3->Initialize(mnode4,  // node 
                             truss);   // body to be connected to
 
-    my_system.Add(constraint1);
-    my_system.Add(constraint2);
-    my_system.Add(constraint3);
+    sys.Add(constraint1);
+    sys.Add(constraint2);
+    sys.Add(constraint3);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a linear static analysis
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(100);
     solver->SetTolerance(1e-12);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(true);
 
-    my_system.DoStaticLinear();
+    sys.DoStaticLinear();
 
     // Output result
     // GetLog()<<melement1.GetStiffnessMatrix()<<"\n";
@@ -330,7 +330,7 @@ void test_4() {
     GetLog() << "TEST: LINEAR hexahedral element FEM  \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -376,7 +376,7 @@ void test_4() {
 
     // Create the tetrahedron element, and assign
     // it nodes and material
-    auto melement1 = chrono_types::make_shared<ChElementHexa_8>();
+    auto melement1 = chrono_types::make_shared<ChElementHexaCorot_8>();
     melement1->SetNodes(mnode1, mnode2, mnode3, mnode4, mnode5, mnode6, mnode7, mnode8);
     melement1->SetMaterial(mmaterial);
 
@@ -384,11 +384,11 @@ void test_4() {
     my_mesh->AddElement(melement1);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
-    my_system.Add(truss);
+    sys.Add(truss);
     truss->SetBodyFixed(true);
 
     // Create a constraint between a node and the truss
@@ -409,23 +409,23 @@ void test_4() {
     constraint4->Initialize(mnode4,   // node
                             truss);   // body to be connected to
 
-    my_system.Add(constraint1);
-    my_system.Add(constraint2);
-    my_system.Add(constraint3);
-    my_system.Add(constraint4);
+    sys.Add(constraint1);
+    sys.Add(constraint2);
+    sys.Add(constraint3);
+    sys.Add(constraint4);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a linear static analysis
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(100);
     solver->SetTolerance(1e-12);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(true);
 
-    my_system.DoStaticLinear();
+    sys.DoStaticLinear();
 
     // Output result
     // GetLog()<<melement1.GetStiffnessMatrix()<<"\n";
@@ -450,7 +450,7 @@ void test_5() {
     GetLog() << "TEST: QUADRATIC hexahedral element FEM  \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -524,7 +524,7 @@ void test_5() {
 
     // Create the tetrahedron element, and assign
     // its nodes and material
-    auto melement1 = chrono_types::make_shared<ChElementHexa_20>();
+    auto melement1 = chrono_types::make_shared<ChElementHexaCorot_20>();
     melement1->SetNodes(mnode1, mnode2, mnode3, mnode4, mnode5, mnode6, mnode7, mnode8, mnode9, mnode10, mnode11,
                         mnode12, mnode13, mnode14, mnode15, mnode16, mnode17, mnode18, mnode19, mnode20);
     melement1->SetMaterial(mmaterial);
@@ -537,11 +537,11 @@ void test_5() {
     my_mesh->AddElement(melement1);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
-    my_system.Add(truss);
+    sys.Add(truss);
     truss->SetBodyFixed(true);
 
     // Create a constraint between a node and the truss
@@ -562,23 +562,23 @@ void test_5() {
     constraint4->Initialize(mnode4,   // node
                             truss);   // body to be connected to
 
-    my_system.Add(constraint1);
-    my_system.Add(constraint2);
-    my_system.Add(constraint3);
-    my_system.Add(constraint4);
+    sys.Add(constraint1);
+    sys.Add(constraint2);
+    sys.Add(constraint3);
+    sys.Add(constraint4);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a linear static analysis
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(100);
     solver->SetTolerance(1e-12);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(true);
 
-    my_system.DoStaticLinear();
+    sys.DoStaticLinear();
 
     // Output some results
     GetLog() << "node5 displ: " << mnode5->GetPos() - mnode5->GetX0() << "\n";

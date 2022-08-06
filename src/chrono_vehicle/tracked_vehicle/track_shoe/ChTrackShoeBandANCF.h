@@ -24,12 +24,12 @@
 
 #include "chrono/fea/ChContactSurfaceMesh.h"
 #include "chrono/fea/ChContactSurfaceNodeCloud.h"
-#include "chrono/fea/ChElementShellANCF.h"
+#include "chrono/fea/ChElementShellANCF_3423.h"
 #include "chrono/fea/ChLinkDirFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 #include "chrono/fea/ChMesh.h"
 #include "chrono/fea/ChNodeFEAbase.h"
-#include "chrono/fea/ChVisualizationFEAmesh.h"
+#include "chrono/assets/ChVisualShapeFEA.h"
 
 namespace chrono {
 namespace vehicle {
@@ -50,10 +50,14 @@ class CH_VEHICLE_API ChTrackShoeBandANCF : public ChTrackShoeBand {
                         ElementType element_type = ElementType::ANCF_4  ///< [in] ANCF shell element type
     );
 
-    virtual ~ChTrackShoeBandANCF() {}
+    virtual ~ChTrackShoeBandANCF();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "TrackShoeBandANCF"; }
+
+    /// Get track tension at this track shoe.
+    /// Return is the force due to the connections of this track shoe, expressed in the track shoe reference frame.
+    virtual ChVector<> GetTension() const override;
 
     /// Initialize this track shoe subsystem.
     /// The track shoe is created within the specified system and initialized
@@ -61,7 +65,7 @@ class CH_VEHICLE_API ChTrackShoeBandANCF : public ChTrackShoeBand {
     /// This version initializes the bodies of a CB rigid-link track shoe such that
     /// the center of the track shoe subsystem is at the specified location and all
     /// bodies have the specified orientation.
-    virtual void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,  ///< [in] handle to the chassis body
+    virtual void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,  ///< [in] chassis body
                             const ChVector<>& location,             ///< [in] location relative to the chassis frame
                             const ChQuaternion<>& rotation          ///< [in] orientation relative to the chassis frame
                             ) override;
@@ -73,6 +77,9 @@ class CH_VEHICLE_API ChTrackShoeBandANCF : public ChTrackShoeBand {
     virtual void RemoveVisualizationAssets() override final;
 
   protected:
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
     /// Get the number of shell elements across the web length (from tread body to tread body).
     virtual int GetNumElementsLength() const = 0;
 
@@ -86,8 +93,9 @@ class CH_VEHICLE_API ChTrackShoeBandANCF : public ChTrackShoeBand {
   private:
     /// Connect this track shoe to the specified neighbor.
     /// This function must be called only after both track shoes have been initialized.
-    virtual void Connect(std::shared_ptr<ChTrackShoe> next,  ///< [in] handle to the neighbor track shoe
+    virtual void Connect(std::shared_ptr<ChTrackShoe> next,  ///< [in] neighbor track shoe
                          ChTrackAssembly* assembly,          ///< [in] containing track assembly
+                         ChChassis* chassis,                 ///< [in] associated chassis
                          bool ccw                            ///< [in] track assembled in counter clockwise direction
                          ) override final;
 
@@ -105,7 +113,7 @@ class CH_VEHICLE_API ChTrackShoeBandANCF : public ChTrackShoeBand {
     /// Initialize this track shoe system.
     /// This version specifies the locations and orientations of the tread body and of
     /// the web link bodies (relative to the chassis frame).
-    void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,          ///< [in] handle to chassis body
+    void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,          ///< [in] chassis body
                     const std::vector<ChCoordsys<>>& component_pos  ///< [in] location & orientation of the shoe bodies
     );
 
@@ -115,7 +123,8 @@ class CH_VEHICLE_API ChTrackShoeBandANCF : public ChTrackShoeBand {
 
     ElementType m_element_type;
 
-    std::shared_ptr<fea::ChMesh> m_web_mesh;
+    std::shared_ptr<fea::ChMesh> m_web_mesh;  ///< FEA mesh (owned by containing track assembly)
+
     std::shared_ptr<fea::ChMaterialShellANCF> m_rubber_mat;
     std::shared_ptr<fea::ChMaterialShellANCF> m_steel_mat;
     double m_angle_1;
@@ -125,10 +134,12 @@ class CH_VEHICLE_API ChTrackShoeBandANCF : public ChTrackShoeBand {
 
     unsigned int m_starting_node_index;
 
+    std::vector<std::shared_ptr<ChLinkBase>> m_connections;  ///< constraints for connection to neighbor track shoe
+
     friend class ChTrackAssemblyBandANCF;
 };
 
-/// Vector of handles to continuous band ANCFshell-based track shoe subsystems.
+/// Vector of continuous band ANCFshell-based track shoe subsystems.
 typedef std::vector<std::shared_ptr<ChTrackShoeBandANCF>> ChTrackShoeBandANCFList;
 
 /// @} vehicle_tracked_shoe

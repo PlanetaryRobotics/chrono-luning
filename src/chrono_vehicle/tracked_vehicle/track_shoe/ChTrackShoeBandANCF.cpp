@@ -18,7 +18,6 @@
 // =============================================================================
 
 #include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChColorAsset.h"
 #include "chrono/assets/ChCylinderShape.h"
 #include "chrono/assets/ChTexture.h"
 #include "chrono/core/ChGlobal.h"
@@ -31,13 +30,13 @@
 
 #include "chrono/fea/ChContactSurfaceMesh.h"
 #include "chrono/fea/ChContactSurfaceNodeCloud.h"
-#include "chrono/fea/ChElementShellANCF.h"
-#include "chrono/fea/ChElementShellANCF_8.h"
+#include "chrono/fea/ChElementShellANCF_3423.h"
+#include "chrono/fea/ChElementShellANCF_3833.h"
 #include "chrono/fea/ChLinkDirFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 #include "chrono/fea/ChMesh.h"
 #include "chrono/fea/ChNodeFEAbase.h"
-#include "chrono/fea/ChVisualizationFEAmesh.h"
+#include "chrono/assets/ChVisualShapeFEA.h"
 
 using namespace chrono::fea;
 
@@ -45,11 +44,20 @@ namespace chrono {
 namespace vehicle {
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
 ChTrackShoeBandANCF::ChTrackShoeBandANCF(const std::string& name, ElementType element_type)
     : ChTrackShoeBand(name), m_element_type(element_type) {}
 
-// -----------------------------------------------------------------------------
+ChTrackShoeBandANCF::~ChTrackShoeBandANCF() {
+    if (!m_connections[0])
+        return;
+
+    auto sys = m_connections[0]->GetSystem();
+    if (sys) {
+        for (auto c : m_connections)
+            sys->Remove(c);
+    }
+}
+
 // -----------------------------------------------------------------------------
 void ChTrackShoeBandANCF::SetWebMesh(std::shared_ptr<fea::ChMesh> mesh) {
     m_web_mesh = mesh;
@@ -69,7 +77,6 @@ void ChTrackShoeBandANCF::SetWebMeshProperties(std::shared_ptr<fea::ChMaterialSh
     m_alpha = alpha;
 }
 
-// -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 void ChTrackShoeBandANCF::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
                                      const ChVector<>& location,
@@ -131,7 +138,7 @@ void ChTrackShoeBandANCF::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
                     unsigned int node3 = m_starting_node_index + (y_idx + 1) + x_idx * N_y;
 
                     // Create the element and set its nodes.
-                    auto element = chrono_types::make_shared<ChElementShellANCF>();
+                    auto element = chrono_types::make_shared<ChElementShellANCF_3423>();
                     element->SetNodes(std::dynamic_pointer_cast<ChNodeFEAxyzD>(m_web_mesh->GetNode(node0)),
                                       std::dynamic_pointer_cast<ChNodeFEAxyzD>(m_web_mesh->GetNode(node1)),
                                       std::dynamic_pointer_cast<ChNodeFEAxyzD>(m_web_mesh->GetNode(node2)),
@@ -147,7 +154,6 @@ void ChTrackShoeBandANCF::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
 
                     // Set other element properties
                     element->SetAlphaDamp(m_alpha);
-                    element->SetGravityOn(false);  // turn internal gravitational force calculation off
 
                     // Add element to mesh
                     m_web_mesh->AddElement(element);
@@ -213,7 +219,7 @@ void ChTrackShoeBandANCF::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
                     unsigned int node7 = m_starting_node_index + 2 * y_idx + x_idx * (N_y_edge + N_y_mid) + 1;
 
                     // Create the element and set its nodes.
-                    auto element = chrono_types::make_shared<ChElementShellANCF_8>();
+                    auto element = chrono_types::make_shared<ChElementShellANCF_3833>();
                     element->SetNodes(std::dynamic_pointer_cast<ChNodeFEAxyzDD>(m_web_mesh->GetNode(node0)),
                                       std::dynamic_pointer_cast<ChNodeFEAxyzDD>(m_web_mesh->GetNode(node1)),
                                       std::dynamic_pointer_cast<ChNodeFEAxyzDD>(m_web_mesh->GetNode(node2)),
@@ -233,7 +239,6 @@ void ChTrackShoeBandANCF::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
 
                     // Set other element properties
                     element->SetAlphaDamp(m_alpha);
-                    element->SetGravityOn(false);  // turn internal gravitational force calculation off
 
                     // Add element to mesh
                     m_web_mesh->AddElement(element);
@@ -245,7 +250,6 @@ void ChTrackShoeBandANCF::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
     }  // end switch
 }
 
-// -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 void ChTrackShoeBandANCF::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
                                      const std::vector<ChCoordsys<>>& component_pos) {
@@ -330,7 +334,31 @@ void ChTrackShoeBandANCF::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
     }  // end switch
 }
 
-// -----------------------------------------------------------------------------
+void ChTrackShoeBandANCF::InitializeInertiaProperties() {
+    m_mass = GetTreadMass() + GetWebMass();
+}
+
+void ChTrackShoeBandANCF::UpdateInertiaProperties() {
+    m_xform = m_shoe->GetFrame_REF_to_abs();
+
+    // Calculate web mesh inertia properties
+    double mesh_mass;
+    ChVector<> mesh_com;
+    ChMatrix33<> mesh_inertia;
+    m_web_mesh->ComputeMassProperties(mesh_mass, mesh_com, mesh_inertia);
+
+    // Calculate COM and inertia expressed in global frame
+    utils::CompositeInertia composite;
+    composite.AddComponent(m_shoe->GetFrame_COG_to_abs(), m_shoe->GetMass(), m_shoe->GetInertia());
+    composite.AddComponent(ChFrame<>(mesh_com, QUNIT), mesh_mass, mesh_inertia);
+
+    // Express COM and inertia in subsystem reference frame
+    m_com.coord.pos = m_xform.TransformPointParentToLocal(composite.GetCOM());
+    m_com.coord.rot = QUNIT;
+
+    m_inertia = m_xform.GetA().transpose() * composite.GetInertia() * m_xform.GetA();
+}
+
 // -----------------------------------------------------------------------------
 void ChTrackShoeBandANCF::AddVisualizationAssets(VisualizationType vis) {
     if (vis == VisualizationType::NONE)
@@ -340,12 +368,14 @@ void ChTrackShoeBandANCF::AddVisualizationAssets(VisualizationType vis) {
 }
 
 void ChTrackShoeBandANCF::RemoveVisualizationAssets() {
-    m_shoe->GetAssets().clear();
+    ChPart::RemoveVisualizationAssets(m_shoe);
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-void ChTrackShoeBandANCF::Connect(std::shared_ptr<ChTrackShoe> next, ChTrackAssembly* assembly, bool ccw) {
+void ChTrackShoeBandANCF::Connect(std::shared_ptr<ChTrackShoe> next,
+                                  ChTrackAssembly* assembly,
+                                  ChChassis* chassis,
+                                  bool ccw) {
     ChSystem* system = m_shoe->GetSystem();
     ChQuaternion<> rot_cur_shoe = m_shoe->GetRot();
     ChQuaternion<> rot_next_shoe = next->GetShoeBody()->GetRot();
@@ -368,10 +398,12 @@ void ChTrackShoeBandANCF::Connect(std::shared_ptr<ChTrackShoe> next, ChTrackAsse
                 auto constraintxyz = chrono_types::make_shared<ChLinkPointFrame>();
                 constraintxyz->Initialize(node, m_shoe);
                 system->Add(constraintxyz);
+                m_connections.push_back(constraintxyz);
 
                 auto constraintD = chrono_types::make_shared<ChLinkDirFrame>();
                 constraintD->Initialize(node, m_shoe);
                 system->Add(constraintD);
+                m_connections.push_back(constraintD);
             }
 
             // Change the gradient on the boundary nodes that will connect to the second fixed body
@@ -385,10 +417,12 @@ void ChTrackShoeBandANCF::Connect(std::shared_ptr<ChTrackShoe> next, ChTrackAsse
                 auto constraintxyz = chrono_types::make_shared<ChLinkPointFrame>();
                 constraintxyz->Initialize(node, next->GetShoeBody());
                 system->Add(constraintxyz);
+                m_connections.push_back(constraintxyz);
 
                 auto constraintD = chrono_types::make_shared<ChLinkDirFrame>();
                 constraintD->Initialize(node, next->GetShoeBody());
                 system->Add(constraintD);
+                m_connections.push_back(constraintD);
             }
 
             break;
@@ -411,10 +445,12 @@ void ChTrackShoeBandANCF::Connect(std::shared_ptr<ChTrackShoe> next, ChTrackAsse
                 auto constraintxyz = chrono_types::make_shared<ChLinkPointFrame>();
                 constraintxyz->Initialize(node, m_shoe);
                 system->Add(constraintxyz);
+                m_connections.push_back(constraintxyz);
 
                 auto constraintD = chrono_types::make_shared<ChLinkDirFrame>();
                 constraintD->Initialize(node, m_shoe);
                 system->Add(constraintD);
+                m_connections.push_back(constraintD);
             }
 
             // Change the gradient on the boundary nodes that will connect to the second fixed body
@@ -428,10 +464,12 @@ void ChTrackShoeBandANCF::Connect(std::shared_ptr<ChTrackShoe> next, ChTrackAsse
                 auto constraintxyz = chrono_types::make_shared<ChLinkPointFrame>();
                 constraintxyz->Initialize(node, next->GetShoeBody());
                 system->Add(constraintxyz);
+                m_connections.push_back(constraintxyz);
 
                 auto constraintD = chrono_types::make_shared<ChLinkDirFrame>();
                 constraintD->Initialize(node, next->GetShoeBody());
                 system->Add(constraintD);
+                m_connections.push_back(constraintD);
             }
 
             break;
@@ -439,7 +477,10 @@ void ChTrackShoeBandANCF::Connect(std::shared_ptr<ChTrackShoe> next, ChTrackAsse
     }  // end switch
 }
 
-// -----------------------------------------------------------------------------
+ChVector<> ChTrackShoeBandANCF::GetTension() const {
+    return m_connections[0]->Get_react_force();
+}
+
 // -----------------------------------------------------------------------------
 void ChTrackShoeBandANCF::ExportComponentList(rapidjson::Document& jsonDocument) const {
     ChPart::ExportComponentList(jsonDocument);

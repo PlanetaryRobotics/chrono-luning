@@ -19,40 +19,21 @@
 // =============================================================================
 
 #include "chrono_models/robot/viper/Viper.h"
+
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/physics/ChBodyEasy.h"
-#include "chrono/physics/ChInertiaUtils.h"
-#include "chrono/assets/ChTexture.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
-#include "chrono/geometry/ChTriangleMeshConnected.h"
 
-#include "chrono/utils/ChUtilsCreators.h"
-#include "chrono/utils/ChUtilsGenerators.h"
-#include "chrono/utils/ChUtilsGeometry.h"
-#include "chrono/utils/ChUtilsInputOutput.h"
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/physics/ChParticlesClones.h"
-#include "chrono/physics/ChLinkMotorRotationSpeed.h"
-#include "chrono/physics/ChLinkMotorRotationTorque.h"
-#include "chrono/physics/ChLinkDistance.h"
-
-#include "chrono_irrlicht/ChIrrApp.h"
+#include "chrono_irrlicht/ChVisualSystemIrrlicht.h"
 
 using namespace chrono;
 using namespace chrono::irrlicht;
 using namespace chrono::viper;
 
-// Use the main namespaces of Irrlicht
-using namespace irr;
-using namespace irr::core;
-using namespace irr::scene;
-using namespace irr::video;
-
 // Use custom material for the Viper Wheel
 bool use_custom_mat = false;
 
 // Define Viper rover wheel type
-WheelType wheel_type = WheelType::RealWheel;
+ViperWheelType wheel_type = ViperWheelType::RealWheel;
 
 std::shared_ptr<ChMaterialSurface> CustomWheelMaterial(ChContactMethod contact_method) {
     float mu = 0.4f;   // coefficient of friction
@@ -98,97 +79,89 @@ int main(int argc, char* argv[]) {
     ChSystemNSC sys;
     sys.Set_G_acc(ChVector<>(0, 0, -9.81));
 
-    // Create the Irrlicht visualization
-    ChIrrApp application(&sys, L"Viper Rover on Rigid Terrain", core::dimension2d<u32>(1280, 720), VerticalDir::Z,
-                         false, true);
-    application.AddTypicalLogo();
-    application.AddTypicalSky();
-    application.AddTypicalLights(irr::core::vector3df(30.f, 30.f, 100.f), irr::core::vector3df(30.f, -30.f, 100.f));
-    application.AddTypicalCamera(core::vector3df(0, 2, 2));
-    application.AddLightWithShadow(core::vector3df(1.5f, 1.5f, 5.5f), core::vector3df(0, 0, 0), 3, 4, 10, 40, 512,
-                                   video::SColorf(0.8f, 0.8f, 1.0f));
-    application.SetContactsDrawMode(IrrContactsDrawMode::CONTACT_DISTANCES);
-
     collision::ChCollisionModel::SetDefaultSuggestedEnvelope(0.0025);
     collision::ChCollisionModel::SetDefaultSuggestedMargin(0.0025);
 
     // Create the ground.
     auto ground_mat = chrono_types::make_shared<ChMaterialSurfaceNSC>();
-    auto ground = chrono_types::make_shared<ChBodyEasyBox>(20, 20, 1, 1000, true, true, ground_mat);
-
-    ground->SetPos(ChVector<>(0, 0, -1));
+    auto ground = chrono_types::make_shared<ChBodyEasyBox>(30, 30, 1, 1000, true, true, ground_mat);
+    ground->SetPos(ChVector<>(0, 0, -0.5));
     ground->SetBodyFixed(true);
+    ground->GetVisualShape(0)->SetTexture(GetChronoDataFile("textures/concrete.jpg"), 60, 45);
     sys.Add(ground);
 
-    auto masset_texture = chrono_types::make_shared<ChTexture>();
-    masset_texture->SetTextureFilename(GetChronoDataFile("textures/concrete.jpg"));
-    ground->AddAsset(masset_texture);
-
-    // Construct and initialize a Viper rover.
-    // The default rotational speed of the Motor is speed w=3.145 rad/sec.
+    // Construct a Viper rover and the asociated driver
+    ////auto driver = chrono_types::make_shared<ViperSpeedDriver>(1.0, 5.0);
     auto driver = chrono_types::make_shared<ViperDCMotorControl>();
-    auto viper = chrono_types::make_shared<Viper>(&sys, wheel_type);
 
-    viper->SetDriver(driver);
+    Viper viper(&sys, wheel_type);
+    viper.SetDriver(driver);
     if (use_custom_mat)
-        viper->SetWheelContactMaterial(CustomWheelMaterial(ChContactMethod::NSC));
+        viper.SetWheelContactMaterial(CustomWheelMaterial(ChContactMethod::NSC));
 
-    ////viper->SetChassisFixed(true);
-    ////viper->SetChassisVisualization(false);
-    ////viper->SetSuspensionVisualization(false);
+    ////viper.SetChassisFixed(true);
 
-    viper->Initialize(ChFrame<>(ChVector<>(0, 0, -0.2), QUNIT));
+    ////viper.SetChassisVisualization(false);
+    ////viper.SetSuspensionVisualization(false);
 
-    std::cout << "Viper total mass: " << viper->GetRoverMass() << std::endl;
-    std::cout << "  chassis:        " << viper->GetChassis()->GetBody()->GetMass() << std::endl;
-    std::cout << "  upper arm:      " << viper->GetUpperArm(WheelID::LF)->GetBody()->GetMass() << std::endl;
-    std::cout << "  lower arm:      " << viper->GetLowerArm(WheelID::LF)->GetBody()->GetMass() << std::endl;
-    std::cout << "  upright:        " << viper->GetUpright(WheelID::LF)->GetBody()->GetMass() << std::endl;
-    std::cout << "  wheel:          " << viper->GetWheel(WheelID::LF)->GetBody()->GetMass() << std::endl;
+    viper.Initialize(ChFrame<>(ChVector<>(0, 0, 0.5), QUNIT));
+
+    std::cout << "Viper total mass: " << viper.GetRoverMass() << std::endl;
+    std::cout << "  chassis:        " << viper.GetChassis()->GetBody()->GetMass() << std::endl;
+    std::cout << "  upper arm:      " << viper.GetUpperArm(ViperWheelID::V_LF)->GetBody()->GetMass() << std::endl;
+    std::cout << "  lower arm:      " << viper.GetLowerArm(ViperWheelID::V_LF)->GetBody()->GetMass() << std::endl;
+    std::cout << "  upright:        " << viper.GetUpright(ViperWheelID::V_LF)->GetBody()->GetMass() << std::endl;
+    std::cout << "  wheel:          " << viper.GetWheel(ViperWheelID::V_LF)->GetBody()->GetMass() << std::endl;
     std::cout << std::endl;
 
-    // Complete construction of visual assets
-    application.AssetBindAll();
-    application.AssetUpdateAll();
-
-    // Use shadows in realtime view
-    application.AddShadowAll();
-
-    application.SetTimestep(time_step);
+    // Create the Irrlicht visualization sys
+    auto vis = chrono_types::make_shared<ChVisualSystemIrrlicht>();
+    vis->AttachSystem(&sys);
+    vis->SetCameraVertical(CameraVerticalDir::Z);
+    vis->SetWindowSize(800, 600);
+    vis->SetWindowTitle("Viper Rover on Rigid Terrain");
+    vis->Initialize();
+    vis->AddLogo();
+    vis->AddSkyBox();
+    vis->AddCamera(ChVector<>(3, 3, 1));
+    vis->AddTypicalLights();
+    vis->EnableContactDrawing(ContactsDrawMode::CONTACT_DISTANCES);
+    vis->EnableShadows();
 
     // Simulation loop
-    double time = 0.0;
-    while (application.GetDevice()->run()) {
-        double steering = 0;
+    while (vis->Run()) {
+        vis->BeginScene();
+        vis->Render();
+        vis->EndScene();
 
-        if (time > 7) {
-            if (std::abs(viper->GetTurnAngle()) < 1e-8)
-                steering = 0;
-            else
-                steering = -CH_C_PI / 8;
-        } else if (time > 1) {
-            steering = CH_C_PI / 8;
-        } 
+        // Set current steering angle
+        double time = viper.GetSystem()->GetChTime();
+        double max_steering = CH_C_PI / 6;
+        double steering = 0;
+        if (time > 2 && time < 7)
+            steering = max_steering * (time - 2) / 5;
+        else if (time > 7 && time < 12)
+            steering = max_steering * (12 - time) / 5;
         driver->SetSteering(steering);
 
-        // Update Viper controls
-        viper->Update();
+        ////double max_lifting = CH_C_PI / 8;
+        ////double lifting = 0;
+        ////if (time > 1 && time < 2)
+        ////    lifting = max_lifting * (time - 1);
+        ////else if (time > 2)
+        ////    lifting = max_lifting;
+        ////driver->SetLifting(lifting);
 
-        // Display turning angle - ranges from -pi/3 to pi/3
-        ////std::cout << "turn angle: " << viper->GetTurnAngle() << std::endl;
+        // Update Viper controls
+        viper.Update();
 
         // Read rover chassis velocity
-        ////std::cout <<"Rover Chassis Speedo Reading: " << viper -> GetChassisVel() << std::endl;
+        ////std::cout <<"Rover speed: " << viper.GetChassisVel() << std::endl;
 
         // Read rover chassis acceleration
-        ////std::cout << "Rover Chassis Accelerometer Reading: "<< viper -> GetChassisAcc() << std::endl;
+        ////std::cout << "Rover acceleration: "<< viper.GetChassisAcc() << std::endl;
 
-        application.BeginScene(true, true, SColor(255, 140, 161, 192));
-        application.DrawAll();
-        application.DoStep();
-        application.EndScene();
-
-        time = time + time_step;
+        sys.DoStepDynamics(time_step);
     }
 
     return 0;

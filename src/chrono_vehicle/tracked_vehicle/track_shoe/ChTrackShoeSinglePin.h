@@ -20,6 +20,8 @@
 #ifndef CH_TRACK_SHOE_SINGLE_PIN_H
 #define CH_TRACK_SHOE_SINGLE_PIN_H
 
+#include "chrono/physics/ChLinkRSDA.h"
+
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/ChSubsysDefs.h"
 
@@ -38,25 +40,29 @@ class CH_VEHICLE_API ChTrackShoeSinglePin : public ChTrackShoeSegmented {
     ChTrackShoeSinglePin(const std::string& name  ///< [in] name of the subsystem
                          );
 
-    virtual ~ChTrackShoeSinglePin() {}
+    virtual ~ChTrackShoeSinglePin();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "TrackShoeSinglePin"; }
 
-    /// Get the mass of the track shoe.
-    virtual double GetMass() const override;
+    /// Get track tension at this track shoe.
+    /// Return is the force due to the connections of this track shoe, expressed in the track shoe reference frame.
+    virtual ChVector<> GetTension() const override;
 
     /// Initialize this track shoe subsystem.
     /// The track shoe is created within the specified system and initialized
     /// at the specified location and orientation (expressed in the global frame).
     /// A derived class must extend this default implementation and specify the contact
     /// geometry for the track shoe body.
-    virtual void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,  ///< [in] handle to the chassis body
+    virtual void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,  ///< [in] chassis body
                             const ChVector<>& location,             ///< [in] location relative to the chassis frame
                             const ChQuaternion<>& rotation          ///< [in] orientation relative to the chassis frame
                             ) override;
 
   protected:
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
     /// Return the mass of the shoe body.
     virtual double GetShoeMass() const = 0;
 
@@ -81,17 +87,23 @@ class CH_VEHICLE_API ChTrackShoeSinglePin : public ChTrackShoeSegmented {
   private:
     /// Connect this track shoe to the specified neighbor.
     /// This function must be called only after both track shoes have been initialized.
-    virtual void Connect(std::shared_ptr<ChTrackShoe> next,  ///< [in] handle to the neighbor track shoe
+    virtual void Connect(std::shared_ptr<ChTrackShoe> next,  ///< [in] neighbor track shoe
                          ChTrackAssembly* assembly,          ///< [in] containing track assembly
+                         ChChassis* chassis,                 ///< [in] associated chassis
                          bool ccw                            ///< [in] track assembled in counter clockwise direction
                          ) override final;
+
+    virtual void EnableTrackBendingStiffness(bool val) override;
+
+    std::shared_ptr<ChVehicleJoint> m_joint;  ///< connection to neighboring track shoe
+    std::shared_ptr<ChLinkRSDA> m_rsda;       ///< optional RSDA on connection
 
     friend class ChSprocketSinglePin;
     friend class SprocketSinglePinContactCB;
     friend class ChTrackAssemblySinglePin;
 };
 
-/// Vector of handles to single-pin track shoe subsystems.
+/// Vector of single-pin track shoe subsystems.
 typedef std::vector<std::shared_ptr<ChTrackShoeSinglePin> > ChTrackShoeSinglePinList;
 
 /// @} vehicle_tracked_shoe

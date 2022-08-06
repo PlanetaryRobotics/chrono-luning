@@ -28,7 +28,7 @@
 #include "chrono_models/vehicle/m113/M113.h"
 
 #ifdef CHRONO_IRRLICHT
-#include "chrono_vehicle/tracked_vehicle/utils/ChTrackedVehicleIrrApp.h"
+    #include "chrono_vehicle/tracked_vehicle/utils/ChTrackedVehicleVisualSystemIrrlicht.h"
 #endif
 
 using namespace chrono;
@@ -82,7 +82,8 @@ M113AccTest<EnumClass, SHOE_TYPE>::M113AccTest() : m_step(1e-3) {
     m_m113->SetChassisVisualizationType(VisualizationType::NONE);
     m_m113->SetSprocketVisualizationType(VisualizationType::PRIMITIVES);
     m_m113->SetIdlerVisualizationType(VisualizationType::PRIMITIVES);
-    m_m113->SetRoadWheelAssemblyVisualizationType(VisualizationType::PRIMITIVES);
+    m_m113->SetSuspensionVisualizationType(VisualizationType::PRIMITIVES);
+    m_m113->SetIdlerWheelVisualizationType(VisualizationType::PRIMITIVES);
     m_m113->SetRoadWheelVisualizationType(VisualizationType::PRIMITIVES);
     m_m113->SetTrackShoeVisualizationType(VisualizationType::PRIMITIVES);
 
@@ -92,7 +93,7 @@ M113AccTest<EnumClass, SHOE_TYPE>::M113AccTest() : m_step(1e-3) {
     patch_material->SetFriction(0.9f);
     patch_material->SetRestitution(0.01f);
     patch_material->SetYoungModulus(2e7f);
-    auto patch = m_terrain->AddPatch(patch_material, ChVector<>(0, 0, 0), ChVector<>(0, 0, 1), 500, 5);
+    auto patch = m_terrain->AddPatch(patch_material, CSYSNORM, 500, 5);
     patch->SetColor(ChColor(0.8f, 0.8f, 0.8f));
     patch->SetTexture(vehicle::GetDataFile("terrain/textures/tile4.jpg"), 500, 5);
     m_terrain->Initialize();
@@ -137,7 +138,7 @@ void M113AccTest<EnumClass, SHOE_TYPE>::ExecuteStep() {
     }
 
     // Driver inputs
-    ChDriver::Inputs driver_inputs = m_driver->GetInputs();
+    DriverInputs driver_inputs = m_driver->GetInputs();
 
     // Update modules (process inputs from other modules)
     m_driver->Synchronize(time);
@@ -153,23 +154,22 @@ void M113AccTest<EnumClass, SHOE_TYPE>::ExecuteStep() {
 template <typename EnumClass, EnumClass SHOE_TYPE>
 void M113AccTest<EnumClass, SHOE_TYPE>::SimulateVis() {
 #ifdef CHRONO_IRRLICHT
-    ChTrackedVehicleIrrApp app(&m_m113->GetVehicle(), L"M113 acceleration test");
-    app.SetSkyBox();
-    app.AddTypicalLights(irr::core::vector3df(-200.f, -30.f, 100.f), irr::core::vector3df(-200.f, 50.f, 100.f), 250, 130);
-    app.SetChaseCamera(ChVector<>(0.0, 0.0, 0.0), 6.0, 0.5);
+    auto vis = chrono_types::make_shared<ChTrackedVehicleVisualSystemIrrlicht>();
+    vis->AttachVehicle(&m_m113->GetVehicle());
+    vis->SetWindowTitle("M113 acceleration test");
+    vis->SetChaseCamera(ChVector<>(0.0, 0.0, 0.0), 6.0, 0.5);
+    vis->Initialize();
+    vis->AddTypicalLights();
 
-    app.AssetBindAll();
-    app.AssetUpdateAll();
+    while (vis->Run()) {
+        DriverInputs driver_inputs = m_driver->GetInputs();
 
-    while (app.GetDevice()->run()) {
-        ChDriver::Inputs driver_inputs = m_driver->GetInputs();
-
-        app.BeginScene();
-        app.DrawAll();
+        vis->BeginScene();
+        vis->Render();
         ExecuteStep();
-        app.Synchronize("Acceleration test", driver_inputs);
-        app.Advance(m_step);
-        app.EndScene();
+        vis->Synchronize("Acceleration test", driver_inputs);
+        vis->Advance(m_step);
+        vis->EndScene();
     }
 #endif
 }

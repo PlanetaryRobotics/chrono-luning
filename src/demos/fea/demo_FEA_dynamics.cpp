@@ -20,13 +20,13 @@
 #include "chrono/solver/ChIterativeSolverLS.h"
 
 #include "chrono/fea/ChElementSpring.h"
-#include "chrono/fea/ChElementShellANCF.h"
-#include "chrono/fea/ChElementBrick.h"
+#include "chrono/fea/ChElementShellANCF_3423.h"
+#include "chrono/fea/ChElementHexaANCF_3813.h"
 #include "chrono/fea/ChElementBar.h"
-#include "chrono/fea/ChElementTetra_4.h"
-#include "chrono/fea/ChElementTetra_10.h"
-#include "chrono/fea/ChElementHexa_8.h"
-#include "chrono/fea/ChElementHexa_20.h"
+#include "chrono/fea/ChElementTetraCorot_4.h"
+#include "chrono/fea/ChElementTetraCorot_10.h"
+#include "chrono/fea/ChElementHexaCorot_8.h"
+#include "chrono/fea/ChElementHexaCorot_20.h"
 #include "chrono/fea/ChMesh.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 #include "chrono/fea/ChLinkDirFrame.h"
@@ -42,7 +42,7 @@ void test_1() {
     GetLog() << "TEST: spring FEM dynamics,  implicit integration \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -81,12 +81,12 @@ void test_1() {
     my_mesh->AddElement(melementA);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
     truss->SetBodyFixed(true);
-    my_system.Add(truss);
+    sys.Add(truss);
 
     // Create a constraint between a node and the truss
     auto constraintA = chrono_types::make_shared<ChLinkPointFrame>();
@@ -94,25 +94,25 @@ void test_1() {
     constraintA->Initialize(mnodeA,  // node
                             truss);  // body to be connected to
 
-    my_system.Add(constraintA);
+    sys.Add(constraintA);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a dynamic time integration:
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(40);
 
-    my_system.SetSolverForceTolerance(1e-10);
+    sys.SetSolverForceTolerance(1e-10);
 
-    my_system.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
+    sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
 
     double timestep = 0.01;
-    while (my_system.GetChTime() < 2) {
-        my_system.DoStepDynamics(timestep);
+    while (sys.GetChTime() < 2) {
+        sys.DoStepDynamics(timestep);
 
-        GetLog() << " t=" << my_system.GetChTime() << "  nodeB pos.y()=" << mnodeB->GetPos().y() << "  \n";
+        GetLog() << " t=" << sys.GetChTime() << "  nodeB pos.y()=" << mnodeB->GetPos().y() << "  \n";
     }
 }
 
@@ -121,7 +121,7 @@ void test_2() {
     GetLog() << "TEST: bar FEM dynamics,  implicit integration \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -161,12 +161,12 @@ void test_2() {
     my_mesh->AddElement(melementA);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
     truss->SetBodyFixed(true);
-    my_system.Add(truss);
+    sys.Add(truss);
 
     // Create a constraint between a node and the truss
     auto constraintA = chrono_types::make_shared<ChLinkPointFrame>();
@@ -174,28 +174,28 @@ void test_2() {
     constraintA->Initialize(mnodeA,  // node
                             truss);  // body to be connected to
 
-    my_system.Add(constraintA);
+    sys.Add(constraintA);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a dynamic time integration:
 
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(100);
     solver->SetTolerance(1e-8);
     solver->EnableDiagonalPreconditioner(true);
 
-    my_system.SetSolverForceTolerance(1e-10);
+    sys.SetSolverForceTolerance(1e-10);
 
-    my_system.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);
+    sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);
 
     double timestep = 0.001;
-    while (my_system.GetChTime() < 0.2) {
-        my_system.DoStepDynamics(timestep);
+    while (sys.GetChTime() < 0.2) {
+        sys.DoStepDynamics(timestep);
 
-        GetLog() << " t=" << my_system.GetChTime() << "  nodeB pos.y()=" << mnodeB->GetPos().y() << "  \n";
+        GetLog() << " t=" << sys.GetChTime() << "  nodeB pos.y()=" << mnodeB->GetPos().y() << "  \n";
     }
 
     GetLog() << " Bar mass = " << melementA->GetMass() << "  restlength = " << melementA->GetRestLength() << "\n";
@@ -206,7 +206,7 @@ void test_2b() {
     GetLog() << "TEST: spring FEM dynamics compare to bar \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -245,12 +245,12 @@ void test_2b() {
     my_mesh->AddElement(melementA);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
     truss->SetBodyFixed(true);
-    my_system.Add(truss);
+    sys.Add(truss);
 
     // Create a constraint between a node and the truss
     auto constraintA = chrono_types::make_shared<ChLinkPointFrame>();
@@ -258,27 +258,27 @@ void test_2b() {
     constraintA->Initialize(mnodeA,  // node
                             truss);  // body to be connected to
 
-    my_system.Add(constraintA);
+    sys.Add(constraintA);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a dynamic time integration:
 
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(200);
     solver->SetTolerance(1e-12);
 
-    my_system.SetSolverForceTolerance(1e-10);
+    sys.SetSolverForceTolerance(1e-10);
 
-    my_system.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);
+    sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);
 
     double timestep = 0.001;
-    while (my_system.GetChTime() < 0.2) {
-        my_system.DoStepDynamics(timestep);
+    while (sys.GetChTime() < 0.2) {
+        sys.DoStepDynamics(timestep);
 
-        GetLog() << " t=" << my_system.GetChTime() << "  nodeB pos.y()=" << mnodeB->GetPos().y() << "  \n";
+        GetLog() << " t=" << sys.GetChTime() << "  nodeB pos.y()=" << mnodeB->GetPos().y() << "  \n";
     }
 }
 
@@ -287,7 +287,7 @@ void test_3() {
     GetLog() << "TEST: tetrahedron FEM dynamics, implicit integration \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -325,7 +325,7 @@ void test_3() {
 
     // Create the tetrahedron element, and assign
     // nodes and material
-    auto melement1 = chrono_types::make_shared<ChElementTetra_4>();
+    auto melement1 = chrono_types::make_shared<ChElementTetraCorot_4>();
     melement1->SetNodes(mnode1, mnode2, mnode3, mnode4);
     melement1->SetMaterial(mmaterial);
 
@@ -333,12 +333,12 @@ void test_3() {
     my_mesh->AddElement(melement1);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
     truss->SetBodyFixed(true);
-    my_system.Add(truss);
+    sys.Add(truss);
 
     // Create a constraint between a node and the truss
     auto constraint1 = chrono_types::make_shared<ChLinkPointFrame>();
@@ -354,26 +354,26 @@ void test_3() {
     constraint3->Initialize(mnode4,  // node
                             truss);  // body to be connected to
 
-    my_system.Add(constraint1);
-    my_system.Add(constraint2);
-    my_system.Add(constraint3);
+    sys.Add(constraint1);
+    sys.Add(constraint2);
+    sys.Add(constraint3);
 
     // Perform a dynamic time integration:
 
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(40);
     solver->SetTolerance(1e-8);
 
-    my_system.SetSolverForceTolerance(1e-10);
+    sys.SetSolverForceTolerance(1e-10);
 
-    my_system.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
+    sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
 
     double timestep = 0.001;
-    while (my_system.GetChTime() < 0.1) {
-        my_system.DoStepDynamics(timestep);
+    while (sys.GetChTime() < 0.1) {
+        sys.DoStepDynamics(timestep);
 
-        GetLog() << " t =" << my_system.GetChTime() << "  mnode3 pos.y()=" << mnode3->GetPos().y() << "  \n";
+        GetLog() << " t =" << sys.GetChTime() << "  mnode3 pos.y()=" << mnode3->GetPos().y() << "  \n";
     }
 }
 
@@ -382,7 +382,7 @@ void test_4() {
     GetLog() << "TEST: bar FEM dynamics (2 elements),  implicit integration \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh, that is a container for groups
     // of elements and their referenced nodes.
@@ -434,12 +434,12 @@ void test_4() {
     my_mesh->AddElement(melementB);
 
     // Remember to add the mesh to the system!
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
     truss->SetBodyFixed(true);
-    my_system.Add(truss);
+    sys.Add(truss);
 
     // Create a constraint between a node and the truss
     auto constraintA = chrono_types::make_shared<ChLinkPointFrame>();
@@ -447,28 +447,28 @@ void test_4() {
     constraintA->Initialize(mnodeA,  // node
                             truss);  // body to be connected to
 
-    my_system.Add(constraintA);
+    sys.Add(constraintA);
 
     // Set no gravity
-    // my_system.Set_G_acc(VNULL);
+    // sys.Set_G_acc(VNULL);
 
     // Perform a dynamic time integration:
 
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(100);
     solver->SetTolerance(1e-8);
     solver->EnableDiagonalPreconditioner(true);
 
-    my_system.SetSolverForceTolerance(1e-10);
+    sys.SetSolverForceTolerance(1e-10);
 
-    my_system.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);
+    sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT);
 
     double timestep = 0.001;
-    while (my_system.GetChTime() < 0.2) {
-        my_system.DoStepDynamics(timestep);
+    while (sys.GetChTime() < 0.2) {
+        sys.DoStepDynamics(timestep);
 
-        GetLog() << " t=" << my_system.GetChTime() << "  nodeB pos.y()=" << mnodeB->GetPos().y()
+        GetLog() << " t=" << sys.GetChTime() << "  nodeB pos.y()=" << mnodeB->GetPos().y()
                  << "  nodeC pos.y()=" << mnodeC->GetPos().y() << "  \n";
     }
 }
@@ -476,10 +476,10 @@ void test_4() {
 int main(int argc, char* argv[]) {
     GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
-    //test_1();
-    //test_2();
+    // test_1();
+    // test_2();
     test_3();
-    //test_4();
+    // test_4();
 
     return 0;
 }

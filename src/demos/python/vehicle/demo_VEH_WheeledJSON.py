@@ -1,6 +1,19 @@
+# =============================================================================
+# PROJECT CHRONO - http://projectchrono.org
+#
+# Copyright (c) 2014 projectchrono.org
+# All rights reserved.
+#
+# Use of this source code is governed by a BSD-style license that can be found
+# in the LICENSE file at the top level of the distribution and at
+# http://projectchrono.org/license-chrono.txt.
+#
+# =============================================================================
+
 import pychrono as chrono
 import pychrono.vehicle as veh
 import pychrono.irrlicht as irr
+import errno
 import os
 import math as m
 
@@ -25,6 +38,7 @@ def main() :
 
     # Create the ground
     terrain = veh.RigidTerrain(vehicle.GetSystem(), rigidterrain_file)
+    terrain.Initialize()
 
     # Create and initialize the powertrain system
     powertrain = veh.SimplePowertrain(simplepowertrain_file)
@@ -37,16 +51,17 @@ def main() :
         tireR = veh.RigidTire(rigidtire_file)
         vehicle.InitializeTire(tireR, axle.m_wheels[1], veh.VisualizationType_MESH)
 
-    app = veh.ChVehicleIrrApp(vehicle, 'HMMWV JSON specification', irr.dimension2du(1000,800))
-    app.SetSkyBox()
-    app.AddTypicalLights(irr.vector3df(30, -30, 100), irr.vector3df(30, 50, 100), 250, 130)
-    app.AddTypicalLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
-    app.SetChaseCamera(trackPoint, 6.0, 0.5)
-    app.SetTimestep(step_size)
-    app.AssetBindAll()
-    app.AssetUpdateAll()
+    vis = veh.ChWheeledVehicleVisualSystemIrrlicht()
+    vis.SetWindowTitle('HMMWV JSON specification')
+    vis.SetWindowSize(1280, 1024)
+    vis.SetChaseCamera(trackPoint, 6.0, 0.5)
+    vis.Initialize()
+    vis.AddLogo(chrono.GetChronoDataFile('logo_pychrono_alpha.png'))
+    vis.AddLightDirectional()
+    vis.AddSkyBox()
+    vis.AttachVehicle(vehicle)
 
-    driver = veh.ChIrrGuiDriver(app)
+    driver = veh.ChIrrGuiDriver(vis)
 
     # Set the time response for steering and throttle keyboard inputs.
     # NOTE: this is not exact, since we do not render quite at the specified FPS.
@@ -64,9 +79,10 @@ def main() :
     # -----------------
 
     try:
-           os.mkdir(out_dir)
-    except:
-           print("Error creating directory " )
+        os.mkdir(out_dir)
+    except OSError as exc:
+        if exc.errno != errno.EEXIST:
+           print("Error creating output directory " )
 
     # Generate JSON information with available output channels
     out_json = vehicle.ExportComponentList()
@@ -77,13 +93,13 @@ def main() :
     # Simulation loop
     # ---------------
 
-    realtime_timer = chrono.ChRealtimeStepTimer()
-    while (app.GetDevice().run()) :
+    vehicle.EnableRealtime(True);
+    while vis.Run() :
 
         # Render scene
-        app.BeginScene(True, True, irr.SColor(255, 140, 161, 192))
-        app.DrawAll()
-        app.EndScene()
+        vis.BeginScene()
+        vis.Render()
+        vis.EndScene()
 
         # Collect output data from modules (for inter-module communication)
         driver_inputs = driver.GetInputs()
@@ -93,16 +109,13 @@ def main() :
         driver.Synchronize(time)
         vehicle.Synchronize(time, driver_inputs, terrain)
         terrain.Synchronize(time)
-        app.Synchronize(driver.GetInputModeAsString(), driver_inputs)
+        vis.Synchronize(driver.GetInputModeAsString(), driver_inputs)
 
         # Advance simulation for one timestep for all modules
         driver.Advance(step_size)
         vehicle.Advance(step_size)
         terrain.Advance(step_size)
-        app.Advance(step_size)
-
-        # Spin in place for real time to catch up
-        realtime_timer.Spin(step_size)
+        vis.Advance(step_size)
 
 # =============================================================================
 

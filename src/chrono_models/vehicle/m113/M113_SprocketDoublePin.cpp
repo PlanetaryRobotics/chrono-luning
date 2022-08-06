@@ -49,8 +49,8 @@ const double M113_SprocketDoublePin::m_gear_W = 0.0464;  // 1.825''
 
 const double M113_SprocketDoublePin::m_lateral_backlash = 0.02;
 
-const std::string M113_SprocketDoublePinLeft::m_meshFile = "M113/Sprocket2_L.obj";
-const std::string M113_SprocketDoublePinRight::m_meshFile = "M113/Sprocket2_R.obj";
+const std::string M113_SprocketDoublePinLeft::m_meshFile = "M113/meshes/Sprocket2_L.obj";
+const std::string M113_SprocketDoublePinRight::m_meshFile = "M113/meshes/Sprocket2_R.obj";
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -60,7 +60,7 @@ void M113_SprocketDoublePin::CreateContactMaterial(ChContactMethod contact_metho
     MaterialInfo minfo;
     minfo.mu = 0.4f;
     minfo.cr = 0.75f;
-    minfo.Y = 1e7f;
+    minfo.Y = 1e9f;
     m_material = minfo.CreateMaterial(contact_method);
 }
 
@@ -68,17 +68,13 @@ void M113_SprocketDoublePin::CreateContactMaterial(ChContactMethod contact_metho
 // -----------------------------------------------------------------------------
 void M113_SprocketDoublePin::AddVisualizationAssets(VisualizationType vis) {
     if (vis == VisualizationType::MESH) {
-        //// TODO
-        //// Set up mesh for sprocket gear
-        //// For now, default to rendering the profile.
-        ChSprocket::AddVisualizationAssets(vis);
-        ////geometry::ChTriangleMeshConnected trimesh;
-        ////trimesh.LoadWavefrontMesh(GetMeshFile(), false, false);
-        ////auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
-        ////trimesh_shape->SetMesh(trimesh);
-        ////trimesh_shape->SetName(filesystem::path(GetMeshFile()).stem());
-        ////trimesh_shape->SetStatic(true);
-        ////m_gear->AddAsset(trimesh_shape);
+        ////auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(GetMeshFile(), false, false);
+        auto trimesh = CreateVisualizationMesh(0.15, 0.03, 0.02);
+        auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+        trimesh_shape->SetMesh(trimesh);
+        trimesh_shape->SetName(filesystem::path(GetMeshFile()).stem());
+        trimesh_shape->SetMutable(false);
+        m_gear->AddVisualShape(trimesh_shape);
     } else {
         ChSprocket::AddVisualizationAssets(vis);
     }

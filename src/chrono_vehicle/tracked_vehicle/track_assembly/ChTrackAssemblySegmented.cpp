@@ -20,12 +20,36 @@
 // =============================================================================
 
 #include "chrono_vehicle/tracked_vehicle/track_assembly/ChTrackAssemblySegmented.h"
+#include "chrono_vehicle/tracked_vehicle/track_shoe/ChTrackShoeSegmented.h"
 
 namespace chrono {
 namespace vehicle {
 
 ChTrackAssemblySegmented::ChTrackAssemblySegmented(const std::string& name, VehicleSide side)
-    : ChTrackAssembly(name, side), m_connection_type(ConnectionType::IDEAL_JOINT) {}
+    : ChTrackAssembly(name, side), m_torque_funct(nullptr), m_bushing_data(nullptr) {}
+
+void ChTrackAssemblySegmented::EnableTrackBendingStiffness(bool val) {
+    if (!m_torque_funct)
+        return;
+
+    for (size_t i = 0; i < GetNumTrackShoes(); i++) {
+        auto shoe = std::static_pointer_cast<ChTrackShoeSegmented>(GetTrackShoe(i));
+        shoe->EnableTrackBendingStiffness(val);
+    }
+}
+
+double ChTrackAssemblySegmented::TrackBendingFunctor::evaluate(double time,
+                                                               double angle,
+                                                               double vel,
+                                                               const ChLinkRSDA& link) {
+    // Clamp angle in [-pi, +pi]
+    if (angle < -CH_C_PI)
+        angle = CH_C_2PI - angle;
+    if (angle > CH_C_PI)
+        angle = angle - CH_C_2PI;
+    // Linear spring-damper (assume 0 rest angle)
+    return m_t - m_k * angle - m_c * vel;
+}
 
 }  // end namespace vehicle
 }  // end namespace chrono

@@ -32,9 +32,9 @@
 
 #include "chrono_thirdparty/filesystem/path.h"
 
-#include "chrono_sensor/ChCameraSensor.h"
-// #include "chrono_sensor/ChLidarSensor.h"
-#include "chrono_sensor/ChIMUSensor.h"
+#include "chrono_sensor/sensors/ChCameraSensor.h"
+// #include "chrono_sensor/sensors/ChLidarSensor.h"
+#include "chrono_sensor/sensors/ChIMUSensor.h"
 #include "chrono_sensor/ChSensorManager.h"
 #include "chrono_sensor/filters/ChFilterAccess.h"
 #include "chrono_sensor/filters/ChFilterPCfromDepth.h"
@@ -43,7 +43,7 @@
 #include "chrono_sensor/utils/ChVisualMaterialUtils.h"
 
 #include "chrono/physics/ChBodyEasy.h"
-#include "chrono/assets/ChVisualization.h"
+#include "chrono/assets/ChVisualShape.h"
 
 #include "InferenceDriver.h"
 
@@ -81,13 +81,13 @@ float exposure_time = 0;
 // IMU parameters
 // -----------------------------------------------------------------------------
 // IMU update rate in Hz
-int imu_update_rate = 100;
+int acc_update_rate = 100;
 
 // IMU lag (in seconds) between sensing and when data becomes accessible
-float imu_lag = 0;
+float acc_lag = 0;
 
 // IMU collection time (in seconds) of each sample
-float imu_collection_time = 0;
+float acc_collection_time = 0;
 
 // =============================================================================
 
@@ -219,16 +219,9 @@ int main(int argc, char* argv[]) {
 
     terrain.Initialize();
 
-    auto ground_body = patch->GetGroundBody();
-    auto visual_asset = std::dynamic_pointer_cast<ChVisualization>(ground_body->GetAssets()[0]);
-    auto vis_mat = chrono_types::make_shared<ChVisualMaterial>();
-    vis_mat->SetKdTexture(GetChronoDataFile("textures/concrete.jpg"));
-    visual_asset->material_list.push_back(vis_mat);
-
     // Create the vehicle Irrlicht interface
     ChWheeledVehicleIrrApp app(&my_hmmwv.GetVehicle(), L"HMMWV Demo");
-    app.SetSkyBox();
-    app.AddTypicalLights(irr::core::vector3df(30.f, -30.f, 100.f), irr::core::vector3df(30.f, 50.f, 100.f), 250, 130);
+    app.AddTypicalLights();
     app.SetChaseCamera(trackPoint, 6.0, 0.5);
     app.SetTimestep(step_size);
     app.AssetBindAll();
@@ -244,12 +237,11 @@ int main(int argc, char* argv[]) {
 
         // Add visual asset to be sensed by camera
         // Will be a solid blue color
-        auto box_asset = std::dynamic_pointer_cast<ChVisualization>(box->GetAssets()[0]);
         auto vis_mat = chrono_types::make_shared<ChVisualMaterial>();
         vis_mat->SetAmbientColor({0, 0, 0});
         vis_mat->SetDiffuseColor({.2, .2, .9});
         vis_mat->SetSpecularColor({.9, .9, .9});
-        box_asset->material_list.push_back(vis_mat);
+        box->GetVisualModel()->GetShapes()[0].first->AddMaterial(vis_mat);
 
         my_hmmwv.GetSystem()->Add(box);
     }
@@ -374,21 +366,22 @@ int main(int argc, char* argv[]) {
     // ------------------------------------------------------------------
     // Create the imu used for inference and add it to the sensor manager
     // ------------------------------------------------------------------
-    auto imu_noise_none = chrono_types::make_shared<ChIMUNoiseNone>();
-    auto imu_offset_pose = chrono::ChFrame<double>({0, 0, 0}, Q_from_AngAxis(0, {1, 0, 0}));
-    auto imu = chrono_types::make_shared<ChIMUSensor>(my_hmmwv.GetChassisBody(),  // body to which the IMU is attached
-                                                      imu_update_rate,            // update rate
-                                                      imu_offset_pose,            // offset pose from body
-                                                      imu_noise_none);            // IMU noise model
-    imu->SetName("IMU");
-    imu->SetLag(imu_lag);
-    imu->SetCollectionWindow(imu_collection_time);
+    auto acc_noise_none = chrono_types::make_shared<ChNoiseNone>();
+    auto acc_offset_pose = chrono::ChFrame<double>({0, 0, 0}, Q_from_AngAxis(0, {1, 0, 0}));
+    auto acc = chrono_types::make_shared<ChAccelerometerSensor>(
+        my_hmmwv.GetChassisBody(),  // body to which the acc is attached
+        acc_update_rate,            // update rate
+        acc_offset_pose,            // offset pose from body
+        acc_noise_none);            // acc noise model
+    acc->SetName("Accelerometer");
+    acc->SetLag(acc_lag);
+    acc->SetCollectionWindow(acc_collection_time);
 
-    // Add a filter to access the imu data
-    imu->PushFilter(chrono_types::make_shared<ChFilterIMUAccess>());
+    // Add a filter to access the acc data
+    acc->PushFilter(chrono_types::make_shared<ChFilterAccelAccess>());
 
-    // Add the IMU sensor to the sensor manager
-    manager->AddSensor(imu);
+    // Add the acc sensor to the sensor manager
+    manager->AddSensor(acc);
 
     // -------------------------------------------------------------
     // Create the buffer pointers to be used in the inference driver
@@ -432,9 +425,9 @@ int main(int argc, char* argv[]) {
             rl_image_data->Buffer = temp_image_data->Buffer;
 
         // Update the extra data, if imu info is available
-        auto imu_data = imu->GetMostRecentBuffer<UserIMUBufferPtr>();
-        if (imu_data->Buffer) {
-            extra_data[0] = imu_data->Buffer[0].Accel[0];
+        auto acc_data = acc->GetMostRecentBuffer<UserAccelBufferPtr>();
+        if (acc_data->Buffer) {
+            extra_data[0] = acc_data->Buffer[0].X;
             extra_data[1] = my_hmmwv.GetChassisBody()->GetRot().RotateBack(my_hmmwv.GetChassisBody()->GetPos_dt()).x();
         }
 
@@ -444,14 +437,14 @@ int main(int argc, char* argv[]) {
 
         // Render scene and output POV-Ray data
         if (step_number % render_steps == 0) {
-            app.BeginScene(true, true, irr::video::SColor(255, 140, 161, 192));
+            app.BeginScene();
             app.DrawAll();
             app.EndScene();
 
             if (povray_output) {
                 char filename[100];
                 sprintf(filename, "%s/data_%03d.dat", pov_dir.c_str(), render_frame + 1);
-                utils::WriteShapesPovray(my_hmmwv.GetSystem(), filename);
+                utils::WriteVisualizationAssets(my_hmmwv.GetSystem(), filename);
             }
 
             render_frame++;

@@ -23,8 +23,8 @@ project(my_project)
 # Find the Chrono package and any REQUIRED or OPTIONAL modules
 # by invoking the find_package function in CONFIG mode:
 #    find_package(Chrono
-#	              COMPONENTS req_module1 req_module1 ...
-#	              OPTIONAL opt_module1 opt_module2 ...
+#                 COMPONENTS req_module1 req_module1 ...
+#                 OPTIONAL_COMPONENTS opt_module1 opt_module2 ...
 #                 CONFIG)
 # The following Chrono modules can be requested (their names
 # are case insensitive): Cascade, Cosimulation, FEA, Irrlicht,
@@ -57,11 +57,13 @@ project(my_project)
 # CHRONO_[COMPONENT]_FOUND
 # 
 # In this example, we only request the Irrlicht module (required)
+# and, for demonstration purposes, the PardisoMKL module (optional)
 #--------------------------------------------------------------
 
 LIST(APPEND CMAKE_PREFIX_PATH "${CMAKE_INSTALL_PREFIX}/../Chrono/lib")
 find_package(Chrono
              COMPONENTS Irrlicht
+             OPTIONAL_COMPONENTS PardisoMKL
              CONFIG)
 
 #--------------------------------------------------------------
@@ -116,8 +118,6 @@ if(MSVC)
     add_definitions( "-DNOMINMAX" )                # do not use MSVC's min/max macros
     add_compile_options(/wd4275)                   # disable warnings triggered by Irrlicht
     add_compile_options(/wd4251)                   # class needs to have dll-interface
-else()
-    set(EXTRA_COMPILE_FLAGS "")
 endif()
 
 #--------------------------------------------------------------
@@ -126,7 +126,7 @@ endif()
 # files in your project. 
 #--------------------------------------------------------------
 
-add_executable(myexe my_example.cpp)
+add_executable(my_demo my_example.cpp)
 
 #--------------------------------------------------------------
 # Set properties for your executable target
@@ -137,16 +137,15 @@ add_executable(myexe my_example.cpp)
 # install tree (if using an installed version of Chrono).
 #--------------------------------------------------------------
 
-set_target_properties(myexe PROPERTIES 
-	    COMPILE_FLAGS "${CHRONO_CXX_FLAGS} ${EXTRA_COMPILE_FLAGS}"
-	    COMPILE_DEFINITIONS "CHRONO_DATA_DIR=\"${CHRONO_DATA_DIR}\""
-	    LINK_FLAGS "${CHRONO_LINKER_FLAGS}")
+target_compile_definitions(my_demo PUBLIC "CHRONO_DATA_DIR=\"${CHRONO_DATA_DIR}\"") 
+target_compile_options(my_demo PUBLIC ${CHRONO_CXX_FLAGS})
+target_link_options(my_demo PUBLIC ${CHRONO_LINKER_FLAGS})
 
 #--------------------------------------------------------------
 # Link to Chrono libraries and dependency libraries
 #--------------------------------------------------------------
 
-target_link_libraries(myexe ${CHRONO_LIBRARIES})
+target_link_libraries(my_demo ${CHRONO_LIBRARIES})
 
 #--------------------------------------------------------------
 # === 4 (OPTIONAL) ===

@@ -19,13 +19,14 @@
 // =============================================================================
 
 #include "chrono_synchrono/agent/SynCopterAgent.h"
+#include "chrono_thirdparty/filesystem/path.h"
 
 namespace chrono {
 namespace synchrono {
 
 SynCopterAgent::SynCopterAgent(chrono::copter::Copter<6>* copter) : SynAgent(), m_copter(copter) {
-    m_state = chrono_types::make_shared<SynCopterStateMessage>(0, 0);
-    m_description = chrono_types::make_shared<SynCopterDescriptionMessage>(0, 0);
+    m_state = chrono_types::make_shared<SynCopterStateMessage>();
+    m_description = chrono_types::make_shared<SynCopterDescriptionMessage>();
     if (copter) {
         SetZombieVisualizationFiles(copter->GetChassisMeshFilename(), copter->GetPropellerMeshFilename());
         SetNumProps(6);
@@ -43,7 +44,7 @@ void SynCopterAgent::InitializeZombie(ChSystem* system) {
         auto prop_trimesh = CreateMeshZombieComponent(m_description->propeller_vis_file);
 
         auto prop = chrono_types::make_shared<ChBody>();
-        prop->AddAsset(prop_trimesh);
+        prop->AddVisualShape(prop_trimesh);
         prop->SetCollide(false);
         prop->SetBodyFixed(true);
         system->Add(prop);
@@ -87,24 +88,23 @@ void SynCopterAgent::Update() {
 
 // ------------------------------------------------------------------------
 
-void SynCopterAgent::SetID(SynAgentID aid) {
-    m_description->SetSourceID(aid);
-    m_state->SetSourceID(aid);
-    m_aid = aid;
+void SynCopterAgent::SetKey(AgentKey agent_key) {
+    m_description->SetSourceKey(agent_key);
+    m_state->SetSourceKey(agent_key);
+    m_agent_key = agent_key;
 }
 
 // ------------------------------------------------------------------------
 
 std::shared_ptr<ChTriangleMeshShape> SynCopterAgent::CreateMeshZombieComponent(const std::string& filename) {
-    auto mesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
-    if (!filename.empty())
-        mesh->LoadWavefrontMesh(GetChronoDataFile(filename), false, false);
-
     auto trimesh = chrono_types::make_shared<ChTriangleMeshShape>();
-    trimesh->SetMesh(mesh);
-    trimesh->SetStatic(true);
-    trimesh->SetName(filename);
-
+    if (!filename.empty()) {
+        auto mesh =
+            geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(GetChronoDataFile(filename), false, false);
+        trimesh->SetMesh(mesh);
+        trimesh->SetMutable(false);
+        trimesh->SetName(filesystem::path(filename).stem());
+    }
     return trimesh;
 }
 
@@ -112,7 +112,7 @@ std::shared_ptr<ChBody> SynCopterAgent::CreateChassisZombieBody(const std::strin
     auto trimesh = CreateMeshZombieComponent(filename);
 
     auto zombie_body = chrono_types::make_shared<ChBody>();
-    zombie_body->AddAsset(trimesh);
+    zombie_body->AddVisualShape(trimesh);
     zombie_body->SetCollide(false);
     zombie_body->SetBodyFixed(true);
     system->Add(zombie_body);

@@ -29,6 +29,8 @@
 #include "chrono/physics/ChShaftsMotor.h"
 #include "chrono/physics/ChShaftsTorque.h"
 #include "chrono/physics/ChShaftsThermalEngine.h"
+#include "chrono/physics/ChShaftsFreewheel.h"
+#include "chrono/physics/ChShaftsMotorAngle.h"
 
 using namespace chrono;
 
@@ -53,7 +55,7 @@ int main(int argc, char* argv[]) {
         //
 
         // The physical system: it contains all physical objects.
-        ChSystemNSC my_system;
+        ChSystemNSC sys;
 
         // Create a 1-degree-of-freedom '1D' mechanical object, that
         // is a ChShaft (an item that can oly rotate, with one inertia value
@@ -63,7 +65,7 @@ int main(int argc, char* argv[]) {
         auto my_shaftA = chrono_types::make_shared<ChShaft>();
         my_shaftA->SetInertia(10);
         my_shaftA->SetAppliedTorque(6);
-        my_system.Add(my_shaftA);
+        sys.AddShaft(my_shaftA);
 
         // Create another shaft. Note that we use shared pointers for ChShaft
         // objects, as we did for ChBody objects. Also, note that we must add them
@@ -71,7 +73,7 @@ int main(int argc, char* argv[]) {
         auto my_shaftB = chrono_types::make_shared<ChShaft>();
         my_shaftB->SetInertia(100);
         my_shaftB->SetShaftFixed(false);
-        my_system.Add(my_shaftB);
+        sys.AddShaft(my_shaftB);
 
         // Create a ChShaftsGear, that represents a simplified model
         // of a reducer, with transmission ratio t, between two ChShaft objects.
@@ -82,10 +84,10 @@ int main(int argc, char* argv[]) {
         auto my_shaft_gearAB = chrono_types::make_shared<ChShaftsGear>();
         my_shaft_gearAB->Initialize(my_shaftA, my_shaftB);
         my_shaft_gearAB->SetTransmissionRatio(-0.1);  // ex., a couple of spur gears with 20 and 200 teeth
-        my_system.Add(my_shaft_gearAB);
+        sys.Add(my_shaft_gearAB);
 
         GetLog() << "\n\n\nHere's the system hierarchy: \n\n ";
-        my_system.ShowHierarchy(GetLog());
+        sys.ShowHierarchy(GetLog());
 
         // Perform a very simple simulation loop..
         double chronoTime = 0;
@@ -93,7 +95,7 @@ int main(int argc, char* argv[]) {
             chronoTime += 0.01;
 
             // PERFORM SIMULATION UP TO chronoTime
-            my_system.DoFrameDynamics(chronoTime);
+            sys.DoFrameDynamics(chronoTime);
 
             // Print something on the console..
 
@@ -125,19 +127,19 @@ int main(int argc, char* argv[]) {
         //
 
         // The physical system: it contains all physical objects.
-        ChSystemNSC my_system;
+        ChSystemNSC sys;
 
         // Create a ChShaft that starts with nonzero angular velocity
         auto my_shaftA = chrono_types::make_shared<ChShaft>();
         my_shaftA->SetInertia(0.5);
         my_shaftA->SetPos_dt(30);
-        my_system.Add(my_shaftA);
+        sys.AddShaft(my_shaftA);
 
         // Create another ChShaft, with opposite initial angular velocity
         auto my_shaftB = chrono_types::make_shared<ChShaft>();
         my_shaftB->SetInertia(0.6);
         my_shaftB->SetPos_dt(-10);
-        my_system.Add(my_shaftB);
+        sys.AddShaft(my_shaftB);
 
         // Create a ChShaftsClutch, that represents a simplified model
         // of a clutch between two ChShaft objects (something that limits
@@ -145,13 +147,13 @@ int main(int argc, char* argv[]) {
         auto my_shaft_clutchAB = chrono_types::make_shared<ChShaftsClutch>();
         my_shaft_clutchAB->Initialize(my_shaftA, my_shaftB);
         my_shaft_clutchAB->SetTorqueLimit(60);
-        my_system.Add(my_shaft_clutchAB);
+        sys.Add(my_shaft_clutchAB);
 
         // Let's begin the simulation with the clutch disengaged:
         my_shaft_clutchAB->SetModulation(0);
 
         GetLog() << "\n\n\nHere's the system hierarchy: \n\n ";
-        my_system.ShowHierarchy(GetLog());
+        sys.ShowHierarchy(GetLog());
 
         // Perform a very simple simulation loop..
         double chronoTime = 0;
@@ -159,7 +161,7 @@ int main(int argc, char* argv[]) {
             chronoTime += 0.01;
 
             // PERFORM SIMULATION UP TO chronoTime
-            my_system.DoFrameDynamics(chronoTime);
+            sys.DoFrameDynamics(chronoTime);
 
             // Activate the clutch only after 0.8 seconds of simulation:
             if (chronoTime > 0.8) {
@@ -204,23 +206,23 @@ int main(int argc, char* argv[]) {
         //                   C
 
         // The physical system: it contains all physical objects.
-        ChSystemNSC my_system;
+        ChSystemNSC sys;
 
         // Create shaft A, with applied torque
         auto my_shaftA = chrono_types::make_shared<ChShaft>();
         my_shaftA->SetInertia(0.5);
         my_shaftA->SetAppliedTorque(10);
-        my_system.Add(my_shaftA);
+        sys.AddShaft(my_shaftA);
 
         // Create shaft B
         auto my_shaftB = chrono_types::make_shared<ChShaft>();
         my_shaftB->SetInertia(0.5);
-        my_system.Add(my_shaftB);
+        sys.AddShaft(my_shaftB);
 
         // Create shaft C, that will be fixed (to be used as truss of epicycloidal reducer)
         auto my_shaftC = chrono_types::make_shared<ChShaft>();
         my_shaftC->SetShaftFixed(true);
-        my_system.Add(my_shaftC);
+        sys.AddShaft(my_shaftC);
 
         // Create a ChShaftsPlanetary, that represents a simplified model
         // of a planetary gear between THREE ChShaft objects (ex.: a car differential)
@@ -235,23 +237,23 @@ int main(int argc, char* argv[]) {
         double t0 =
             -50.0 / 100.0;  // suppose, in the reducer, that pinion A has 50 teeth and truss has 100 inner teeth.
         my_shaft_planetaryBAC->SetTransmissionRatioOrdinary(t0);
-        my_system.Add(my_shaft_planetaryBAC);
+        sys.Add(my_shaft_planetaryBAC);
 
         // Now, let's make a shaft D, that is fixed, and used for the right side
         // of a clutch (so the clutch will act as a brake).
         auto my_shaftD = chrono_types::make_shared<ChShaft>();
         my_shaftD->SetShaftFixed(true);
-        my_system.Add(my_shaftD);
+        sys.Add(my_shaftD);
 
         // Make the brake. It is, in fact a clutch between shafts B and D, where
         // D is fixed as a truss, so the clutch will operate as a brake.
         auto my_shaft_clutchBD = chrono_types::make_shared<ChShaftsClutch>();
         my_shaft_clutchBD->Initialize(my_shaftB, my_shaftD);
         my_shaft_clutchBD->SetTorqueLimit(60);
-        my_system.Add(my_shaft_clutchBD);
+        sys.Add(my_shaft_clutchBD);
 
         GetLog() << "\n\n\nHere's the system hierarchy: \n\n ";
-        my_system.ShowHierarchy(GetLog());
+        sys.ShowHierarchy(GetLog());
 
         // Perform a very simple simulation loop..
         double chronoTime = 0;
@@ -259,7 +261,7 @@ int main(int argc, char* argv[]) {
             chronoTime += 0.01;
 
             // PERFORM SIMULATION UP TO chronoTime
-            my_system.DoFrameDynamics(chronoTime);
+            sys.DoFrameDynamics(chronoTime);
 
             // Print something on the console..
             GetLog() << "Time: " << chronoTime << "\n"
@@ -295,29 +297,29 @@ int main(int argc, char* argv[]) {
         //
 
         // The physical system: it contains all physical objects.
-        ChSystemNSC my_system;
+        ChSystemNSC sys;
 
         // Create 'A', a 1D shaft
         auto my_shaftA = chrono_types::make_shared<ChShaft>();
         my_shaftA->SetInertia(9);
-        my_system.Add(my_shaftA);
+        sys.AddShaft(my_shaftA);
 
         // Create 'C', a 1D shaft, fixed
         auto my_shaftC = chrono_types::make_shared<ChShaft>();
         my_shaftC->SetShaftFixed(true);
-        my_system.Add(my_shaftC);
+        sys.AddShaft(my_shaftC);
 
         // Create 'B', a 3D rigid body
         auto my_bodyB = chrono_types::make_shared<ChBody>();
         my_bodyB->Accumulate_torque(ChVector<>(0, 0, 3), true);  // set some constant torque to body
-        my_system.Add(my_bodyB);
+        sys.Add(my_bodyB);
 
         // Make the torsional spring-damper between shafts A and C.
         auto my_shaft_torsionAC = chrono_types::make_shared<ChShaftsTorsionSpring>();
         my_shaft_torsionAC->Initialize(my_shaftA, my_shaftC);
         my_shaft_torsionAC->SetTorsionalStiffness(40);
         my_shaft_torsionAC->SetTorsionalDamping(0);
-        my_system.Add(my_shaft_torsionAC);
+        sys.Add(my_shaft_torsionAC);
 
         // Make the shaft 'A' connected to the rotation of the 3D body 'B'.
         // We must specify the direction (in body coordinates) along which the
@@ -325,10 +327,10 @@ int main(int argc, char* argv[]) {
         auto my_shaftbody_connection = chrono_types::make_shared<ChShaftsBody>();
         ChVector<> mshaftdir(VECT_Z);
         my_shaftbody_connection->Initialize(my_shaftA, my_bodyB, mshaftdir);
-        my_system.Add(my_shaftbody_connection);
+        sys.Add(my_shaftbody_connection);
 
         GetLog() << "\n\n\nHere's the system hierarchy: \n\n ";
-        my_system.ShowHierarchy(GetLog());
+        sys.ShowHierarchy(GetLog());
 
         // Perform a very simple simulation loop..
         double chronoTime = 0;
@@ -336,7 +338,7 @@ int main(int argc, char* argv[]) {
             chronoTime += 0.01;
 
             // PERFORM SIMULATION UP TO chronoTime
-            my_system.DoFrameDynamics(chronoTime);
+            sys.DoFrameDynamics(chronoTime);
 
             // Print something on the console..
             GetLog() << "Time: " << chronoTime << "\n"
@@ -359,7 +361,7 @@ int main(int argc, char* argv[]) {
         // EXAMPLE 5:
         //
 
-        GetLog() << " Example: torque converter and thermal engine \n";
+        GetLog() << " Example 5: torque converter and thermal engine \n";
 
         // In this example we use a torque converter.
         // The torque converter is represented by a ChShaftsTorqueConverter
@@ -378,34 +380,34 @@ int main(int argc, char* argv[]) {
         //
 
         // The physical system: it contains all physical objects.
-        ChSystemNSC my_system;
+        ChSystemNSC sys;
 
         // Create 'A', a 1D shaft
         auto my_shaftA = chrono_types::make_shared<ChShaft>();
         my_shaftA->SetInertia(1.5);
-        my_system.Add(my_shaftA);
+        sys.AddShaft(my_shaftA);
 
         // Create 'B', a 1D shaft
         auto my_shaftB = chrono_types::make_shared<ChShaft>();
         my_shaftB->SetInertia(3.2);
         my_shaftB->SetAppliedTorque(-5);  // apply const braking torque
-        my_system.Add(my_shaftB);
+        sys.AddShaft(my_shaftB);
 
         // Create 'C', a 1D shaft, fixed
         auto my_shaftC = chrono_types::make_shared<ChShaft>();
         my_shaftC->SetShaftFixed(true);
-        my_system.Add(my_shaftC);
+        sys.AddShaft(my_shaftC);
 
         // Create 'D', a 1D shaft, fixed
         auto my_shaftD = chrono_types::make_shared<ChShaft>();
         my_shaftD->SetShaftFixed(true);
-        my_system.Add(my_shaftD);
+        sys.AddShaft(my_shaftD);
 
         // Make the torque converter and connect the shafts:
         // A (input),B (output), C(truss stator)
         auto my_torqueconverter = chrono_types::make_shared<ChShaftsTorqueConverter>();
         my_torqueconverter->Initialize(my_shaftA, my_shaftB, my_shaftC);
-        my_system.Add(my_torqueconverter);
+        sys.Add(my_torqueconverter);
 
         auto mK = chrono_types::make_shared<ChFunction_Recorder>();
         mK->AddPoint(0.0, 15);
@@ -436,7 +438,7 @@ int main(int argc, char* argv[]) {
         my_motor->Initialize(my_shaftA, my_shaftD);
         my_motor->SetMotorMode(ChShaftsMotor::MOT_MODE_TORQUE);
         my_motor->SetMotorTorque(30);
-        my_system.Add(my_motor);
+        sys.Add(my_motor);
         */
 
         // Option B: use a ChShaftsTorque, it just applies a torque
@@ -448,7 +450,7 @@ int main(int argc, char* argv[]) {
         auto my_motor = chrono_types::make_shared<ChShaftsTorque>();
         my_motor->Initialize(my_shaftA, my_shaftD);
         my_motor->SetTorque(30);
-        my_system.Add(my_motor);
+        sys.Add(my_motor);
         */
 
         // Option C: a more powerful approach where you can
@@ -457,7 +459,7 @@ int main(int argc, char* argv[]) {
 
         auto my_motor = chrono_types::make_shared<ChShaftsThermalEngine>();
         my_motor->Initialize(my_shaftA, my_shaftD);
-        my_system.Add(my_motor);
+        sys.Add(my_motor);
 
         auto mTw = chrono_types::make_shared<ChFunction_Recorder>();
         mTw->AddPoint(-5, 30);  //   [rad/s],  [Nm]
@@ -469,7 +471,7 @@ int main(int argc, char* argv[]) {
         my_motor->SetTorqueCurve(mTw);
 
         GetLog() << "\n\n\nHere's the system hierarchy: \n\n ";
-        my_system.ShowHierarchy(GetLog());
+        sys.ShowHierarchy(GetLog());
 
         // Perform a very simple simulation loop..
         double chronoTime = 0;
@@ -477,7 +479,7 @@ int main(int argc, char* argv[]) {
             chronoTime += 0.01;
 
             // PERFORM SIMULATION UP TO chronoTime
-            my_system.DoFrameDynamics(chronoTime);
+            sys.DoFrameDynamics(chronoTime);
 
             // Print something on the console..
             GetLog() << "Time: " << chronoTime << "\n"
@@ -494,6 +496,111 @@ int main(int argc, char* argv[]) {
                      << "  T(w)=" << my_motor->GetTorqueReactionOn1() << "[Nm]"
                      << "  w=" << my_motor->GetRelativeRotation_dt() << "[rad/s]"
                      << "\n";
+        }
+    }
+
+    if (true) {
+        //
+        // EXAMPLE 6:
+        //
+
+        GetLog() << " Example 6: a ratcheting freewheel, as a one-directional clutch \n";
+
+        // In this example we use a ratcheting freewheel, that acts as a one-directional 
+        // clutch (where the locking in reverse direction happens only at discrete
+        // steps, depending on the n.of ratcheting teeths).
+        // The example consists of:
+        // - the fixed shaft A
+        // - the shaft B, that rotates back and forth 
+        // - the shaft C, that rotates only unidirectionally
+        // - the fixed shaft D
+        // In the following scheme
+        // - the freewheel is represented as [ fw ],
+        // - we also add a motor, shown with [ m ], to generate sinusoidal rotation of B for testing
+        // - we also add a clutch, shown with [ cl ], just to keep the shaft C "stopped" when not 
+        //   pushed by the unidirectional freewheel, otherwise would proceed in one direction forever.
+        // (A,D are shown as * because fixed).
+        //
+        //   A           B             C             D
+        //   *---[ m ]---||---[ fw ]---||---[ cl ]---*
+        //
+
+        // The physical system: it contains all physical objects.
+        ChSystemNSC sys;
+
+        // Create 'A', a 1D shaft, fixed
+        auto my_shaftA = chrono_types::make_shared<ChShaft>();
+        my_shaftA->SetShaftFixed(true);
+        sys.AddShaft(my_shaftA);
+
+        // Create 'B', a 1D shaft
+        auto my_shaftB = chrono_types::make_shared<ChShaft>();
+        my_shaftB->SetInertia(1.5);
+        sys.AddShaft(my_shaftB);
+
+        // Create 'C', a 1D shaft
+        auto my_shaftC = chrono_types::make_shared<ChShaft>();
+        my_shaftC->SetInertia(3.2);
+        sys.AddShaft(my_shaftC);
+
+        // Create D', a 1D shaft, fixed
+        auto my_shaftD = chrono_types::make_shared<ChShaft>();
+        my_shaftD->SetShaftFixed(true);
+        sys.AddShaft(my_shaftD);
+
+        // Make the motor imposing a test sinusoidal rotation
+        auto my_motor = chrono_types::make_shared<ChShaftsMotorAngle>();
+        my_motor->Initialize(my_shaftA, my_shaftB);
+        sys.Add(my_motor);
+        auto my_sinefunction = chrono_types::make_shared<ChFunction_Sine>(0, 1.2,  0.001+0.5*CH_C_2PI / 20); // phase freq ampl
+        my_motor->SetAngleFunction(my_sinefunction);
+
+        // Make the freewheel:
+        auto my_freewheel = chrono_types::make_shared<ChShaftsFreewheel>();
+        my_freewheel->Initialize(my_shaftB, my_shaftC);
+        my_freewheel->SetRatchetingModeTeeth(25);  
+        //my_freewheel->SetJammingMode(); // this is like having infinite teeth, i.e. no backlash
+        //my_freewheel->SetFreeBackward(); // this is to reverse the unidirectional behavior
+        sys.Add(my_freewheel);
+
+        // Make the clutch that keeps the shaft C in place:
+        auto my_clutch = chrono_types::make_shared<ChShaftsClutch>();
+        my_clutch->Initialize(my_shaftC, my_shaftD);
+        my_clutch->SetTorqueLimit(100);
+        sys.Add(my_clutch);
+
+
+        GetLog() << "\n\n\nHere's the system hierarchy: \n\n ";
+        sys.ShowHierarchy(GetLog());
+
+        ChStreamOutAsciiFile file_results("test_clutch.txt");
+
+        // Perform a very simple simulation loop..
+        double chronoTime = 0;
+        double step = 0.01;
+        while (chronoTime < 5.5) {
+            chronoTime += step;
+
+            // PERFORM SIMULATION UP TO chronoTime
+            sys.DoStepDynamics(step);
+
+            // Print something on the console..
+            GetLog() << "Time: " << chronoTime << "\n"
+                << "  shaft B rot: " << my_shaftB->GetPos() << "  speed: " << my_shaftB->GetPos_dt()
+                << "  accel: " << my_shaftB->GetPos_dtdt() << "\n"
+                << "  shaft C rot: " << my_shaftC->GetPos() << "  speed: " << my_shaftC->GetPos_dt()
+                << "  accel: " << my_shaftC->GetPos_dtdt() << "\n"
+                << "  Torque: Tmotor=" << my_motor->GetTorqueReactionOn1()
+                << "  Tfreewheel=" << my_freewheel->GetTorqueReactionOn1()
+                << "  Tclutch=" << my_clutch->GetTorqueReactionOn1()
+                << "  ratchet vane=" << my_freewheel->GetCurrentTeethVane()
+                << "\n";
+            file_results << chronoTime << ", " 
+                << my_shaftB->GetPos() << ", " 
+                << my_shaftC->GetPos() << ", " 
+                << my_shaftC->GetPos_dt() << ", " 
+                << my_clutch->GetTorqueReactionOn1() << ", " 
+                << my_freewheel->GetCurrentTeethVane() << "\n";
         }
     }
 

@@ -60,7 +60,7 @@ class CH_VEHICLE_API ChThreeLinkIRS : public ChSuspension {
     ChThreeLinkIRS(const std::string& name  ///< [in] name of the subsystem
                    );
 
-    virtual ~ChThreeLinkIRS() {}
+    virtual ~ChThreeLinkIRS();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "ThreeLinkIRS"; }
@@ -91,12 +91,6 @@ class CH_VEHICLE_API ChThreeLinkIRS : public ChSuspension {
 
     /// Remove visualization assets for the suspension subsystem.
     virtual void RemoveVisualizationAssets() override;
-
-    /// Get the total mass of the suspension subsystem.
-    virtual double GetMass() const override;
-
-    /// Get the current global COM location of the suspension subsystem.
-    virtual ChVector<> GetCOMPos() const override;
 
     /// Get the wheel track for the suspension subsystem.
     virtual double GetTrack() override;
@@ -167,6 +161,9 @@ class CH_VEHICLE_API ChThreeLinkIRS : public ChSuspension {
         UNIV_AXIS_LOWER,  ///< universal joint (lower link - chassis)
         NUM_DIRS
     };
+
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
 
     /// Return the location of the specified hardpoint.
     /// The returned location must be expressed in the suspension reference frame.

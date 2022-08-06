@@ -85,8 +85,11 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
     /// Set visualization type for the idler subsystem (default: PRIMITIVES).
     void SetIdlerVisualizationType(VisualizationType vis) { m_vis_idler = vis; }
 
-    /// Set visualization type for the road-wheel assembly subsystem (default: PRIMITIVES).
-    void SetRoadWheelAssemblyVisualizationType(VisualizationType vis) { m_vis_roadwheel_assembly = vis; }
+    /// Set visualization type for the track suspension subsystem (default: PRIMITIVES).
+    void SetSuspensionVisualizationType(VisualizationType vis) { m_vis_suspension = vis; }
+
+    /// Set visualization type for the idler-wheel subsystem (default: PRIMITIVES).
+    void SetIdlerWheelVisualizationType(VisualizationType vis) { m_vis_idlerwheel = vis; }
 
     /// Set visualization type for the road-wheel subsystem (default: PRIMITIVES).
     void SetRoadWheelVisualizationType(VisualizationType vis) { m_vis_roadwheel = vis; }
@@ -110,6 +113,37 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
     /// Set collision flags for the various subsystems.
     /// By default, collision is enabled for sprocket, idler, road wheels, and track shoes.
     void SetCollide(int flags) { m_collide_flags = flags; }
+
+    /// Enable/disable collision for the rig posts (default: true).
+    void SetPostCollide(bool flag);
+
+    /// Set contacts to be monitored.
+    /// Contact information will be tracked for the specified subsystems.
+    void MonitorContacts(int flags) { m_contact_manager->MonitorContacts(flags); }
+
+    /// Render normals of all monitored contacts.
+    void SetRenderContactNormals(bool val) { m_contact_manager->SetRenderNormals(val); }
+
+    /// Render forces of all monitored contacts.
+    void SetRenderContactForces(bool val, double scale) { m_contact_manager->SetRenderForces(val, scale); }
+
+    /// Turn on/off contact data collection.
+    /// If enabled, contact information will be collected for all monitored subsystems.
+    void SetContactCollection(bool val) { m_contact_manager->SetContactCollection(val); }
+
+    /// Return true if the specified vehicle part is currently experiencing a collision.
+    bool IsPartInContact(TrackedCollisionFlag::Enum part) const { return m_contact_manager->InContact(part); }
+
+    /// Return estimated resistive torque on the specified sprocket.
+    /// This torque is available only if monitoring of contacts for that sprocket is enabled.
+    ChVector<> GetSprocketResistiveTorque(VehicleSide side) const {
+        return m_contact_manager->GetSprocketResistiveTorque(side);
+    }
+
+    /// Write contact information to file.
+    /// If data collection was enabled and at least one subsystem is monitored,
+    /// contact information is written (in CSV format) to the specified file.
+    void WriteContacts(const std::string& filename) { m_contact_manager->WriteContacts(filename); }
 
     double GetThrottleInput() const { return m_throttle_input; }
     double GetDisplacementInput(int index) { return m_displ_input[index]; }
@@ -169,11 +203,10 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
     void CollectPlotData(double time);
 
     // Overrides of ChVehicle methods
+    virtual void InitializeInertiaProperties() override {}
+    virtual void UpdateInertiaProperties() override {}
     virtual std::string GetTemplateName() const override { return "TrackTestRig"; }
     virtual std::shared_ptr<ChShaft> GetDriveshaft() const override { return m_dummy_shaft; }
-    virtual double GetDriveshaftSpeed() const override { return 0; }
-    virtual double GetVehicleMass() const override { return GetMass(); }
-    virtual ChVector<> GetVehicleCOMPos() const override { return ChVector<>(0, 0, 0); }
     virtual std::string ExportComponentList() const override { return ""; }
     virtual void ExportComponentList(const std::string& filename) const override {}
     virtual void Initialize(const ChCoordsys<>& chassisPos, double chassisFwdVel = 0) override { Initialize(); }
@@ -190,26 +223,31 @@ class CH_VEHICLE_API ChTrackTestRig : public ChVehicle {
     std::vector<double> m_displ_input;      ///< current post displacement inputs
     std::string m_driver_logfile;           ///< name of optioinal driver log file
 
-    double m_ride_height;         ///< ride height
-    double m_displ_offset;        ///< post displacement offset (to set reference position)
-    double m_displ_delay;         ///< time interval for assuming reference position
-    double m_displ_limit;         ///< scale factor for post displacement
+    double m_ride_height;   ///< ride height
+    double m_displ_offset;  ///< post displacement offset (to set reference position)
+    double m_displ_delay;   ///< time interval for assuming reference position
+    double m_displ_limit;   ///< scale factor for post displacement
 
     double m_max_torque;  ///< maximum torque applied to sprocket
 
     VisualizationType m_vis_sprocket;
     VisualizationType m_vis_idler;
-    VisualizationType m_vis_roadwheel_assembly;
+    VisualizationType m_vis_suspension;
+    VisualizationType m_vis_idlerwheel;
     VisualizationType m_vis_roadwheel;
     VisualizationType m_vis_shoe;
 
     double m_post_radius;   ///< radius of the post cylindrical platform
     double m_post_hheight;  ///< half-height of the post cylindrical platform
 
+    std::shared_ptr<ChTrackContactManager> m_contact_manager;  ///< manager for internal contacts
+
     bool m_plot_output;
     double m_plot_output_step;
     double m_next_plot_output_time;
     utils::CSV_writer* m_csv;
+
+    friend class ChTrackTestRigVisualSystemIrrlicht;
 };
 
 /// @} vehicle_tracked_test_rig

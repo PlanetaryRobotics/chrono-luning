@@ -29,18 +29,15 @@
 #include "chrono_vehicle/ChDriver.h"
 #include "chrono_vehicle/terrain/SCMDeformableTerrain.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
-#include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleIrrApp.h"
+#include "chrono_vehicle/wheeled_vehicle/utils/ChWheeledVehicleVisualSystemIrrlicht.h"
 
 #include "chrono_models/vehicle/hmmwv/HMMWV.h"
 
 #include "chrono_thirdparty/filesystem/path.h"
 
-#include "chrono_sensor/ChCameraSensor.h"
+#include "chrono_sensor/sensors/ChCameraSensor.h"
 #include "chrono_sensor/ChSensorManager.h"
 #include "chrono_sensor/filters/ChFilterVisualize.h"
-#include "chrono_sensor/filters/ChFilterSave.h"
-#include "chrono_sensor/utils/ChVisualMaterialUtils.h"
-#include "chrono_sensor/filters/ChFilterAccess.h"
 
 using namespace chrono;
 using namespace chrono::collision;
@@ -86,7 +83,7 @@ ChQuaternion<> initRot(1, 0, 0, 0);
 // -----------------------------------------------------------------------------
 
 // Update Rate in Hz
-float update_rate = 30.0f;
+float update_rate = 60.0f;
 
 // Image width and height
 unsigned int image_width = 1920;
@@ -129,7 +126,7 @@ float end_time = 20.0f;
 bool save = false;
 
 // Render camera images
-bool vis = true;
+bool visualize = true;
 
 // =============================================================================
 
@@ -192,17 +189,19 @@ void CreateLuggedGeometry(std::shared_ptr<ChBody> wheel_body, std::shared_ptr<Ch
     coll_model->BuildModel();
 
     // Visualization
-    auto trimesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
-    trimesh->LoadWavefrontMesh(vehicle::GetDataFile("hmmwv/lugged_wheel.obj"), false, false);
+    auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(
+        vehicle::GetDataFile("hmmwv/lugged_wheel.obj"), false, false);
 
     auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
     trimesh_shape->SetMesh(trimesh);
     trimesh_shape->SetName("lugged_wheel");
-    trimesh_shape->SetStatic(true);
-    wheel_body->AddAsset(trimesh_shape);
+    trimesh_shape->SetMutable(false);
+    wheel_body->AddVisualShape(trimesh_shape,ChFrame<>());
 
-    auto mcolor = chrono_types::make_shared<ChColorAsset>(0.3f, 0.3f, 0.3f);
-    wheel_body->AddAsset(mcolor);
+    auto vis_mat = chrono_types::make_shared<ChVisualMaterial>();
+    vis_mat->SetDiffuseColor({0.3f, 0.3f, 0.3f});
+    vis_mat->SetSpecularColor({0.1f, 0.1f, 0.1f});
+    trimesh_shape->AddMaterial(vis_mat);
 }
 
 // =============================================================================
@@ -273,6 +272,7 @@ int main(int argc, char* argv[]) {
                               2e8,   // Elastic stiffness (Pa/m), before plastic yield
                               3e4    // Damping (Pa s/m), proportional to negative vertical speed (optional)
     );
+    terrain.GetMesh()->SetWireframe(false);
 
     ////terrain.SetBulldozingFlow(true);      // inflate soil at the border of the rut
     ////terrain.SetBulldozingParameters(55,   // angle of friction for erosion of displaced material at rut border
@@ -297,19 +297,22 @@ int main(int argc, char* argv[]) {
 
     auto vis_mat = chrono_types::make_shared<ChVisualMaterial>();
     vis_mat->SetSpecularColor({.1f, .1f, .1f});
+    vis_mat->SetRoughness(1);
     vis_mat->SetKdTexture(GetChronoDataFile("sensor/textures/grass_texture.jpg"));
-    terrain.GetMesh()->material_list.push_back(vis_mat);
+    terrain.GetMesh()->AddMaterial(vis_mat);
 
     // ---------------------------------------
     // Create the vehicle Irrlicht application
     // ---------------------------------------
-    ChWheeledVehicleIrrApp app(&my_hmmwv.GetVehicle(), L"HMMWV Deformable Soil Demo");
-    app.SetSkyBox();
-    app.AddTypicalLights(irr::core::vector3df(30.f, -30.f, 100.f), irr::core::vector3df(30.f, 50.f, 100.f), 250, 130);
-    app.SetChaseCamera(trackPoint, 6.0, 0.5);
-    app.SetTimestep(step_size);
-    app.AssetBindAll();
-    app.AssetUpdateAll();
+
+    auto vis = chrono_types::make_shared<ChWheeledVehicleVisualSystemIrrlicht>();
+    vis->SetWindowTitle("HMMWV Deformable Soil Demo");
+    vis->SetChaseCamera(trackPoint, 6.0, 0.5);
+    vis->Initialize();
+    vis->AddTypicalLights();
+    vis->AddSkyBox();
+    vis->AddLogo();
+    vis->AttachVehicle(&my_hmmwv.GetVehicle());
 
     // -----------------
     // Initialize output
@@ -327,30 +330,30 @@ int main(int argc, char* argv[]) {
 
     // Create the sensor manager
     auto manager = chrono_types::make_shared<ChSensorManager>(my_hmmwv.GetSystem());
-    manager->SetVerbose(true);
 
     // Set lights
-    manager->scene->AddPointLight({100, 100, 100}, {1, 1, 1}, 2000);
-    manager->scene->AddPointLight({-100, 100, 100}, {1, 1, 1}, 2000);
-
+    float intensity = 1.0;
+    manager->scene->AddPointLight({20, 20, 30}, {intensity, intensity, intensity}, 5000);
+    
     // Set up Camera
     chrono::ChFrame<double> offset_pose1({-8, 0, 3}, Q_from_AngAxis(.2, {0, 1, 0}));
-    auto cam = chrono_types::make_shared<ChCameraSensor>(my_hmmwv.GetChassisBody(), update_rate, offset_pose1,
-                                                         image_width, image_height, fov);
+    auto cam =
+        chrono_types::make_shared<ChCameraSensor>(my_hmmwv.GetChassisBody(), update_rate, offset_pose1, image_width,
+                                                  image_height, fov, 1, CameraLensModelType::PINHOLE, false);
     cam->SetName("Camera Sensor");
     cam->SetLag(lag);
     cam->SetCollectionWindow(exposure_time);
 
     // Renders the image at current point in the filter graph
-    if (vis)
+    if (visualize)
         cam->PushFilter(chrono_types::make_shared<ChFilterVisualize>(int(image_width * 3 / 4),
                                                                      int(image_height * 3 / 4), "SCM Camera"));
 
     // Provides the host access to this RGBA8_buffer
-    cam->PushFilter(chrono_types::make_shared<ChFilterRGBA8Access>());
+    // cam->PushFilter(chrono_types::make_shared<ChFilterRGBA8Access>());
 
-    if (save)
-        cam->PushFilter(chrono_types::make_shared<ChFilterSave>(sens_dir + "/cam/"));
+    // if (save)
+    //     cam->PushFilter(chrono_types::make_shared<ChFilterSave>(sens_dir + "/cam/"));
 
     // Add sensor to the manager
     manager->AddSensor(cam);
@@ -358,7 +361,7 @@ int main(int argc, char* argv[]) {
     // ---------------
     // Simulation loop
     // ---------------
-    std::cout << "Total vehicle mass: " << my_hmmwv.GetTotalMass() << std::endl;
+    std::cout << "Vehicle mass: " << my_hmmwv.GetVehicle().GetMass() << std::endl;
 
     // Solver settings.
     system->SetSolverMaxIterations(50);
@@ -372,7 +375,7 @@ int main(int argc, char* argv[]) {
 
     ChTimer<> timer;
 
-    while (app.GetDevice()->run()) {
+    while (vis->Run()) {
         double time = system->GetChTime();
 
         if (step_number == 800) {
@@ -388,32 +391,32 @@ int main(int argc, char* argv[]) {
         }
 
         // Render scene
-        app.BeginScene(true, true, irr::video::SColor(255, 140, 161, 192));
-        app.DrawAll();
-        tools::drawColorbar(0, 0.1, "Sinkage", app.GetDevice(), 30);
-        app.EndScene();
+        vis->BeginScene();
+        vis->Render();
+        tools::drawColorbar(vis.get(), 0, 0.1, "Sinkage", 30);
+        vis->EndScene();
 
         if (img_output && step_number % render_steps == 0) {
             char filename[100];
             sprintf(filename, "%s/img_%03d.jpg", img_dir.c_str(), render_frame + 1);
-            app.WriteImageToFile(filename);
+            vis->WriteImageToFile(filename);
             render_frame++;
         }
 
         // Driver inputs
-        ChDriver::Inputs driver_inputs = driver.GetInputs();
+        DriverInputs driver_inputs = driver.GetInputs();
 
         // Update modules
         driver.Synchronize(time);
         terrain.Synchronize(time);
         my_hmmwv.Synchronize(time, driver_inputs, terrain);
-        app.Synchronize("", driver_inputs);
+        vis->Synchronize("", driver_inputs);
 
         manager->Update();
 
         // Advance dynamics
         system->DoStepDynamics(step_size);
-        app.Advance(step_size);
+        vis->Advance(step_size);
 
         // Increment frame number
         step_number++;

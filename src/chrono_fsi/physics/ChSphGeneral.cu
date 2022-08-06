@@ -11,23 +11,22 @@
 // =============================================================================
 // Author:Arman Pazouki, Milad Rakhsha
 // =============================================================================
-
+//
 // This file contains miscellaneous macros and utilities used in the SPH code.
-// ****************************************************************************
+//
+// =============================================================================
 #ifndef CH_SPH_GENERAL_CU
 #define CH_SPH_GENERAL_CU
 
-// ----------------------------------------------------------------------------
-// CUDA headers
-// ----------------------------------------------------------------------------
 #include "chrono_fsi/physics/ChSphGeneral.cuh"
 
 namespace chrono {
 namespace fsi {
 
-void CopyParams_NumberOfObjects(std::shared_ptr<SimParams> paramsH, std::shared_ptr<NumberOfObjects> numObjectsH) {
+void CopyParams_NumberOfObjects(std::shared_ptr<SimParams> paramsH, 
+    std::shared_ptr<ChCounters> numObjectsH) {
     cudaMemcpyToSymbolAsync(paramsD, paramsH.get(), sizeof(SimParams));
-    cudaMemcpyToSymbolAsync(numObjectsD, numObjectsH.get(), sizeof(NumberOfObjects));
+    cudaMemcpyToSymbolAsync(numObjectsD, numObjectsH.get(), sizeof(ChCounters));
     cudaDeviceSynchronize();
 }
 
@@ -42,19 +41,17 @@ __global__ void calc_A_tensor(Real* A_tensor,
                               const size_t numAllMarkers,
                               volatile bool* isErrorD) {
     uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers) {
+    if (i_idx >= numAllMarkers)
         return;
-    }
 
     // Remember : we want to solve 6x6 system Bi*l=-[1 0 0 1 0 1]'
     // elements of matrix B depends on tensor A
 
     uint csrStartIdx = numContacts[i_idx];
-    uint csrEndIdx = numContacts[i_idx + 1];  //- paramsD.Pressure_Constraint;
+    uint csrEndIdx = numContacts[i_idx + 1];
     Real3 posRadA = mR3(sortedPosRad[i_idx]);
     Real h_i = sortedPosRad[i_idx].w;
     Real m_i = cube(h_i * paramsD.MULT_INITSPACE) * paramsD.rho0;
-    //    Real sum_mW = 0;
     Real A_ijk[27] = {0.0};
 
     Real Gi[9] = {0.0};
@@ -112,12 +109,6 @@ __global__ void calc_A_tensor(Real* A_tensor,
     for (int i = 0; i < 27; i++)
         A_tensor[i_idx * 9 + i] = A_ijk[i];
 
-    //    printf("A_tensor[%d]= %f,%f,%f,%f,%f,%f,%f,%f,%f, %f,%f,%f,%f,%f,%f,%f,%f,%f, %f,%f,%f,%f,%f,%f,%f,%f,%f\n",
-    //    i_idx,
-    //           A_ijk[0], A_ijk[1], A_ijk[2], A_ijk[3], A_ijk[4], A_ijk[5], A_ijk[6], A_ijk[7], A_ijk[8], A_ijk[9 + 0],
-    //           A_ijk[9 + 1], A_ijk[9 + 2], A_ijk[9 + 3], A_ijk[9 + 4], A_ijk[9 + 5], A_ijk[9 + 6], A_ijk[9 + 7],
-    //           A_ijk[9 + 8], A_ijk[18 + 0], A_ijk[18 + 1], A_ijk[18 + 2], A_ijk[18 + 3], A_ijk[18 + 4], A_ijk[18 + 5],
-    //           A_ijk[18 + 6], A_ijk[18 + 7], A_ijk[18 + 8]);
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 __global__ void calc_L_tensor(Real* A_tensor,
@@ -131,13 +122,11 @@ __global__ void calc_L_tensor(Real* A_tensor,
                               const size_t numAllMarkers,
                               volatile bool* isErrorD) {
     uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers) {
+    if (i_idx >= numAllMarkers)
         return;
-    }
 
-    if (sortedRhoPreMu[i_idx].w != -1) {
+    if (sortedRhoPreMu[i_idx].w != -1)
         return;
-    }
 
     // Remember : we want to solve 6x6 system Bi*l=-[1 0 0 1 0 1]'
     // elements of matrix B depends on tensor A
@@ -184,7 +173,8 @@ __global__ void calc_L_tensor(Real* A_tensor,
         Real YZ = (eij.y * grad_ij.z + eij.z * grad_ij.y);
         Real ZZ = (eij.z * grad_ij.z);
 
-        com_part = (A_ijk[0] * eij.x + A_ijk[9] * eij.y + A_ijk[18] * eij.z + rij.x * eij.x) * V_j;
+        com_part = (A_ijk[0] * eij.x + A_ijk[9] * eij.y + 
+            A_ijk[18] * eij.z + rij.x * eij.x) * V_j;
         B[6 * 0 + 0] += com_part * XX;  // 11
         B[6 * 0 + 1] += com_part * XY;  // 12
         B[6 * 0 + 2] += com_part * XZ;  // 13
@@ -192,7 +182,8 @@ __global__ void calc_L_tensor(Real* A_tensor,
         B[6 * 0 + 4] += com_part * YZ;  // 15
         B[6 * 0 + 5] += com_part * ZZ;  // 15
         // mn=12
-        com_part = (A_ijk[1] * eij.x + A_ijk[10] * eij.y + A_ijk[19] * eij.z + rij.x * eij.y) * V_j;
+        com_part = (A_ijk[1] * eij.x + A_ijk[10] * eij.y + 
+            A_ijk[19] * eij.z + rij.x * eij.y) * V_j;
         B[6 * 1 + 0] += com_part * XX;  // 21
         B[6 * 1 + 1] += com_part * XY;  // 22
         B[6 * 1 + 2] += com_part * XZ;  // 23
@@ -201,7 +192,8 @@ __global__ void calc_L_tensor(Real* A_tensor,
         B[6 * 1 + 5] += com_part * ZZ;  // 25
 
         // mn=13
-        com_part = (A_ijk[2] * eij.x + A_ijk[11] * eij.y + A_ijk[20] * eij.z + rij.x * eij.z) * V_j;
+        com_part = (A_ijk[2] * eij.x + A_ijk[11] * eij.y + 
+            A_ijk[20] * eij.z + rij.x * eij.z) * V_j;
         B[6 * 2 + 0] += com_part * XX;  // 31
         B[6 * 2 + 1] += com_part * XY;  // 32
         B[6 * 2 + 2] += com_part * XZ;  // 33
@@ -211,7 +203,8 @@ __global__ void calc_L_tensor(Real* A_tensor,
 
         // Note that we skip mn=21 since it is similar to mn=12
         // mn=22
-        com_part = (A_ijk[4] * eij.x + A_ijk[13] * eij.y + A_ijk[22] * eij.z + rij.y * eij.y) * V_j;
+        com_part = (A_ijk[4] * eij.x + A_ijk[13] * eij.y + 
+            A_ijk[22] * eij.z + rij.y * eij.y) * V_j;
         B[6 * 3 + 0] += com_part * XX;  // 41
         B[6 * 3 + 1] += com_part * XY;  // 42
         B[6 * 3 + 2] += com_part * XZ;  // 43
@@ -220,7 +213,8 @@ __global__ void calc_L_tensor(Real* A_tensor,
         B[6 * 3 + 5] += com_part * ZZ;  // 46
 
         // mn=23
-        com_part = (A_ijk[5] * eij.x + A_ijk[14] * eij.y + A_ijk[23] * eij.z + rij.y * eij.z) * V_j;
+        com_part = (A_ijk[5] * eij.x + A_ijk[14] * eij.y + 
+            A_ijk[23] * eij.z + rij.y * eij.z) * V_j;
         B[6 * 4 + 0] += com_part * XX;  // 51
         B[6 * 4 + 1] += com_part * XY;  // 52
         B[6 * 4 + 2] += com_part * XZ;  // 53
@@ -228,7 +222,8 @@ __global__ void calc_L_tensor(Real* A_tensor,
         B[6 * 4 + 4] += com_part * YZ;  // 55
         B[6 * 4 + 5] += com_part * ZZ;  // 56
         // mn=33
-        com_part = (A_ijk[8] * eij.x + A_ijk[17] * eij.y + A_ijk[26] * eij.z + rij.z * eij.z) * V_j;
+        com_part = (A_ijk[8] * eij.x + A_ijk[17] * eij.y + 
+            A_ijk[26] * eij.z + rij.z * eij.z) * V_j;
         B[6 * 5 + 0] += com_part * XX;  // 61
         B[6 * 5 + 1] += com_part * XY;  // 62
         B[6 * 5 + 2] += com_part * XZ;  // 63
@@ -238,20 +233,6 @@ __global__ void calc_L_tensor(Real* A_tensor,
     }
 
     inv6xdelta_mn(B, &L_tensor[6 * i_idx]);
-    //    printf("L[%d]=%f,%f,%f,%f,%f,%f\n", i_idx, L_tensor[6 * i_idx + 0], L_tensor[6 * i_idx + 1],
-    //           L_tensor[6 * i_idx + 2], L_tensor[6 * i_idx + 3], L_tensor[6 * i_idx + 4], L_tensor[6 * i_idx + 5]);
-    //    for (uint j = 0; j < 6; j++)
-    //        printf("B[%d,[%d]]=%f,%f,%f,%f,%f,%f\n", i_idx, j, B[6 * j + 0], B[6 * j + 1], B[6 * j + 2], B[6 * j + 3],
-    //               B[6 * j + 4], B[6 * j + 5]);
-
-    //    printf(
-    //        "B[%d]=%f,%f,%f,%f,%f,%f,%f,%f,%f, %f,%f,%f,%f,%f,%f,%f,%f,%f, %f,%f,%f,%f,%f,%f,%f,%f,%f, "
-    //        "%f,%f,%f,%f,%f,%f,%f,%f,%f, --- %f,%f,%f,%f,%f,%f\n",
-    //        i_idx, B[0], B[1], B[2], B[3], B[4], B[5], B[6], B[7], B[8], B[9], B[10], B[11], B[12], B[13], B[14],
-    //        B[15], B[16], B[17], B[18], B[19], B[20], B[21], B[22], B[23], B[24], B[25], B[26], B[27], B[28],
-    //        B[29], B[30], B[31], B[32], B[33], 1, B[35], L_tensor[6 * i_idx + 0], L_tensor[6 * i_idx + 1],
-    //        L_tensor[6 * i_idx
-    //        + 2], L_tensor[6 * i_idx + 3], L_tensor[6 * i_idx + 4], L_tensor[6 * i_idx + 5]);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -264,9 +245,8 @@ __global__ void calcRho_kernel(Real4* sortedPosRad,
                                const size_t numAllMarkers,
                                volatile bool* isErrorD) {
     uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers) {
+    if (i_idx >= numAllMarkers)
         return;
-    }
 
     if (sortedRhoPreMu[i_idx].w == -2) {
         mynumContact[i_idx] = 1;
@@ -276,14 +256,12 @@ __global__ void calcRho_kernel(Real4* sortedPosRad,
     Real3 posRadA = mR3(sortedPosRad[i_idx]);
     Real h_i = sortedPosRad[i_idx].w;
     Real m_i = cube((h_i * paramsD.MULT_INITSPACE)) * paramsD.rho0;
-    //    printf("paramsD.MULT_INITSPACE=%f, h_i,m_i ", paramsD.MULT_INITSPACE, h_i, m_i);
 
     Real sum_mW = 0;
     Real sum_W = 0.0;
     uint mcon = 1;
     // get address in grid
     int3 gridPos = calcGridPos(posRadA);
-    //    printf("h_i=%f\t", h_i);
     for (int z = -1; z <= 1; z++)
         for (int y = -1; y <= 1; y++)
             for (int x = -1; x <= 1; x++) {
@@ -299,32 +277,30 @@ __global__ void calcRho_kernel(Real4* sortedPosRad,
 
                         if (d > RESOLUTION_LENGTH_MULT * h_i || sortedRhoPreMu[j].w <= -2)
                             continue;
-                        //                        if ((sortedRhoPreMu[j].w == -1.0 || sortedRhoPreMu[i_idx].w == -1.0)
-                        //                        && i_idx != j)
                         if (i_idx != j)
                             mcon++;
                         Real h_j = sortedPosRad[j].w;
                         Real m_j = cube(h_j * paramsD.MULT_INITSPACE) * paramsD.rho0;
                         Real W3 = W3h(d, 0.5 * (h_j + h_i));
-                        //                        Real W3 = 0.5 * (W3h(d, h_i) + W3h(d, h_j));
                         sum_mW += m_j * W3;
                         sum_W += W3;
                     }
                 }
             }
-    mynumContact[i_idx] = mcon;  //+ paramsD.Pressure_Constraint;  // on extra for handling constraints
+    mynumContact[i_idx] = mcon;
     // Adding neighbor contribution is done!
     sumWij_inv[i_idx] = m_i / sum_mW;
-    //    printf("%f, ", m_i / sum_mW);
     sortedRhoPreMu[i_idx].x = sum_mW;
 
-    if ((sortedRhoPreMu[i_idx].x > 2 * paramsD.rho0 || sortedRhoPreMu[i_idx].x < 0) && sortedRhoPreMu[i_idx].w == -1)
-        printf("(calcRho_kernel)too large/small density marker %d, rho=%f, sum_W=%f, m_i=%f\n", i_idx,
-               sortedRhoPreMu[i_idx].x, sum_W, m_i);
+    if ((sortedRhoPreMu[i_idx].x > 2 * paramsD.rho0 || 
+        sortedRhoPreMu[i_idx].x < 0) && sortedRhoPreMu[i_idx].w == -1)
+        printf("(calcRho_kernel)too large/small density marker "
+            "%d, rho=%f, sum_W=%f, m_i=%f\n", i_idx,
+            sortedRhoPreMu[i_idx].x, sum_W, m_i);
 }
 
 //--------------------------------------------------------------------------------------------------------------------------------
-__global__ void calcNormalizedRho_kernel(Real4* sortedPosRad,  // input: sorted positions
+__global__ void calcNormalizedRho_kernel(Real4* sortedPosRad,
                                          Real3* sortedVelMas,
                                          Real4* sortedRhoPreMu,
                                          Real* sumWij_inv,
@@ -336,9 +312,8 @@ __global__ void calcNormalizedRho_kernel(Real4* sortedPosRad,  // input: sorted 
                                          const size_t numAllMarkers,
                                          volatile bool* isErrorD) {
     uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers || sortedRhoPreMu[i_idx].w <= -2) {
+    if (i_idx >= numAllMarkers || sortedRhoPreMu[i_idx].w <= -2)
         return;
-    }
     //    Real3 gravity = paramsD.gravity;
     Real RHO_0 = paramsD.rho0;
     //    Real IncompressibilityFactor = paramsD.IncompressibilityFactor;
@@ -361,8 +336,6 @@ __global__ void calcNormalizedRho_kernel(Real4* sortedPosRad,  // input: sorted 
         theta_i = 1;
     Real3 mynormals = mR3(0.0);
 
-    //  /// if (gridPos.x == paramsD.gridSize.x-1) printf("****aha %d %d\n", gridPos.x, paramsD.gridSize.x);
-    //
     // examine neighbouring cells
     for (int z = -1; z <= 1; z++)
         for (int y = -1; y <= 1; y++)
@@ -432,39 +405,23 @@ __global__ void calcNormalizedRho_kernel(Real4* sortedPosRad,  // input: sorted 
     G_i[i_idx * 9 + 7] = -(mGi[0] * mGi[7] - mGi[1] * mGi[6]) / Det;
     G_i[i_idx * 9 + 8] = (mGi[0] * mGi[4] - mGi[1] * mGi[3]) / Det;
 
-    //    if (sortedRhoPreMu[i_idx].x > RHO_0)
-    //        IncompressibilityFactor = 1;
-
-    //    sortedRhoPreMu[i_idx].x = (sum_mW / sum_W_sumWij_inv - RHO_0) * IncompressibilityFactor + RHO_0;
+    // if (sortedRhoPreMu[i_idx].x > RHO_0)
+    //     IncompressibilityFactor = 1;
+    // sortedRhoPreMu[i_idx].x = (sum_mW / sum_W_sumWij_inv - RHO_0) * IncompressibilityFactor + RHO_0;
+    // sortedRhoPreMu[i_idx].x = (sum_mW - RHO_0) * IncompressibilityFactor + RHO_0;
 
     sortedRhoPreMu[i_idx].x = sum_mW / sum_Wij_inv;
 
-    //    if (sortedRhoPreMu[i_idx].x < EPSILON)
     if ((sortedRhoPreMu[i_idx].x > 5 * RHO_0 || sortedRhoPreMu[i_idx].x < RHO_0 / 5) && sortedRhoPreMu[i_idx].w == -1)
         printf(
             "calcNormalizedRho_kernel-- sortedRhoPreMu[i_idx].w=%f, h=%f, sum_mW=%f, "
             "sum_W_sumWij_inv=%.4e, sortedRhoPreMu[i_idx].x=%.4e\n",
             sortedRhoPreMu[i_idx].w, sortedPosRad[i_idx].w, sum_mW, sum_Wij_inv, sortedRhoPreMu[i_idx].x);
 
-    //    sortedRhoPreMu[i_idx].x = (sum_mW - RHO_0) * IncompressibilityFactor + RHO_0;
-    //
-    //    if (sortedRhoPreMu[i_idx].x < EPSILON) {
-    //        printf("My density is %f, index= %d\n", sortedRhoPreMu[i_idx].x, i_idx);
-    //
-    //        printf("My position = [%f %f %f]\n", sortedPosRad[i_idx].x, sortedPosRad[i_idx].y,
-    //        sortedPosRad[i_idx].z);
-    //
-    //        *isErrorD = true;
-    //        return;
-    //    }
-
-    //  if (sortedRhoPreMu[i_idx].w > -1) {
-    //    sortedRhoPreMu[i_idx].x = RHO_0;
-    //  }
 }
 
 //--------------------------------------------------------------------------------------------------------------------------------
-__global__ void calcNormalizedRho_Gi_fillInMatrixIndices(Real4* sortedPosRad,  // input: sorted positions
+__global__ void calcNormalizedRho_Gi_fillInMatrixIndices(Real4* sortedPosRad,
                                                          Real3* sortedVelMas,
                                                          Real4* sortedRhoPreMu,
                                                          Real* sumWij_inv,
@@ -477,12 +434,11 @@ __global__ void calcNormalizedRho_Gi_fillInMatrixIndices(Real4* sortedPosRad,  /
                                                          const size_t numAllMarkers,
                                                          volatile bool* isErrorD) {
     uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers) {
+    if (i_idx >= numAllMarkers)
         return;
-    }
+
     Real RHO_0 = paramsD.rho0;
     uint csrStartIdx = numContacts[i_idx] + 1;  // Reserve the starting index for the A_ii
-    //    uint csrEndIdx = numContacts[i_idx + 1];    //- paramsD.Pressure_Constraint;
     Real3 posRadA = mR3(sortedPosRad[i_idx]);
     Real h_i = sortedPosRad[i_idx].w;
     Real sum_mW = 0;
@@ -491,10 +447,7 @@ __global__ void calcNormalizedRho_Gi_fillInMatrixIndices(Real4* sortedPosRad,  /
     Real sum_W_sumWij_inv = 0;
     // get address in grid
     int3 gridPos = calcGridPos(posRadA);
-
     csrColInd[csrStartIdx - 1] = i_idx;
-    //    csrColInd[csrEndIdx + 1] = i_idx;
-
     uint nextCol = csrStartIdx;
 
     if (sortedRhoPreMu[i_idx].w == -2)
@@ -529,15 +482,11 @@ __global__ void calcNormalizedRho_Gi_fillInMatrixIndices(Real4* sortedPosRad,  /
                         Real h_ij = 0.5 * (h_j + h_i);
                         Real W3 = W3h(d, h_ij);
                         Real3 grad_i_wij = GradWh(rij, h_ij);
-                        //                        Real W3 = 0.5 * (W3h(d, h_i) + W3h(d, h_j));
-                        //                        Real3 grad_i_wij = 0.5 * (GradWh(rij, h_i) + GradWh(rij, h_j));
 
                         Real V_j = sumWij_inv[j];
 
                         if (d > RESOLUTION_LENGTH_MULT * h_i || sortedRhoPreMu[j].w <= -2)
                             continue;
-                        //                        if (i_idx != j && ((sortedRhoPreMu[i_idx].w == -1.0) ||
-                        //                        (sortedRhoPreMu[j].w == -1.0))) {
                         if (i_idx != j) {
                             csrColInd[nextCol] = j;
                             nextCol++;
@@ -561,13 +510,13 @@ __global__ void calcNormalizedRho_Gi_fillInMatrixIndices(Real4* sortedPosRad,  /
                         mGi[6] -= rij.z * grad_i_wij.x * V_j;
                         mGi[7] -= rij.z * grad_i_wij.y * V_j;
                         mGi[8] -= rij.z * grad_i_wij.z * V_j;
-                        //                        sum_mW += sortedRhoPreMu[j].x * W3;
                         sum_mW += m_j * W3;
-                        sum_mW_rho += W3 * m_j / sortedRhoPreMu[j].x;
+                        // sum_mW += sortedRhoPreMu[j].x * W3;
+                        // sum_mW += m_j * sumWij_inv[j];
+                        // sum_mW += sortedRhoPreMu[j].x * W3 * V_j;
 
-                        //                        sum_mW += m_j * sumWij_inv[j];
-                        //                        sum_mW += sortedRhoPreMu[j].x * W3 * V_j;
-                        //                        sum_W_sumWij_inv += W3 * sumWij_inv[j];
+                        sum_mW_rho += W3 * m_j / sortedRhoPreMu[j].x;
+                        // sum_W_sumWij_inv += W3 * sumWij_inv[j];
                     }
                 }
             }
@@ -579,16 +528,9 @@ __global__ void calcNormalizedRho_Gi_fillInMatrixIndices(Real4* sortedPosRad,  /
 
     if (sortedRhoPreMu[i_idx].w == -3)
         normals[i_idx] *= -1;
-    //    if (sortedRhoPreMu[i_idx].w == -3)
-    //        printf("position=%f,%f,%f normals= %f,%f,%f, numContacts=%d\n", sortedPosRad[i_idx].x,
-    //        sortedPosRad[i_idx].y,
-    //               sortedPosRad[i_idx].z, normals[i_idx].x, normals[i_idx].y, normals[i_idx].z, csrEndIdx -
-    //               csrStartIdx);
-
     Real Det = (mGi[0] * mGi[4] * mGi[8] - mGi[0] * mGi[5] * mGi[7] - mGi[1] * mGi[3] * mGi[8] +
                 mGi[1] * mGi[5] * mGi[6] + mGi[2] * mGi[3] * mGi[7] - mGi[2] * mGi[4] * mGi[6]);
     if (abs(Det) < EPSILON && sortedRhoPreMu[i_idx].w != -3) {
-        //        printf("Gi,");
         for (int i = 0; i < 9; i++) {
             G_i[i_idx * 9 + i] = 0.0;
             G_i[i_idx * 9 + 0] = 1;
@@ -610,25 +552,26 @@ __global__ void calcNormalizedRho_Gi_fillInMatrixIndices(Real4* sortedPosRad,  /
     //    sortedRhoPreMu[i_idx].x = sum_mW / sum_W;
     //    sortedRhoPreMu[i_idx].x = sum_mW;
 
-    if ((sortedRhoPreMu[i_idx].x > 5 * RHO_0 || sortedRhoPreMu[i_idx].x < RHO_0 / 5) && sortedRhoPreMu[i_idx].w > -2)
+    if ((sortedRhoPreMu[i_idx].x > 5 * RHO_0 || 
+        sortedRhoPreMu[i_idx].x < RHO_0 / 5) && sortedRhoPreMu[i_idx].w > -2)
         printf(
             "calcNormalizedRho_kernel-- sortedRhoPreMu[i_idx].w=%f, h=%f, sum_mW=%f, "
             "sum_W_sumWij_inv=%.4e, sortedRhoPreMu[i_idx].x=%.4e\n",
-            sortedRhoPreMu[i_idx].w, sortedPosRad[i_idx].w, sum_mW, sum_W_sumWij_inv, sortedRhoPreMu[i_idx].x);
+            sortedRhoPreMu[i_idx].w, sortedPosRad[i_idx].w, sum_mW, sum_W_sumWij_inv, 
+            sortedRhoPreMu[i_idx].x);
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-__global__ void Function_Gradient_Laplacian_Operator(Real4* sortedPosRad,  // input: sorted positions
+__global__ void Function_Gradient_Laplacian_Operator(Real4* sortedPosRad,
                                                      Real3* sortedVelMas,
                                                      Real4* sortedRhoPreMu,
                                                      Real* sumWij_inv,
                                                      Real* G_tensor,
                                                      Real* L_tensor,
-
-                                                     Real* A_L,   /// Laplacian Operator matrix
-                                                     Real3* A_G,  /// Gradient Operator matrix
-                                                     Real* A_f,   /// Function Operator matrix
-                                                     /// A_L, A_G are in system level;
-                                                     /// A_G* p gives gradp, A_L*p gives Delta^2p
+                                                     Real* A_L,   // Laplacian Operator matrix
+                                                     Real3* A_G,  // Gradient Operator matrix
+                                                     Real* A_f,   // Function Operator matrix
+                                                     // A_L, A_G are in system level;
+                                                     // A_G* p gives gradp, A_L*p gives Delta^2p
                                                      uint* csrColInd,
                                                      uint* numContacts,
                                                      const size_t numAllMarkers,
@@ -654,13 +597,6 @@ __global__ void Function_Gradient_Laplacian_Operator(Real4* sortedPosRad,  // in
     Real NormGi = 0;
     Real NormLi = 0;
 
-    //    if (paramsD.Pressure_Constraint) {
-    //        csrColInd[csrEndIdx] = numAllMarkers;
-    //        A_G[csrEndIdx] = mR3(0.0);
-    //        A_L[csrEndIdx] = 0.0;
-    //        A_f[csrEndIdx] = 0.0;
-    //    }
-
     for (int i = 0; i < 9; i++) {
         mGi[i] = G_tensor[i_idx * 9 + i];
         NormGi += abs(mGi[i]);
@@ -681,9 +617,6 @@ __global__ void Function_Gradient_Laplacian_Operator(Real4* sortedPosRad,  // in
         Real3 eij = rij / d;
         Real h_j = sortedPosRad[j].w;
         Real m_j = cube(h_j * paramsD.MULT_INITSPACE) * paramsD.rho0;
-        //        Real h_ij = 0.5 * (h_j + h_i);
-        //        Real W3 = W3h(d, h_ij);
-        //        Real3 grad_i_wij = GradWh(rij, h_ij);
         Real W3 = 0.5 * (W3h(d, h_i) + W3h(d, h_j));
         Real3 grad_i_wij = 0.5 * (GradWh(rij, h_i) + GradWh(rij, h_j));
 
@@ -703,23 +636,26 @@ __global__ void Function_Gradient_Laplacian_Operator(Real4* sortedPosRad,  // in
                 A_G[count] = 1.0 / (sortedRhoPreMu[j].x * sortedRhoPreMu[j].x) * comm;
                 A_G[csrStartIdx] += 1.0 / (rhoi * rhoi) * comm;
             } else {
-                Real3 comm = 1.0 / V_i * (V_j * V_j + V_i * V_i) / (rhoi + sortedRhoPreMu[j].x) * grad_i_wij;
+                Real3 comm = 1.0 / V_i * (V_j * V_j + V_i * V_i) / 
+                    (rhoi + sortedRhoPreMu[j].x) * grad_i_wij;
                 A_G[count] = rhoi * comm;
                 A_G[csrStartIdx] += sortedRhoPreMu[j].x * comm;
             }
         } else {
             Real Coeff = V_j;
-            A_G[count].x = Coeff * (grad_i_wij.x * mGi[0] + grad_i_wij.y * mGi[1] + grad_i_wij.z * mGi[2]);
-            A_G[count].y = Coeff * (grad_i_wij.x * mGi[3] + grad_i_wij.y * mGi[4] + grad_i_wij.z * mGi[5]);
-            A_G[count].z = Coeff * (grad_i_wij.x * mGi[6] + grad_i_wij.y * mGi[7] + grad_i_wij.z * mGi[8]);
-            A_G[csrStartIdx].x -= Coeff * (grad_i_wij.x * mGi[0] + grad_i_wij.y * mGi[1] + grad_i_wij.z * mGi[2]);
-            A_G[csrStartIdx].y -= Coeff * (grad_i_wij.x * mGi[3] + grad_i_wij.y * mGi[4] + grad_i_wij.z * mGi[5]);
-            A_G[csrStartIdx].z -= Coeff * (grad_i_wij.x * mGi[6] + grad_i_wij.y * mGi[7] + grad_i_wij.z * mGi[8]);
+            A_G[count].x = Coeff * (grad_i_wij.x * mGi[0] + 
+                grad_i_wij.y * mGi[1] + grad_i_wij.z * mGi[2]);
+            A_G[count].y = Coeff * (grad_i_wij.x * mGi[3] + 
+                grad_i_wij.y * mGi[4] + grad_i_wij.z * mGi[5]);
+            A_G[count].z = Coeff * (grad_i_wij.x * mGi[6] + 
+                grad_i_wij.y * mGi[7] + grad_i_wij.z * mGi[8]);
+            A_G[csrStartIdx].x -= Coeff * (grad_i_wij.x * mGi[0] + 
+                grad_i_wij.y * mGi[1] + grad_i_wij.z * mGi[2]);
+            A_G[csrStartIdx].y -= Coeff * (grad_i_wij.x * mGi[3] + 
+                grad_i_wij.y * mGi[4] + grad_i_wij.z * mGi[5]);
+            A_G[csrStartIdx].z -= Coeff * (grad_i_wij.x * mGi[6] + 
+                grad_i_wij.y * mGi[7] + grad_i_wij.z * mGi[8]);
         }
-
-        //        if (!(isfinite(A_G[count].x) && isfinite(A_G[count].y) && isfinite(A_G[count].z))) {
-        //            printf("Error! A_G ChSPHGeneral.cu !\n");
-        //        }
     }
 
     for (int count = csrStartIdx; count < csrEndIdx; count++) {
@@ -745,10 +681,10 @@ __global__ void Function_Gradient_Laplacian_Operator(Real4* sortedPosRad,  // in
                     A_L[count_in] -= commonterm * dot(A_G[count_in], eij);  // k
                 }
             } else if (paramsD.laplacian_type == 1) {
-                Real comm = 2.0 / rhoi * m_j * dot(rij, grad_ij) / (d * d + h_ij * h_ij * paramsD.epsMinMarkersDis);
+                Real comm = 2.0 / rhoi * m_j * dot(rij, grad_ij) / 
+                    (d * d + h_ij * h_ij * paramsD.epsMinMarkersDis);
                 A_L[count] = -comm;        // j
                 A_L[csrStartIdx] += comm;  // i
-                                           //                Real commonterm = 2 * V_j * dot(eij, grad_ij);
             } else {
                 Real comm = 2.0 / V_i * (V_j * V_j + V_i * V_i) * dot(rij, grad_ij) /
                             (d * d + h_ij * h_ij * paramsD.epsMinMarkersDis);
@@ -757,9 +693,9 @@ __global__ void Function_Gradient_Laplacian_Operator(Real4* sortedPosRad,  // in
             }
         } else {
             Real commonterm = 1.0 / V_j * (V_j * V_j + V_i * V_i) *
-                              (Li[0] * eij.x * grad_ij.x + Li[1] * eij.x * grad_ij.y + Li[2] * eij.x * grad_ij.z +
-                               Li[1] * eij.y * grad_ij.x + Li[3] * eij.y * grad_ij.y + Li[4] * eij.y * grad_ij.z +
-                               Li[2] * eij.z * grad_ij.x + Li[4] * eij.z * grad_ij.y + Li[5] * eij.z * grad_ij.z);
+                (Li[0] * eij.x * grad_ij.x + Li[1] * eij.x * grad_ij.y + Li[2] * eij.x * grad_ij.z +
+                Li[1] * eij.y * grad_ij.x + Li[3] * eij.y * grad_ij.y + Li[4] * eij.y * grad_ij.z +
+                Li[2] * eij.z * grad_ij.x + Li[4] * eij.z * grad_ij.y + Li[5] * eij.z * grad_ij.z);
 
             A_L[count] -= commonterm / (d + h_ij * paramsD.epsMinMarkersDis);        // j
             A_L[csrStartIdx] += commonterm / (d + h_ij * paramsD.epsMinMarkersDis);  // i
@@ -773,7 +709,7 @@ __global__ void Function_Gradient_Laplacian_Operator(Real4* sortedPosRad,  // in
             printf("Error! A_L ChSPHGeneral.cu !\n");
         }
     }
-}  // namespace fsi
+}
 //--------------------------------------------------------------------------------------------------------------------------------
 __global__ void Jacobi_SOR_Iter(Real4* sortedRhoPreMu,
                                 Real* A_Matrix,
@@ -789,9 +725,8 @@ __global__ void Jacobi_SOR_Iter(Real4* sortedRhoPreMu,
                                 bool _3dvector,
                                 volatile bool* isErrorD) {
     uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers) {
+    if (i_idx >= numAllMarkers)
         return;
-    }
 
     uint startIdx = numContacts[i_idx] + 1;  // Reserve the starting index for the A_ii
     uint endIdx = numContacts[i_idx + 1];    //- uint(_3dvector && paramsD.Pressure_Constraint);
@@ -802,31 +737,13 @@ __global__ void Jacobi_SOR_Iter(Real4* sortedRhoPreMu,
             int j = csrColInd[myIdx];
             aij_vj += A_Matrix[myIdx] * V_old[j];
         }
-        //        if (abs(A_Matrix[startIdx - 1]) < EPSILON || !isfinite(length(aij_vj)))
-        //            printf(" %d A_Matrix[startIdx - 1]= %f, type=%f, aij_vj=%f \n", i_idx, A_Matrix[startIdx - 1],
-        //                   sortedRhoPreMu[i_idx].w, length(aij_vj));
-
         V_new[i_idx] = (b3vec[i_idx] - aij_vj) / A_Matrix[startIdx - 1];
     } else {
         Real aij_pj = 0.0;
         for (int myIdx = startIdx; myIdx < endIdx; myIdx++) {
             aij_pj += A_Matrix[myIdx] * q_old[csrColInd[myIdx]];
         }
-        //        if (A_Matrix[startIdx - 1] == 0.0)
-        //            printf(" %d A_Matrix[startIdx - 1]= %f, type=%f \n", i_idx, A_Matrix[startIdx - 1],
-        //                   sortedRhoPreMu[i_idx].w);
-
         q_new[i_idx] = (b1vec[i_idx] - aij_pj) / A_Matrix[startIdx - 1];
-
-        //        if (i_idx >= numAllMarkers) {
-        //            //            Real sum = 0.0;
-        //            //            for (int i = 0; i < numAllMarkers; i++)
-        //            //                sum = A_Matrix[startIdx + i] * q_old[i] * (sortedRhoPreMu[i].w == -1);
-        //            //            q_new[i_idx] = (b1vec[i_idx] - aij_pj + q_old[i_idx]);
-        //            printf("i_idx=%d, aij_pj=%f, b1vec[i_idx]=%f, q_new[i_idx] = %f, A_Matrix[startIdx - 1]=%f\n ",
-        //            i_idx,
-        //                   aij_pj, b1vec[i_idx], q_new[i_idx], A_Matrix[startIdx - 1]);
-        //        }
     }
 }
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -840,9 +757,9 @@ __global__ void Update_AND_Calc_Res(Real4* sortedRhoPreMu,
                                     bool _3dvector,
                                     volatile bool* isErrorD) {
     uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers) {
+    if (i_idx >= numAllMarkers)
         return;
-    }
+
     //    Real omega = _3dvector ? 1.0 : paramsD.PPE_relaxation;
     Real omega = paramsD.PPE_relaxation;
 
@@ -851,15 +768,11 @@ __global__ void Update_AND_Calc_Res(Real4* sortedRhoPreMu,
         V_new[i_idx] = (1 - omega) * V_old[i_idx] + omega * V_new[i_idx];
         res = length(V_old[i_idx] - V_new[i_idx]);
         V_old[i_idx] = V_new[i_idx];
-        //        if (!(isfinite(V_old[i_idx].x) && isfinite(V_old[i_idx].y) && isfinite(V_old[i_idx].z)))
-        //            printf(" %d vel= %f,%f,%f\n", i_idx, V_old[i_idx].x, V_old[i_idx].y, V_old[i_idx].z);
 
     } else {
         q_new[i_idx] = (1 - omega) * q_old[i_idx] + omega * q_new[i_idx];
         res = abs(q_old[i_idx] - q_new[i_idx]);
         q_old[i_idx] = q_new[i_idx];
-        //        if (!(isfinite(q_old[i_idx])))
-        //            printf(" %d q= %f\n", i_idx, q_old[i_idx]);
     }
     Residuals[i_idx] = res;
 }
@@ -871,17 +784,17 @@ __global__ void Initialize_Variables(Real4* sortedRhoPreMu,
                                      const size_t numAllMarkers,
                                      volatile bool* isErrorD) {
     const uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers) {
+    if (i_idx >= numAllMarkers)
         return;
-    }
-    if (sortedRhoPreMu[i_idx].w <= -2) {
+
+    if (sortedRhoPreMu[i_idx].w <= -2)
         return;
-    }
+
 
     p_old[i_idx] = sortedRhoPreMu[i_idx].y;  // This needs consistency p_old is old but v_new is new !!
-    if (sortedRhoPreMu[i_idx].w > -1) {
+    if (sortedRhoPreMu[i_idx].w > -1)
         sortedVelMas[i_idx] = V_new[i_idx];
-    }
+
 }
 
 //--------------------------------------------------------------------------------------------------------------------------------
@@ -896,9 +809,9 @@ __global__ void UpdateDensity(Real3* vis_vel,
                               size_t numAllMarkers,
                               volatile bool* isErrorD) {
     uint i_idx = blockIdx.x * blockDim.x + threadIdx.x;
-    if (i_idx >= numAllMarkers) {
+    if (i_idx >= numAllMarkers)
         return;
-    }
+
     if (sortedRhoPreMu[i_idx].w <= -2) {
         sortedRhoPreMu[i_idx].x = 0;
         sortedRhoPreMu[i_idx].y = 0;
@@ -910,10 +823,11 @@ __global__ void UpdateDensity(Real3* vis_vel,
     Real3 Vel_i = sortedVelMas[i_idx];
 
     Real3 posi = mR3(sortedPosRad[i_idx]);
-    if ((sortedRhoPreMu[i_idx].x > 2 * paramsD.rho0 || sortedRhoPreMu[i_idx].x < 0) && sortedRhoPreMu[i_idx].w < 0)
-        printf("(UpdateDensity-0)too large/small density marker %d, type=%f\n", i_idx, sortedRhoPreMu[i_idx].w);
+    if ((sortedRhoPreMu[i_idx].x > 2 * paramsD.rho0 || 
+        sortedRhoPreMu[i_idx].x < 0) && sortedRhoPreMu[i_idx].w < 0)
+        printf("(UpdateDensity-0)too large/small density marker %d, "
+            "type=%f\n", i_idx, sortedRhoPreMu[i_idx].w);
     Real h_i = sortedPosRad[i_idx].w;
-    //    Real m_i = cube(h_i * paramsD.MULT_INITSPACE) * paramsD.rho0;
     int3 gridPos = calcGridPos(posi);
 
     Real3 normalizedV_n = mR3(0);
@@ -949,11 +863,6 @@ __global__ void UpdateDensity(Real3* vis_vel,
 
                     if (sortedRhoPreMu[j].w != -1)
                         continue;
-                    //                        Vel_j = mR3(0.0);
-
-                    //                    Real rho_bar = 1 / (0.5 * (1.0 / sortedRhoPreMu[i_idx].x + 1.0 /
-                    //                    sortedRhoPreMu[j].x));
-
                     Real rho_bar = 0.5 * (sortedRhoPreMu[i_idx].x + sortedRhoPreMu[j].x);
                     xSPH_Sum += (Vel_j - Vel_i) * Wd * m_j / rho_bar;
                 }
@@ -962,19 +871,16 @@ __global__ void UpdateDensity(Real3* vis_vel,
     }
     if (abs(sumW) > EPSILON) {
         vis_vel[i_idx] = normalizedV_n / normalizedV_d;
-        //        sortedVelMas[i_idx] = paramsD.EPS_XSPH * vis_vel[i_idx] + (1 - paramsD.EPS_XSPH) *
-        //        sortedVelMas[i_idx]; //race condition
     }
     XSPH_Vel[i_idx] = xSPH_Sum;  //
 
     sortedRhoPreMu[i_idx].x += rho_plus * dT;
 
-    //    sortedRhoPreMu[i_idx].y = Eos(sortedRhoPreMu[i_idx].x, sortedRhoPreMu[i_idx].w);
-    if ((sortedRhoPreMu[i_idx].x > 2 * paramsD.rho0 || sortedRhoPreMu[i_idx].x < 0) && sortedRhoPreMu[i_idx].w < 0)
-        printf("(UpdateDensity-1)too large/small density marker %d, type=%f\n", i_idx, sortedRhoPreMu[i_idx].w);
+    if ((sortedRhoPreMu[i_idx].x > 2 * paramsD.rho0 || 
+        sortedRhoPreMu[i_idx].x < 0) && sortedRhoPreMu[i_idx].w < 0)
+        printf("(UpdateDensity-1)too large/small density marker %d, "
+            "type=%f\n", i_idx, sortedRhoPreMu[i_idx].w);
 }
-
-//--------------------------------------------------------------------------------------------------------------------------------
 
 }  // namespace fsi
 }  // namespace chrono

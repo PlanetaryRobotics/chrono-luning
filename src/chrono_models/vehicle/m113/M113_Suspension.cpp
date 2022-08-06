@@ -40,11 +40,11 @@ const double M113_Suspension::m_shock_c = 1e2;
 // -----------------------------------------------------------------------------
 // M113 spring functor class - implements a (non)linear rotational spring
 // -----------------------------------------------------------------------------
-class M113_SpringTorque : public ChLinkRotSpringCB::TorqueFunctor {
+class M113_SpringTorque : public ChLinkRSDA::TorqueFunctor {
   public:
     M113_SpringTorque(double k, double c, double t) : m_k(k), m_c(c), m_t(t) {}
 
-    virtual double operator()(double time, double angle, double vel, ChLinkRotSpringCB* link) override {
+    virtual double evaluate(double time, double angle, double vel, const ChLinkRSDA& link) override {
         return m_t - m_k * angle - m_c * vel;
     }
 
@@ -61,11 +61,11 @@ class M113_ShockForce : public ChLinkTSDA::ForceFunctor {
   public:
     M113_ShockForce(double c) : m_c(c) {}
 
-    virtual double operator()(double time,
-                              double rest_length,
-                              double length,
-                              double vel,
-                              ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return -m_c * vel;
     }
 
@@ -74,9 +74,12 @@ class M113_ShockForce : public ChLinkTSDA::ForceFunctor {
 };
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-M113_Suspension::M113_Suspension(const std::string& name, VehicleSide side, int index, bool has_shock)
-    : ChLinearDamperRWAssembly(name, has_shock), m_side(side) {
+M113_Suspension::M113_Suspension(const std::string& name,
+                                 VehicleSide side,
+                                 int index,
+                                 bool use_bushings,
+                                 bool has_shock)
+    : ChTranslationalDamperSuspension(name, has_shock), m_side(side) {
     // Instantiate the force callback for the shock (damper).
     m_shock_forceCB = chrono_types::make_shared<M113_ShockForce>(m_shock_c);
 
@@ -88,11 +91,20 @@ M113_Suspension::M113_Suspension(const std::string& name, VehicleSide side, int 
         m_road_wheel = chrono_types::make_shared<M113_RoadWheelLeft>(index);
     else
         m_road_wheel = chrono_types::make_shared<M113_RoadWheelRight>(index);
+
+    // Create bushing data (if enabled)
+    if (use_bushings) {
+        m_bushing_data = chrono_types::make_shared<ChVehicleBushingData>();
+        m_bushing_data = chrono_types::make_shared<ChVehicleBushingData>();
+        m_bushing_data->K_lin = 35000000;
+        m_bushing_data->K_rot = 300;
+        m_bushing_data->D_lin = 100;
+        m_bushing_data->D_rot = 100;
+    }
 }
 
 M113_Suspension::~M113_Suspension() {}
 
-// -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 const ChVector<> M113_Suspension::GetLocation(PointId which) {
     ChVector<> point;

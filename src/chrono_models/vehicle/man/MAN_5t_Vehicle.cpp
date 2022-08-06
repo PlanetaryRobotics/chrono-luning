@@ -43,18 +43,16 @@ namespace man {
 MAN_5t_Vehicle::MAN_5t_Vehicle(const bool fixed,
                                BrakeType brake_type,
                                ChContactMethod contact_method,
-                               CollisionType chassis_collision_type,
-                               bool useShaftDrivetrain)
-    : ChWheeledVehicle("MAN_5t", contact_method), m_omega({0, 0, 0, 0}), m_use_shafts_drivetrain(useShaftDrivetrain) {
+                               CollisionType chassis_collision_type)
+    : ChWheeledVehicle("MAN_5t", contact_method), m_omega({0, 0, 0, 0}) {
     Create(fixed, brake_type, chassis_collision_type);
 }
 
 MAN_5t_Vehicle::MAN_5t_Vehicle(ChSystem* system,
                                const bool fixed,
                                BrakeType brake_type,
-                               CollisionType chassis_collision_type,
-                               bool useShaftDrivetrain)
-    : ChWheeledVehicle("MAN_5t", system), m_omega({0, 0, 0, 0}), m_use_shafts_drivetrain(useShaftDrivetrain) {
+                               CollisionType chassis_collision_type)
+    : ChWheeledVehicle("MAN_5t", system), m_omega({0, 0, 0, 0}) {
     Create(fixed, brake_type, chassis_collision_type);
 }
 
@@ -98,10 +96,7 @@ void MAN_5t_Vehicle::Create(bool fixed, BrakeType brake_type, CollisionType chas
     m_steerings[0] = chrono_types::make_shared<MAN_5t_RotaryArm>("Steering");
 
     // Create the driveline
-    if (m_use_shafts_drivetrain)
-        m_driveline = chrono_types::make_shared<MAN_5t_Driveline4WD>("Driveline");
-    else
-        m_driveline = chrono_types::make_shared<MAN_5t_SimpleDriveline>("Driveline");
+    m_driveline = chrono_types::make_shared<MAN_5t_Driveline4WD>("Driveline");
 }
 
 MAN_5t_Vehicle::~MAN_5t_Vehicle() {}
@@ -131,6 +126,9 @@ void MAN_5t_Vehicle::Initialize(const ChCoordsys<>& chassisPos, double chassisFw
     driven_susp_indexes[0] = 0;
     driven_susp_indexes[1] = 1;
     m_driveline->Initialize(m_chassis, m_axles, driven_susp_indexes);
+
+    // Invoke base class method
+    ChWheeledVehicle::Initialize(chassisPos, chassisFwdVel);
 }
 
 // -----------------------------------------------------------------------------

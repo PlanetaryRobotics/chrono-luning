@@ -38,8 +38,8 @@ MTV::MTV()
       m_brake_type(BrakeType::SIMPLE),
       m_powertrainType(PowertrainModelType::SHAFTS),
       m_tireType(TireModelType::RIGID),
+      m_use_walking_beam(false),
       m_tire_step_size(-1),
-      m_steeringType(SteeringTypeWV::PITMAN_ARM),
       m_initFwdVel(0),
       m_initPos(ChCoordsys<>(ChVector<>(0, 0, 1), QUNIT)),
       m_initOmega({0, 0, 0, 0, 0, 0}),
@@ -55,8 +55,8 @@ MTV::MTV(ChSystem* system)
       m_brake_type(BrakeType::SIMPLE),
       m_powertrainType(PowertrainModelType::SHAFTS),
       m_tireType(TireModelType::RIGID),
+      m_use_walking_beam(false),
       m_tire_step_size(-1),
-      m_steeringType(SteeringTypeWV::PITMAN_ARM),
       m_initFwdVel(0),
       m_initPos(ChCoordsys<>(ChVector<>(0, 0, 1), QUNIT)),
       m_initOmega({0, 0, 0, 0, 0, 0}),
@@ -78,9 +78,9 @@ void MTV::SetAerodynamicDrag(double Cd, double area, double air_density) {
 // -----------------------------------------------------------------------------
 void MTV::Initialize() {
     // Create and initialize the MTV vehicle
-    m_vehicle = m_system
-                    ? new MTV_Vehicle(m_system, m_fixed, m_brake_type, m_steeringType, m_chassisCollisionType)
-                    : new MTV_Vehicle(m_fixed, m_brake_type, m_steeringType, m_contactMethod, m_chassisCollisionType);
+    m_vehicle =
+        m_system ? new MTV_Vehicle(m_system, m_fixed, m_use_walking_beam, m_brake_type, m_chassisCollisionType)
+                 : new MTV_Vehicle(m_fixed, m_use_walking_beam, m_brake_type, m_contactMethod, m_chassisCollisionType);
 
     m_vehicle->SetInitWheelAngVel(m_initOmega);
     m_vehicle->Initialize(m_initPos, m_initFwdVel);
@@ -134,7 +134,7 @@ void MTV::Initialize() {
             m_vehicle->InitializeTire(tire_RL2, m_vehicle->GetAxle(2)->m_wheels[LEFT], VisualizationType::NONE);
             m_vehicle->InitializeTire(tire_RR2, m_vehicle->GetAxle(2)->m_wheels[RIGHT], VisualizationType::NONE);
 
-            m_tire_mass = tire_FL->ReportMass();
+            m_tire_mass = tire_FL->GetMass();
 
             break;
         }
@@ -154,7 +154,7 @@ void MTV::Initialize() {
             m_vehicle->InitializeTire(tire_RL2, m_vehicle->GetAxle(2)->m_wheels[LEFT], VisualizationType::NONE);
             m_vehicle->InitializeTire(tire_RR2, m_vehicle->GetAxle(2)->m_wheels[RIGHT], VisualizationType::NONE);
 
-            m_tire_mass = tire_FL->ReportMass();
+            m_tire_mass = tire_FL->GetMass();
 
             break;
         }
@@ -170,29 +170,18 @@ void MTV::Initialize() {
     }
 
     m_vehicle->EnableBrakeLocking(m_brake_locking);
+
+    // Recalculate vehicle mass, to properly account for all subsystems
+    m_vehicle->InitializeInertiaProperties();
 }
 
 // -----------------------------------------------------------------------------
-void MTV::SetTireVisualizationType(VisualizationType vis) {
-    for (auto& axle : m_vehicle->GetAxles()) {
-        for (auto& wheel : axle->GetWheels()) {
-            wheel->GetTire()->SetVisualizationType(vis);
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
-void MTV::Synchronize(double time, const ChDriver::Inputs& driver_inputs, const ChTerrain& terrain) {
+void MTV::Synchronize(double time, const DriverInputs& driver_inputs, const ChTerrain& terrain) {
     m_vehicle->Synchronize(time, driver_inputs, terrain);
 }
 // -----------------------------------------------------------------------------
 void MTV::Advance(double step) {
     m_vehicle->Advance(step);
-}
-
-// -----------------------------------------------------------------------------
-double MTV::GetTotalMass() const {
-    return m_vehicle->GetVehicleMass() + 6 * m_tire_mass;
 }
 
 }  // namespace fmtv

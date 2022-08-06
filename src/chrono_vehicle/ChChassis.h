@@ -24,6 +24,7 @@
 
 #include "chrono/physics/ChSystem.h"
 #include "chrono/physics/ChBodyAuxRef.h"
+#include "chrono/physics/ChLoadContainer.h"
 
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/ChPart.h"
@@ -45,24 +46,7 @@ class CH_VEHICLE_API ChChassis : public ChPart {
               bool fixed = false        ///< [in] is the chassis body fixed to ground?
     );
 
-    virtual ~ChChassis() {}
-
-    /// Get the chassis mass.
-    virtual double GetMass() const = 0;
-
-    /// Get the inertia tensor of the chassis body.
-    /// The return 3x3 symmetric matrix contains the following values:
-    /// <pre>
-    ///  [ int{x^2+z^2}dm    -int{xy}dm    -int{xz}dm    ]
-    ///  [                  int{x^2+z^2}   -int{yz}dm    ]
-    ///  [                                int{x^2+y^2}dm ]
-    /// </pre>
-    /// and represents the inertia tensor with respect to a centroidal frame
-    /// aligned with the chassis reference frame.
-    virtual const ChMatrix33<>& GetInertia() const = 0;
-
-    /// Get the location of the center of mass in the chassis frame.
-    virtual const ChVector<>& GetLocalPosCOM() const = 0;
+    virtual ~ChChassis();
 
     /// Get the local driver position and orientation.
     /// This is a coordinate system relative to the chassis reference frame.
@@ -74,21 +58,15 @@ class CH_VEHICLE_API ChChassis : public ChPart {
     /// Get a handle to the vehicle's chassis body.
     std::shared_ptr<ChBodyAuxRef> GetBody() const { return m_body; }
 
+    /// Get a pointer to the containing system.
+    ChSystem* GetSystem() const { return m_body->GetSystem(); }
+
     /// Get the global location of the chassis reference frame origin.
-    const ChVector<>& GetPos() const { return m_body->GetFrame_REF_to_abs().GetPos(); }
+    const ChVector<>& GetPos() const;
 
     /// Get the orientation of the chassis reference frame.
-    /// The chassis orientation is returned as a quaternion representing a
-    /// rotation with respect to the global reference frame.
+    /// Returns a rotation with respect to the global reference frame.
     ChQuaternion<> GetRot() const;
-
-    /// Get the global location of the chassis center of mass.
-    const ChVector<>& GetCOMPos() const { return m_body->GetPos(); }
-
-    /// Get the orientation of the chassis centroidal frame.
-    /// The chassis orientation is returned as a quaternion representing a
-    /// rotation with respect to the global reference frame.
-    ChQuaternion<> GetCOMRot() const;
 
     /// Get the global location of the driver.
     ChVector<> GetDriverPos() const;
@@ -134,6 +112,9 @@ class CH_VEHICLE_API ChChassis : public ChPart {
     /// Return true if the chassis body is fixed to ground.
     bool IsFixed() const { return m_body->GetBodyFixed(); }
 
+    /// Return true if the vehicle model contains bushings.
+    bool HasBushings() const { return m_bushings->GetNumLoads() > 0; }
+
     /// Add a marker on the chassis body at the specified position (relative to the chassis reference frame).
     /// If called before initialization, this function has no effect.
     void AddMarker(const std::string& name,  ///< [in] marker name
@@ -150,19 +131,43 @@ class CH_VEHICLE_API ChChassis : public ChPart {
     );
 
     /// Update the state of the chassis subsystem.
-    /// The base class implementation applies aerodynamic drag forces to the
-    /// chassis body (if enabled).
+    /// The base class implementation applies all defined external forces to the chassis body.
     virtual void Synchronize(double time);
 
-  protected:
-    std::shared_ptr<ChBodyAuxRef> m_body;              ///< handle to the chassis body
-    std::vector<std::shared_ptr<ChMarker>> m_markers;  ///< list of user-defined markers
-    bool m_fixed;                                      ///< is the chassis body fixed to ground?
+    /// Utility function to add a joint (kinematic or bushing) to the vehicle system.
+    void AddJoint(std::shared_ptr<ChVehicleJoint> joint);
 
-    bool m_apply_drag;     ///< enable aerodynamic drag force?
-    double m_Cd;           ///< drag coefficient
-    double m_area;         ///< reference area (m2)
-    double m_air_density;  ///< air density (kg/m3)
+    /// Utility function to remove a joint (kinematic or bushing) from the vehicle system.
+    static void RemoveJoint(std::shared_ptr<ChVehicleJoint> joint);
+
+    /// Base class for a user-defined custom force acting on the chassis body.
+    class ExternalForce {
+      public:
+        virtual ~ExternalForce() {}
+
+        /// The external load is updated at each vehicle synchronization.
+        /// A derived class must load the current values for the external force and its application point on the chassis
+        /// body, both assumed to be provided in the chassis body local frame.
+        virtual void Update(double time, const ChChassis& chassis, ChVector<>& force, ChVector<>& point) {}
+    };
+
+    /// Utility force to add an external load to the chassis body.
+    void AddExternalForce(std::shared_ptr<ExternalForce> force);
+
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
+  protected:
+    virtual double GetBodyMass() const = 0;
+    virtual ChFrame<> GetBodyCOMFrame() const = 0;
+    virtual ChMatrix33<> GetBodyInertia() const = 0;
+
+    std::shared_ptr<ChBodyAuxRef> m_body;                  ///< handle to the chassis body
+    std::shared_ptr<ChLoadContainer> m_bushings;           ///< load container for vehicle bushings
+    std::shared_ptr<ChLoadContainer> m_container_forces;   ///< load container for external forces
+    std::vector<std::shared_ptr<ExternalForce>> m_forces;  ///< external forces
+    std::vector<std::shared_ptr<ChMarker>> m_markers;      ///< list of user-defined markers
+    bool m_fixed;                                          ///< is the chassis body fixed to ground?
 };
 
 // -----------------------------------------------------------------------------
@@ -210,12 +215,6 @@ class CH_VEHICLE_API ChChassisConnector : public ChPart {
 
     virtual ~ChChassisConnector() {}
 
-    /// Get the total mass of the chassis connector subsystem.
-    virtual double GetMass() const = 0;
-
-    /// Get the current global COM location of the chassis connector subsystem.
-    virtual ChVector<> GetCOMPos() const = 0;
-
     /// Initialize this chassis connector subsystem.
     /// The subsystem is initialized by attaching it to the specified front and rear
     /// chassis bodies at the specified location (with respect to and expressed in
@@ -229,9 +228,13 @@ class CH_VEHICLE_API ChChassisConnector : public ChPart {
     /// value between -1 and +1).  Positive steering input indicates steering
     /// to the left. This function is called during the vehicle update.
     /// The default implementation is no-op.
-    virtual void Synchronize(double time,     ///< [in] current time
-                             double steering  ///< [in] current steering input [-1,+1]
+    virtual void Synchronize(double time,                           ///< [in] current time
+                             const DriverInputs& driver_inputs  ///< [in] current driver inputs
     ) {}
+
+  private:
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
 };
 
 /// Vector of handles to rear chassis subsystems.

@@ -18,12 +18,9 @@
 // =============================================================================
 
 #include "chrono/core/ChGlobal.h"
-#include "chrono/assets/ChAssetLevel.h"
 #include "chrono/assets/ChCylinderShape.h"
 #include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChColorAsset.h"
 #include "chrono/assets/ChTexture.h"
-#include "chrono/physics/ChLinkRotSpringCB.h"
 
 #include "chrono_vehicle/tracked_vehicle/track_assembly/ChTrackAssemblySinglePin.h"
 #include "chrono_vehicle/tracked_vehicle/track_shoe/ChTrackShoeSinglePin.h"
@@ -32,10 +29,20 @@ namespace chrono {
 namespace vehicle {
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
 ChTrackShoeSinglePin::ChTrackShoeSinglePin(const std::string& name) : ChTrackShoeSegmented(name) {}
 
-// -----------------------------------------------------------------------------
+ChTrackShoeSinglePin::~ChTrackShoeSinglePin() {
+    if (!m_shoe)
+        return;
+
+    auto sys = m_shoe->GetSystem();
+    if (sys) {
+        ChChassis::RemoveJoint(m_joint);
+        if (m_rsda)
+            sys->Remove(m_rsda);
+    }
+}
+
 // -----------------------------------------------------------------------------
 void ChTrackShoeSinglePin::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
                                       const ChVector<>& location,
@@ -63,54 +70,70 @@ void ChTrackShoeSinglePin::Initialize(std::shared_ptr<ChBodyAuxRef> chassis,
     m_shoe->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::SHOES);
 }
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-double ChTrackShoeSinglePin::GetMass() const {
-    return GetShoeMass();
+void ChTrackShoeSinglePin::InitializeInertiaProperties() {
+    m_mass = GetShoeMass();
+    m_inertia = ChMatrix33<>(0);
+    m_inertia.diagonal() = GetShoeInertia().eigen();
+    m_com = ChFrame<>();
+}
+
+void ChTrackShoeSinglePin::UpdateInertiaProperties() {
+    m_xform = m_shoe->GetFrame_REF_to_abs();
 }
 
 // -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-void ChTrackShoeSinglePin::Connect(std::shared_ptr<ChTrackShoe> next, ChTrackAssembly* assembly, bool ccw) {
+
+void ChTrackShoeSinglePin::EnableTrackBendingStiffness(bool val) {
+    m_rsda->SetDisabled(val);
+}
+
+void ChTrackShoeSinglePin::Connect(std::shared_ptr<ChTrackShoe> next,
+                                   ChTrackAssembly* assembly,
+                                   ChChassis* chassis,
+                                   bool ccw) {
     auto track = static_cast<ChTrackAssemblySinglePin*>(assembly);
     ChSystem* system = m_shoe->GetSystem();
     double sign = ccw ? +1 : -1;
 
-    bool add_RSDA = (track->GetConnectionType() == ChTrackAssemblySegmented::ConnectionType::RSDA_JOINT);
-    assert(!add_RSDA || track->GetTorqueFunctor());
+    ChVector<> p_shoe = ChVector<>(+sign * GetPitch() / 2, 0, 0);  // local point on this shoe
+    ChVector<> p_next = ChVector<>(-sign * GetPitch() / 2, 0, 0);  // local point on next shoe
+    ChVector<> loc = m_shoe->TransformPointLocalToParent(p_shoe);  // connection point (expressed in absolute frame)
 
-    ChVector<> loc = m_shoe->TransformPointLocalToParent(ChVector<>(sign * GetPitch() / 2, 0, 0));
-
-    if (m_index == 0) {
-        // Create and initialize a point-line joint (sliding line along X)
-        ChQuaternion<> rot = m_shoe->GetRot() * Q_from_AngZ(CH_C_PI_2);
-
-        auto pointline = chrono_types::make_shared<ChLinkLockPointLine>();
-        pointline->SetNameString(m_name + "_pointline");
-        pointline->Initialize(m_shoe, next->GetShoeBody(), ChCoordsys<>(loc, rot));
-        system->AddLink(pointline);
-    } else {
+    if (track->GetBushingData() || (m_index != 0 && m_index != 1)) {
         // Create and initialize the revolute joint (rotation axis along Z)
-        ChQuaternion<> rot = m_shoe->GetRot() * Q_from_AngX(CH_C_PI_2);
-
-        auto revolute = chrono_types::make_shared<ChLinkLockRevolute>();
-        revolute->SetNameString(m_name + "_revolute");
-        revolute->Initialize(m_shoe, next->GetShoeBody(), ChCoordsys<>(loc, rot));
-        system->AddLink(revolute);
+        auto rot = m_shoe->GetRot() * Q_from_AngX(CH_C_PI_2);
+        m_joint = chrono_types::make_shared<ChVehicleJoint>(ChVehicleJoint::Type::REVOLUTE, m_name + "_pin",
+                                                            next->GetShoeBody(), m_shoe, ChCoordsys<>(loc, rot),
+                                                            track->GetBushingData());
+        chassis->AddJoint(m_joint);
+    } else if (m_index == 0) {
+        m_joint = chrono_types::make_shared<ChVehicleJoint>(ChVehicleJoint::Type::SPHERICAL, m_name + "_sph",
+                                                            next->GetShoeBody(), m_shoe, ChCoordsys<>(loc, QUNIT));
+        chassis->AddJoint(m_joint);
+    } else if (m_index == 1) {
+        auto rot = m_shoe->GetRot() * Q_from_AngY(-CH_C_PI_2);
+        m_joint = chrono_types::make_shared<ChVehicleJoint>(ChVehicleJoint::Type::UNIVERSAL, m_name + "_univ",
+                                                      next->GetShoeBody(), m_shoe, ChCoordsys<>(loc, rot));
+        chassis->AddJoint(m_joint);
     }
 
     // Optionally, include rotational spring-damper to model track bending stiffness
-    if (add_RSDA) {
-        auto rsda = chrono_types::make_shared<ChLinkRotSpringCB>();
-        rsda->SetNameString(m_name + "_rsda");
-        rsda->Initialize(m_shoe, next->GetShoeBody(), false, ChCoordsys<>(loc, m_shoe->GetRot()),
-                         ChCoordsys<>(loc, next->GetShoeBody()->GetRot()));
-        rsda->RegisterTorqueFunctor(track->GetTorqueFunctor());
-        system->AddLink(rsda);
+    // The RSDA frames are aligned with the corresponding body frames and the spring has a default zero rest angle.
+    if (track->GetTorqueFunctor()) {
+        ChQuaternion<> z2y = Q_from_AngX(-CH_C_PI_2);
+
+        m_rsda = chrono_types::make_shared<ChLinkRSDA>();
+        m_rsda->SetNameString(m_name + "_rsda");
+        m_rsda->Initialize(m_shoe, next->GetShoeBody(), true, ChCoordsys<>(p_shoe, z2y), ChCoordsys<>(p_next, z2y));
+        m_rsda->RegisterTorqueFunctor(track->GetTorqueFunctor());
+        system->AddLink(m_rsda);
     }
 }
 
-// -----------------------------------------------------------------------------
+ChVector<> ChTrackShoeSinglePin::GetTension() const {
+    return m_joint->GetForce();
+}
+
 // -----------------------------------------------------------------------------
 void ChTrackShoeSinglePin::ExportComponentList(rapidjson::Document& jsonDocument) const {
     ChPart::ExportComponentList(jsonDocument);

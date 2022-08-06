@@ -56,7 +56,7 @@ class CH_VEHICLE_API ChDoubleWishboneReduced : public ChSuspension {
     ChDoubleWishboneReduced(const std::string& name  ///< [in] name of the subsystem
                             );
 
-    virtual ~ChDoubleWishboneReduced() {}
+    virtual ~ChDoubleWishboneReduced();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "DoubleWishboneReduced"; }
@@ -88,12 +88,6 @@ class CH_VEHICLE_API ChDoubleWishboneReduced : public ChSuspension {
 
     /// Remove visualization assets for the suspension subsystem.
     virtual void RemoveVisualizationAssets() override;
-
-    /// Get the total mass of the suspension subsystem.
-    virtual double GetMass() const override;
-
-    /// Get the current global COM location of the suspension subsystem.
-    virtual ChVector<> GetCOMPos() const override;
 
     /// Get the wheel track for the suspension subsystem.
     virtual double GetTrack() override;
@@ -130,6 +124,9 @@ class CH_VEHICLE_API ChDoubleWishboneReduced : public ChSuspension {
         TIEROD_U,  ///< tierod, upright
         NUM_POINTS
     };
+
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
 
     /// Return the location of the specified hardpoint.
     /// The returned location must be expressed in the suspension reference frame.

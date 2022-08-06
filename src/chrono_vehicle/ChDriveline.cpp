@@ -16,12 +16,31 @@
 //
 // =============================================================================
 
+#include "chrono/physics/ChSystem.h"
 #include "chrono_vehicle/ChDriveline.h"
 
 namespace chrono {
 namespace vehicle {
 
 ChDriveline::ChDriveline(const std::string& name) : ChPart(name) {}
+
+ChDriveline::~ChDriveline() {
+    if (!m_driveshaft)
+        return;
+    auto sys = m_driveshaft->GetSystem();
+    if (sys) {
+        sys->RemoveShaft(m_driveshaft);
+    }
+}
+
+void ChDriveline::InitializeInertiaProperties() {
+    m_mass = 0;
+    m_inertia = ChMatrix33<>(0);
+    m_com = ChFrame<>();
+    m_xform = ChFrame<>();
+}
+
+void ChDriveline::UpdateInertiaProperties() {}
 
 }  // end namespace vehicle
 }  // end namespace chrono

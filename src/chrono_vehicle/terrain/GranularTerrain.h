@@ -28,7 +28,6 @@
 #ifndef GRANULAR_TERRAIN_H
 #define GRANULAR_TERRAIN_H
 
-#include "chrono/assets/ChColorAsset.h"
 #include "chrono/physics/ChBody.h"
 #include "chrono/physics/ChMaterialSurfaceNSC.h"
 #include "chrono/physics/ChMaterialSurfaceSMC.h"
@@ -53,7 +52,7 @@ class CH_VEHICLE_API GranularTerrain : public ChTerrain {
     GranularTerrain(ChSystem* system  ///< [in] pointer to the containing multibody system
                     );
 
-    ~GranularTerrain() {}
+    ~GranularTerrain();
 
     /// Set contact material (must be consistent with the containing system).
     void SetContactMaterial(std::shared_ptr<ChMaterialSurface> material) { m_material = material; }
@@ -94,9 +93,6 @@ class CH_VEHICLE_API GranularTerrain : public ChTerrain {
     /// Enable/disable visualization of boundaries (default: false).
     void EnableVisualization(bool val) { m_vis_enabled = val; }
     bool IsVisualizationEnabled() const { return m_vis_enabled; }
-
-    /// Set boundary visualization color.
-    void SetColor(ChColor color) { m_color->SetColor(color); }
 
     /// Return a handle to the ground body.
     std::shared_ptr<ChBody> GetGroundBody() { return m_ground; }
@@ -187,11 +183,12 @@ class CH_VEHICLE_API GranularTerrain : public ChTerrain {
     // Collision envelope used in custom collision detection
     double m_envelope;  ///< collision outward envelope
 
-    bool m_vis_enabled;                     ///< boundary visualization enabled?
-    std::shared_ptr<ChBody> m_ground;       ///< ground body
-    std::shared_ptr<ChColorAsset> m_color;  ///< color of boundary visualization asset
+    bool m_vis_enabled;                ///< boundary visualization enabled?
+    std::shared_ptr<ChBody> m_ground;  ///< ground body
 
-    std::shared_ptr<ChMaterialSurface> m_material; ///< contact material properties    
+    std::shared_ptr<ChMaterialSurface> m_material;  ///< contact material properties
+
+    std::shared_ptr<ChSystem::CustomCollisionCallback> m_collision_callback;  ///< custom collision callback
 
     bool m_verbose;  ///< verbose output
 

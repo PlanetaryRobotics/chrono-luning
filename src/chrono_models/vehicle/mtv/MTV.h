@@ -60,7 +60,7 @@ class CH_MODELS_API MTV {
     void SetTireType(TireModelType val) { m_tireType = val; }
     void SetPowertrainType(PowertrainModelType val) { m_powertrainType = val; }
 
-    // void setSteeringType(SteeringTypeWV val) { m_steeringType = val; }
+    void UseWalkingBeamRearSuspension(bool val) { m_use_walking_beam = val; }
 
     void SetInitPosition(const ChCoordsys<>& pos) { m_initPos = pos; }
     void SetInitFwdVel(double fwdVel) { m_initFwdVel = fwdVel; }
@@ -75,7 +75,6 @@ class CH_MODELS_API MTV {
     std::shared_ptr<ChChassis> GetChassis() const { return m_vehicle->GetChassis(); }
     std::shared_ptr<ChBodyAuxRef> GetChassisBody() const { return m_vehicle->GetChassisBody(); }
     std::shared_ptr<ChPowertrain> GetPowertrain() const { return m_vehicle->GetPowertrain(); }
-    double GetTotalMass() const;
 
     void Initialize();
 
@@ -90,9 +89,9 @@ class CH_MODELS_API MTV {
     void SetSuspensionVisualizationType(VisualizationType vis) { m_vehicle->SetSuspensionVisualizationType(vis); }
     void SetSteeringVisualizationType(VisualizationType vis) { m_vehicle->SetSteeringVisualizationType(vis); }
     void SetWheelVisualizationType(VisualizationType vis) { m_vehicle->SetWheelVisualizationType(vis); }
-    void SetTireVisualizationType(VisualizationType vis);
+    void SetTireVisualizationType(VisualizationType vis) { m_vehicle->SetTireVisualizationType(vis); }
 
-    void Synchronize(double time, const ChDriver::Inputs& driver_inputs, const ChTerrain& terrain);
+    void Synchronize(double time, const DriverInputs& driver_inputs, const ChTerrain& terrain);
     void Advance(double step);
 
     void LogHardpointLocations() { m_vehicle->LogHardpointLocations(); }
@@ -107,10 +106,10 @@ class CH_MODELS_API MTV {
     BrakeType m_brake_type;
     TireModelType m_tireType;
     PowertrainModelType m_powertrainType;
+    
+    bool m_use_walking_beam;
 
     double m_tire_step_size;
-
-    SteeringTypeWV m_steeringType;
 
     ChCoordsys<> m_initPos;
     double m_initFwdVel;

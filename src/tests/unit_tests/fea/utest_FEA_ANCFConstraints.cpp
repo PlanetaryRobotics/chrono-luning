@@ -43,7 +43,7 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 #include "chrono/utils/ChUtilsValidation.h"
 
-#include "chrono/fea/ChElementShellANCF.h"
+#include "chrono/fea/ChElementShellANCF_3423.h"
 #include "chrono/fea/ChLinkDirFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 #include "chrono/fea/ChMesh.h"
@@ -78,15 +78,15 @@ std::shared_ptr<ChLinkDirFrame> constraint_dir;
 
 // ========================================================================
 
-void AddBodies(ChSystemNSC& my_system) {
+void AddBodies(ChSystemNSC& sys) {
     // Defining the Body 1
     ground = chrono_types::make_shared<ChBody>();
-    my_system.AddBody(ground);
+    sys.AddBody(ground);
     ground->SetBodyFixed(true);
 
     // Defining the Body 2
     Body_1 = chrono_types::make_shared<ChBody>();
-    my_system.AddBody(Body_1);
+    sys.AddBody(Body_1);
     Body_1->SetBodyFixed(false);
     Body_1->SetMass(1);
     Body_1->SetInertiaXX(ChVector<>(0.1, 0.1, 0.1));
@@ -94,7 +94,7 @@ void AddBodies(ChSystemNSC& my_system) {
 
     // Defining the Body 3
     Body_2 = chrono_types::make_shared<ChBody>();
-    my_system.AddBody(Body_2);
+    sys.AddBody(Body_2);
     Body_2->SetBodyFixed(false);
     Body_2->SetMass(2);
     Body_2->SetInertiaXX(ChVector<>(0.1, 0.1, 0.1));
@@ -103,7 +103,7 @@ void AddBodies(ChSystemNSC& my_system) {
 
 // ========================================================================
 
-void AddMesh(ChSystemNSC& my_system) {
+void AddMesh(ChSystemNSC& sys) {
     // Create a mesh, that is a container for groups of elements and their referenced nodes.
     mesh = chrono_types::make_shared<ChMesh>();
 
@@ -159,7 +159,7 @@ void AddMesh(ChSystemNSC& my_system) {
         int node3 = (i / (numDiv_x)) * (N_x) + i % numDiv_x + N_x;
 
         // Create the element and set its nodes.
-        auto element = chrono_types::make_shared<ChElementShellANCF>();
+        auto element = chrono_types::make_shared<ChElementShellANCF_3423>();
         element->SetNodes(std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(node0)),
                           std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(node1)),
                           std::dynamic_pointer_cast<ChNodeFEAxyzD>(mesh->GetNode(node2)),
@@ -173,42 +173,38 @@ void AddMesh(ChSystemNSC& my_system) {
 
         // Set other element properties
         element->SetAlphaDamp(0.08);  // structural damping for this element
-        element->SetGravityOn(true);  // gravitational forces
 
         // Add element to mesh
         mesh->AddElement(element);
     }
 
-    // Switch off mesh class gravity
-    mesh->SetAutomaticGravity(false);
-
     // Add the mesh to the system
-    my_system.Add(mesh);
+    sys.Add(mesh);
 }
 
 // ========================================================================
 
-void AddConstraints(ChSystemNSC& my_system) {
+void AddConstraints(ChSystemNSC& sys) {
     // Weld Body_1 to ground
     joint_weld = chrono_types::make_shared<ChLinkLockLock>();
     joint_weld->Initialize(ground, Body_1, ChCoordsys<>(ChVector<>(-2.0, 0, 0)));
-    my_system.AddLink(joint_weld);
+    sys.AddLink(joint_weld);
 
     // Revolute joint between Body_1 and Body_2
     joint_revolute = chrono_types::make_shared<ChLinkLockRevolute>();
     joint_revolute->Initialize(Body_1, Body_2, ChCoordsys<>(ChVector<>(0, 0, 0), Q_from_AngX(CH_C_PI / 2.0)));
-    my_system.AddLink(joint_revolute);
+    sys.AddLink(joint_revolute);
 
     // Constraining a node to Body_2
     constraint_point = chrono_types::make_shared<ChLinkPointFrame>();
     constraint_point->Initialize(Node_1, Body_2);
-    my_system.Add(constraint_point);
+    sys.Add(constraint_point);
 
     // This contraint means that rz will always be aligned with the node's D vector
     constraint_dir = chrono_types::make_shared<ChLinkDirFrame>();
     constraint_dir->Initialize(Node_1, Body_2);
     constraint_dir->SetDirectionInAbsoluteCoords(ChVector<double>(0, 0, 1));
-    my_system.Add(constraint_dir);
+    sys.Add(constraint_dir);
 }
 
 // ========================================================================
@@ -226,16 +222,16 @@ bool CheckConstraints() {
     violation(3) = Vdot(body_axis, Node_1->D);
 
     // Check violation in weld joint
-    violation.segment(4, 6) = joint_weld->GetC();
+    violation.segment(4, 6) = joint_weld->GetConstraintViolation();
 
     // Check violation in revolute joint
-    violation.segment(10, 5) = joint_revolute->GetC();
+    violation.segment(10, 5) = joint_revolute->GetConstraintViolation();
 
     // Check violation in body-node hinge constraint
-    violation.segment(15, 3) = constraint_point->GetC();
+    violation.segment(15, 3) = constraint_point->GetConstraintViolation();
 
     // Check violation in body-node direction constraint
-    violation.segment(18, 2) = constraint_dir->GetC();
+    violation.segment(18, 2) = constraint_dir->GetConstraintViolation();
 
     return violation.isZero(precision);
 }
@@ -244,23 +240,23 @@ bool CheckConstraints() {
 
 int main(int argc, char* argv[]) {
     // Create model
-    ChSystemNSC my_system;
-    my_system.Set_G_acc(ChVector<>(0, 0, -9.81));
+    ChSystemNSC sys;
+    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
 
-    AddMesh(my_system);
-    AddBodies(my_system);
-    AddConstraints(my_system);
+    AddMesh(sys);
+    AddBodies(sys);
+    AddConstraints(sys);
 
     // Set up linear solver
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetTolerance(1e-10);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(true);
 
     // Set up integrator
-    auto integrator = chrono_types::make_shared<ChTimestepperHHT>(&my_system);
-    my_system.SetTimestepper(integrator);
+    auto integrator = chrono_types::make_shared<ChTimestepperHHT>(&sys);
+    sys.SetTimestepper(integrator);
     integrator->SetAlpha(-0.2);
     integrator->SetMaxiters(100);
     integrator->SetRelTolerance(1e-3);
@@ -269,9 +265,9 @@ int main(int argc, char* argv[]) {
     integrator->SetVerbose(true);
 
     for (int it = 0; it < num_steps; it++) {
-        my_system.DoStepDynamics(time_step);
+        sys.DoStepDynamics(time_step);
 
-        std::cout << "Time t = " << my_system.GetChTime() << "s \n";
+        std::cout << "Time t = " << sys.GetChTime() << "s \n";
         printf("Body_1 position: %12.4e  %12.4e  %12.4e\n", Body_1->coord.pos.x(), Body_1->coord.pos.y(),
                Body_1->coord.pos.z());
         printf("Body_2 position: %12.4e  %12.4e  %12.4e\n", Body_2->coord.pos.x(), Body_2->coord.pos.y(),
@@ -292,16 +288,16 @@ int main(int argc, char* argv[]) {
         double dot = Vdot(body_axis, Node_1->D);
         printf("Dot product = %e\n", dot);
 
-        ChVectorN<double, 3> Cp = constraint_point->GetC();
+        ChVectorN<double, 3> Cp = constraint_point->GetConstraintViolation();
         printf("Point constraint violations:      %12.4e  %12.4e  %12.4e\n", Cp(0), Cp(1), Cp(2));
-        ChVectorN<double, 2> Cd = constraint_dir->GetC();
+        ChVectorN<double, 2> Cd = constraint_dir->GetConstraintViolation();
         printf("Direction constraint violations:  %12.4e  %12.4e\n", Cd(0), Cd(1));
 
-        ChVectorDynamic<> Cw = joint_weld->GetC();
+        ChVectorDynamic<> Cw = joint_weld->GetConstraintViolation();
         printf("Weld joint constraints: %12.4e  %12.4e  %12.4e  %12.4e  %12.4e  %12.4e\n", Cw(0), Cw(1), Cw(2), Cw(3),
                Cw(4), Cw(5));
 
-        ChVectorDynamic<> Cr = joint_revolute->GetC();
+        ChVectorDynamic<> Cr = joint_revolute->GetConstraintViolation();
         printf("Rev joint constraints:  %12.4e  %12.4e  %12.4e  %12.4e  %12.4e\n", Cr(0), Cr(1), Cr(2), Cr(3), Cr(4));
 
         printf("\n\n");

@@ -32,6 +32,7 @@ namespace vehicle {
 class CH_VEHICLE_API ChChassisConnectorHitch : public ChChassisConnector {
   public:
     ChChassisConnectorHitch(const std::string& name);
+    ~ChChassisConnectorHitch();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "ChassisConnectorHitch"; }
@@ -46,10 +47,6 @@ class CH_VEHICLE_API ChChassisConnectorHitch : public ChChassisConnector {
 
   protected:
     std::shared_ptr<ChLinkLockSpherical> m_joint;  ///< spherical joint of the connector
-
-  private:
-    virtual double GetMass() const override final { return 0; }
-    virtual ChVector<> GetCOMPos() const override final { return ChVector<>(0, 0, 0); }
 };
 
 /// @} vehicle

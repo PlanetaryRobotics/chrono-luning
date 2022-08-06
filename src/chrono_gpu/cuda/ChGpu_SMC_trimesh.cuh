@@ -9,7 +9,7 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Conlain Kelly, Nic Olsen, Dan Negrut, Ruochun Zhang
+// Authors: Conlain Kelly, Nic Olsen, Ruochun Zhang, Dan Negrut
 // =============================================================================
 
 #pragma once
@@ -33,7 +33,7 @@ using chrono::gpu::ChSystemGpuMesh_impl;
 
 // Triangle bounding box will be enlarged by 1/SAFETY_PARAM, ensuring triangles lie between 2 SDs
 // are getting some love
-const int SAFETY_PARAM = 1000;
+static const int SAFETY_PARAM = 1000;
 
 /// Point is in the LRF, rot_mat rotates LRF to GRF, pos translates LRF to GRF
 /// LRF: local reference frame
@@ -70,31 +70,29 @@ __inline__ __device__ void triangle_figureOutSDBox(const float3& vA,
                                                    int* L,
                                                    int* U,
                                                    ChSystemGpu_impl::GranParamsPtr gran_params) {
-    int3 min_pt;
-    min_pt.x = MIN(vA.x, MIN(vB.x, vC.x));
-    min_pt.y = MIN(vA.y, MIN(vB.y, vC.y));
-    min_pt.z = MIN(vA.z, MIN(vB.z, vC.z));
+    int64_t min_pt_x = MIN(vA.x, MIN(vB.x, vC.x));
+    int64_t min_pt_y = MIN(vA.y, MIN(vB.y, vC.y));
+    int64_t min_pt_z = MIN(vA.z, MIN(vB.z, vC.z));
 
     // Enlarge bounding box
-    min_pt.x -= gran_params->SD_size_X_SU / SAFETY_PARAM;
-    min_pt.y -= gran_params->SD_size_Y_SU / SAFETY_PARAM;
-    min_pt.z -= gran_params->SD_size_Z_SU / SAFETY_PARAM;
+    min_pt_x -= gran_params->SD_size_X_SU / SAFETY_PARAM;
+    min_pt_y -= gran_params->SD_size_Y_SU / SAFETY_PARAM;
+    min_pt_z -= gran_params->SD_size_Z_SU / SAFETY_PARAM;
 
-    int3 max_pt;
-    max_pt.x = MAX(vA.x, MAX(vB.x, vC.x));
-    max_pt.y = MAX(vA.y, MAX(vB.y, vC.y));
-    max_pt.z = MAX(vA.z, MAX(vB.z, vC.z));
+    int64_t max_pt_x = MAX(vA.x, MAX(vB.x, vC.x));
+    int64_t max_pt_y = MAX(vA.y, MAX(vB.y, vC.y));
+    int64_t max_pt_z = MAX(vA.z, MAX(vB.z, vC.z));
 
-    max_pt.x += gran_params->SD_size_X_SU / SAFETY_PARAM;
-    max_pt.y += gran_params->SD_size_Y_SU / SAFETY_PARAM;
-    max_pt.z += gran_params->SD_size_Z_SU / SAFETY_PARAM;
+    max_pt_x += gran_params->SD_size_X_SU / SAFETY_PARAM;
+    max_pt_y += gran_params->SD_size_Y_SU / SAFETY_PARAM;
+    max_pt_z += gran_params->SD_size_Z_SU / SAFETY_PARAM;
 
-    int3 tmp = pointSDTriplet(min_pt.x, min_pt.y, min_pt.z, gran_params);
+    int3 tmp = pointSDTriplet(min_pt_x, min_pt_y, min_pt_z, gran_params);
     L[0] = tmp.x;
     L[1] = tmp.y;
     L[2] = tmp.z;
 
-    tmp = pointSDTriplet(max_pt.x, max_pt.y, max_pt.z, gran_params);
+    tmp = pointSDTriplet(max_pt_x, max_pt_y, max_pt_z, gran_params);
     U[0] = tmp.x;
     U[1] = tmp.y;
     U[2] = tmp.z;
@@ -175,9 +173,9 @@ inline __device__ unsigned int triangle_countTouchedSDs(unsigned int triangleID,
                 SDhalfSizes[1] = (gran_params->SD_size_Y_SU + gran_params->SD_size_Y_SU / SAFETY_PARAM) / 2;
                 SDhalfSizes[2] = (gran_params->SD_size_Z_SU + gran_params->SD_size_Z_SU / SAFETY_PARAM) / 2;
 
-                SDcenter[0] = gran_params->BD_frame_X + (i * 2 + 1) * gran_params->SD_size_X_SU / 2;
-                SDcenter[1] = gran_params->BD_frame_Y + (j * 2 + 1) * gran_params->SD_size_Y_SU / 2;
-                SDcenter[2] = gran_params->BD_frame_Z + (k * 2 + 1) * gran_params->SD_size_Z_SU / 2;
+                SDcenter[0] = gran_params->BD_frame_X + (int64_t)(i * 2 + 1) * (int64_t)gran_params->SD_size_X_SU / 2;
+                SDcenter[1] = gran_params->BD_frame_Y + (int64_t)(j * 2 + 1) * (int64_t)gran_params->SD_size_Y_SU / 2;
+                SDcenter[2] = gran_params->BD_frame_Z + (int64_t)(k * 2 + 1) * (int64_t)gran_params->SD_size_Z_SU / 2;
 
                 if (check_TriangleBoxOverlap(SDcenter, SDhalfSizes, vA, vB, vC)) {
                     unsigned int currSD = SDTripletID(i, j, k, gran_params);
@@ -267,9 +265,9 @@ inline __device__ void triangle_figureOutTouchedSDs(unsigned int triangleID,
                 SDhalfSizes[1] = (gran_params->SD_size_Y_SU + gran_params->SD_size_Y_SU / SAFETY_PARAM) / 2;
                 SDhalfSizes[2] = (gran_params->SD_size_Z_SU + gran_params->SD_size_Z_SU / SAFETY_PARAM) / 2;
 
-                SDcenter[0] = gran_params->BD_frame_X + (i * 2 + 1) * gran_params->SD_size_X_SU / 2;
-                SDcenter[1] = gran_params->BD_frame_Y + (j * 2 + 1) * gran_params->SD_size_Y_SU / 2;
-                SDcenter[2] = gran_params->BD_frame_Z + (k * 2 + 1) * gran_params->SD_size_Z_SU / 2;
+                SDcenter[0] = gran_params->BD_frame_X + (int64_t)(i * 2 + 1) * (int64_t)gran_params->SD_size_X_SU / 2;
+                SDcenter[1] = gran_params->BD_frame_Y + (int64_t)(j * 2 + 1) * (int64_t)gran_params->SD_size_Y_SU / 2;
+                SDcenter[2] = gran_params->BD_frame_Z + (int64_t)(k * 2 + 1) * (int64_t)gran_params->SD_size_Z_SU / 2;
 
                 if (check_TriangleBoxOverlap(SDcenter, SDhalfSizes, vA, vB, vC)) {
                     unsigned int currSD = SDTripletID(i, j, k, gran_params);

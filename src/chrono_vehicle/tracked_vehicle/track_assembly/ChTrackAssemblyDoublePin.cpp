@@ -54,6 +54,9 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     size_t num_wheels = m_suspensions.size();
     size_t index = 0;
 
+    // Kinematic joints allowed only for one-pin track shoe topology
+    assert(m_bushing_data || m_shoes[0]->m_topology == DoublePinTrackShoeType::ONE_CONNECTOR);
+
     // Positions of sprocket, idler, and (front and rear) wheels (in chassis reference frame).
     ChVector<> sprocket_pos_3d = chassis->TransformPointParentToLocal(m_sprocket->GetGearBody()->GetPos());
     ChVector<> idler_pos_3d = chassis->TransformPointParentToLocal(m_idler->GetWheelBody()->GetPos());
@@ -92,7 +95,6 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     double idler_radius = m_idler->GetWheelRadius() + 0.9 * shoe_height;
     double wheel_radius = m_suspensions[0]->GetWheelRadius() + 1.1 * shoe_height;
 
-    m_chassis = chassis;
     m_sprocket_offset = sprocket_pos_3d.y();
     m_connector_offset = m_shoes[0]->GetShoeWidth() / 2;
 
@@ -120,7 +122,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     ChVector2<> A = pc - sign * ChVector2<>(connector_length / 2, 0);
     as = sign * std::atan2(A.y() - wheel_sprocket_bottom.y(), sign * (A.x() - wheel_sprocket_bottom.x()));
     ps = A - sign * Vrot(ChVector2<>(shoe_length / 2, 0), as);
-    CreateTrackShoe(index, ps, pc, as, ac);
+    CreateTrackShoe(chassis, index, ps, pc, as, ac);
     index++;
 
     // Cache location of rear pin (needed to close the track)
@@ -137,7 +139,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
         ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), as);
         pc = ps + sign * Vrot(ChVector2<>(shoe_length / 2, 0), as) +
              sign * Vrot(ChVector2<>(connector_length / 2, 0), ac);
-        CreateTrackShoe(index, ps, pc, as, ac);
+        CreateTrackShoe(chassis, index, ps, pc, as, ac);
         p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), ac);
         index++;
     }
@@ -157,7 +159,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     while (sign * (p2.x() - idler_pos.x()) > shoe_pitch && index < num_shoes) {
         ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), angle);
         pc = ps + sign * Vrot(ChVector2<>((shoe_length + connector_length)/ 2, 0), angle);
-        CreateTrackShoe(index, ps, pc, angle, angle);
+        CreateTrackShoe(chassis, index, ps, pc, angle, angle);
         p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), angle);
         ++index;
     }
@@ -171,7 +173,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     while (std::abs(angle) < CH_C_2PI && index < num_shoes) {
         ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), angle);
         pc = ps + sign * Vrot(ChVector2<>((shoe_length + connector_length) / 2, 0), angle);
-        CreateTrackShoe(index, ps, pc, angle, angle);
+        CreateTrackShoe(chassis, index, ps, pc, angle, angle);
         p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), angle);
         angle += 2 * delta_angle;
         ++index;
@@ -189,7 +191,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     while (sign * (wheel_idler_pos.x() - p2.x()) > 0 && index < num_shoes) {
         ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), angle);
         pc = ps + sign * Vrot(ChVector2<>((shoe_length + connector_length) / 2, 0), angle);
-        CreateTrackShoe(index, ps, pc, angle, angle);
+        CreateTrackShoe(chassis, index, ps, pc, angle, angle);
         p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), angle);
         ++index;
     }
@@ -202,7 +204,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     while (sign * (wheel_sprocket_pos.x() - p2.x()) > 0 && index < num_shoes) {
         ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), angle);
         pc = ps + sign * Vrot(ChVector2<>((shoe_length + connector_length) / 2, 0), angle);
-        CreateTrackShoe(index, ps, pc, angle, angle);
+        CreateTrackShoe(chassis, index, ps, pc, angle, angle);
         p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), angle);
         ++index;
     }
@@ -216,7 +218,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
         angle = sign * std::atan2(p0.y() - p2.y(), sign * (p0.x() - p2.x()));
         ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), angle);
         pc = ps + sign * Vrot(ChVector2<>((shoe_length + connector_length) / 2, 0), angle);
-        CreateTrackShoe(index, ps, pc, angle, angle);
+        CreateTrackShoe(chassis, index, ps, pc, angle, angle);
         p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), angle);
         ++index;
         --num_left;
@@ -233,7 +235,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
         for (size_t i = index; i < num_shoes; i++) {
             ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), angle);
             pc = ps + sign * Vrot(ChVector2<>((shoe_length + connector_length) / 2, 0), angle);
-            CreateTrackShoe(index, ps, pc, angle, angle);
+            CreateTrackShoe(chassis, index, ps, pc, angle, angle);
             p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), angle);
             ++index;
         }
@@ -252,7 +254,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     for (size_t i = 0; i < num_left / 2; i++) {
         ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), angle);
         pc = ps + sign * Vrot(ChVector2<>((shoe_length + connector_length) / 2, 0), angle);
-        CreateTrackShoe(index, ps, pc, angle, angle);
+        CreateTrackShoe(chassis, index, ps, pc, angle, angle);
         p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), angle);
         ++index;
     }
@@ -262,7 +264,7 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     for (size_t i = 0; i < num_left / 2; i++) {
         ps = p2 + sign * Vrot(ChVector2<>(shoe_length / 2, 0), angle);
         pc = ps + sign * Vrot(ChVector2<>((shoe_length + connector_length) / 2, 0), angle);
-        CreateTrackShoe(index, ps, pc, angle, angle);
+        CreateTrackShoe(chassis, index, ps, pc, angle, angle);
         p2 = pc + sign * Vrot(ChVector2<>(connector_length / 2, 0), angle);
         ++index;
     }
@@ -271,7 +273,12 @@ bool ChTrackAssemblyDoublePin::Assemble(std::shared_ptr<ChBodyAuxRef> chassis) {
     return ccw;
 }
 
-void ChTrackAssemblyDoublePin::CreateTrackShoe(size_t index, ChVector2<> ps, ChVector2<> pc, double as, double ac) {
+void ChTrackAssemblyDoublePin::CreateTrackShoe(std::shared_ptr<ChBodyAuxRef> chassis,
+                                               size_t index,
+                                               ChVector2<> ps,
+                                               ChVector2<> pc,
+                                               double as,
+                                               double ac) {
     // Set index within the track assembly
     m_shoes[index]->SetIndex(index);
 
@@ -286,7 +293,7 @@ void ChTrackAssemblyDoublePin::CreateTrackShoe(size_t index, ChVector2<> ps, ChV
     ChQuaternion<> rot_connector = Q_from_AngY(-ac);
 
     // Initialize the track shoe system
-    m_shoes[index]->Initialize(m_chassis, loc_shoe, rot_shoe, loc_connector_L, loc_connector_R, rot_connector);
+    m_shoes[index]->Initialize(chassis, loc_shoe, rot_shoe, loc_connector_L, loc_connector_R, rot_connector);
 }
 
 void ChTrackAssemblyDoublePin::RemoveTrackShoes() {

@@ -29,6 +29,7 @@
 #include "chrono_models/vehicle/rccar/RCCar_Vehicle.h"
 #include "chrono_models/vehicle/rccar/RCCar_SimpleMapPowertrain.h"
 #include "chrono_models/vehicle/rccar/RCCar_RigidTire.h"
+#include "chrono_models/vehicle/rccar/RCCar_TMeasyTire.h"
 
 using namespace chrono;
 using namespace chrono::vehicle;
@@ -70,7 +71,6 @@ class CH_MODELS_API RCCar {
     std::shared_ptr<ChChassis> GetChassis() const { return m_vehicle->GetChassis(); }
     std::shared_ptr<ChBodyAuxRef> GetChassisBody() const { return m_vehicle->GetChassisBody(); }
     std::shared_ptr<ChPowertrain> GetPowertrain() const { return m_vehicle->GetPowertrain(); }
-    double GetTotalMass() const;
 
     void Initialize();
 
@@ -82,9 +82,9 @@ class CH_MODELS_API RCCar {
     void SetSuspensionVisualizationType(VisualizationType vis) { m_vehicle->SetSuspensionVisualizationType(vis); }
     void SetSteeringVisualizationType(VisualizationType vis) { m_vehicle->SetSteeringVisualizationType(vis); }
     void SetWheelVisualizationType(VisualizationType vis) { m_vehicle->SetWheelVisualizationType(vis); }
-    void SetTireVisualizationType(VisualizationType vis);
+    void SetTireVisualizationType(VisualizationType vis) { m_vehicle->SetTireVisualizationType(vis); }
 
-    void Synchronize(double time, const ChDriver::Inputs& driver_inputs, const ChTerrain& terrain);
+    void Synchronize(double time, const DriverInputs& driver_inputs, const ChTerrain& terrain);
     void Advance(double step);
 
     void LogHardpointLocations() { m_vehicle->LogHardpointLocations(); }

@@ -60,6 +60,7 @@ class CH_MODELS_API MAN_10t {
     void SetChassisFixed(bool val) { m_fixed = val; }
     void SetChassisCollisionType(CollisionType val) { m_chassisCollisionType = val; }
 
+    void SetDriveline8WD(bool val) { m_use_8WD_drivetrain = val; }
     void SetPowertrainType(PowertrainModelType val) { m_powertrainType = val; }
     void SetBrakeType(BrakeType brake_type) { m_brake_type = brake_type; }
     void SetTireType(TireModelType val) { m_tireType = val; }
@@ -77,7 +78,6 @@ class CH_MODELS_API MAN_10t {
     std::shared_ptr<ChChassis> GetChassis() const { return m_vehicle->GetChassis(); }
     std::shared_ptr<ChBodyAuxRef> GetChassisBody() const { return m_vehicle->GetChassisBody(); }
     std::shared_ptr<ChPowertrain> GetPowertrain() const { return m_vehicle->GetPowertrain(); }
-    double GetTotalMass() const;
 
     void Initialize();
 
@@ -87,9 +87,9 @@ class CH_MODELS_API MAN_10t {
     void SetSuspensionVisualizationType(VisualizationType vis) { m_vehicle->SetSuspensionVisualizationType(vis); }
     void SetSteeringVisualizationType(VisualizationType vis) { m_vehicle->SetSteeringVisualizationType(vis); }
     void SetWheelVisualizationType(VisualizationType vis) { m_vehicle->SetWheelVisualizationType(vis); }
-    void SetTireVisualizationType(VisualizationType vis);
+    void SetTireVisualizationType(VisualizationType vis) { m_vehicle->SetTireVisualizationType(vis); }
 
-    void Synchronize(double time, const ChDriver::Inputs& driver_inputs, const ChTerrain& terrain);
+    void Synchronize(double time, const DriverInputs& driver_inputs, const ChTerrain& terrain);
     void Advance(double step);
 
     void LogHardpointLocations() { m_vehicle->LogHardpointLocations(); }
@@ -104,6 +104,7 @@ class CH_MODELS_API MAN_10t {
     PowertrainModelType m_powertrainType;
     BrakeType m_brake_type;
     TireModelType m_tireType;
+    bool m_use_8WD_drivetrain;
 
     double m_tire_step_size;
 

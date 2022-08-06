@@ -37,7 +37,7 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 #include "chrono/utils/ChUtilsValidation.h"
 
-#include "chrono/fea/ChElementShellANCF.h"
+#include "chrono/fea/ChElementShellANCF_3423.h"
 #include "chrono/fea/ChLinkDirFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 #include "chrono/fea/ChMesh.h"
@@ -72,8 +72,8 @@ int main(int argc, char* argv[]) {
     // Create the system
     // -----------------
 
-    ChSystemNSC my_system;
-    my_system.Set_G_acc(ChVector<>(0, 0, -9.81));
+    ChSystemNSC sys;
+    sys.Set_G_acc(ChVector<>(0, 0, -9.81));
 
     // ----------------
     // Specify the mesh
@@ -113,7 +113,8 @@ int main(int argc, char* argv[]) {
         double dir_z = cos(CH_C_PI / 2 / numDiv_x * (i % (numDiv_x + 1)));
 
         // Create the node
-        auto node = chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(loc_x, loc_y, loc_z), ChVector<>(dir_x, dir_y, dir_z));
+        auto node =
+            chrono_types::make_shared<ChNodeFEAxyzD>(ChVector<>(loc_x, loc_y, loc_z), ChVector<>(dir_x, dir_y, dir_z));
 
         node->SetMass(0);
 
@@ -145,7 +146,7 @@ int main(int argc, char* argv[]) {
         int node2 = (i / (numDiv_x)) * (N_x) + i % numDiv_x + 1 + N_x;
         int node3 = (i / (numDiv_x)) * (N_x) + i % numDiv_x + N_x;
         // Create the element and set its nodes.
-        auto element = chrono_types::make_shared<ChElementShellANCF>();
+        auto element = chrono_types::make_shared<ChElementShellANCF_3423>();
         element->SetNodes(std::dynamic_pointer_cast<ChNodeFEAxyzD>(my_mesh->GetNode(node0)),
                           std::dynamic_pointer_cast<ChNodeFEAxyzD>(my_mesh->GetNode(node1)),
                           std::dynamic_pointer_cast<ChNodeFEAxyzD>(my_mesh->GetNode(node2)),
@@ -160,18 +161,14 @@ int main(int argc, char* argv[]) {
         element->AddLayer(dz, -20 * CH_C_DEG_TO_RAD, mat);
 
         // Set other element properties
-        element->SetAlphaDamp(0.0);   // Structural damping for this
-        element->SetGravityOn(true);  // element calculates its own gravitational load
+        element->SetAlphaDamp(0.0);  // Structural damping for this
 
         // Add element to mesh
         my_mesh->AddElement(element);
     }
 
-    // Switch off mesh class gravity (ANCF shell elements have a custom implementation)
-    my_mesh->SetAutomaticGravity(false);
-
     // Add the mesh to the system
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // ---------------
     // Simulation loop
@@ -179,15 +176,15 @@ int main(int argc, char* argv[]) {
 
     // Setup solver
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(100);
     solver->SetTolerance(1e-10);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(false);
 
     // Setup integrator
-    my_system.SetTimestepperType(ChTimestepper::Type::HHT);
-    auto mystepper = std::static_pointer_cast<ChTimestepperHHT>(my_system.GetTimestepper());
+    sys.SetTimestepperType(ChTimestepper::Type::HHT);
+    auto mystepper = std::static_pointer_cast<ChTimestepperHHT>(sys.GetTimestepper());
     mystepper->SetAlpha(0.0);
     mystepper->SetMaxiters(100);
     mystepper->SetAbsTolerances(1e-08);
@@ -203,8 +200,8 @@ int main(int argc, char* argv[]) {
     std::ifstream file2("UT_ANCFShellOrtGrav.txt");*/
 
     for (unsigned int it = 0; it < num_steps; it++) {
-        my_system.DoStepDynamics(time_step);
-        std::cout << "Time t = " << my_system.GetChTime() << "s \n";
+        sys.DoStepDynamics(time_step);
+        std::cout << "Time t = " << sys.GetChTime() << "s \n";
         // std::cout << "nodetip->pos.z = " << nodetip->pos.z << "\n";
         // std::cout << "mystepper->GetNumIterations()= " << mystepper->GetNumIterations() << "\n";
         // Check vertical displacement of the shell tip
@@ -215,7 +212,7 @@ int main(int argc, char* argv[]) {
         }
 
         /* // Code snippet to generate golden file
-        m_data[0][it] = my_system.GetChTime();
+        m_data[0][it] = sys.GetChTime();
         m_data[1][it] = nodetip->pos.z; // Note that z component is the second row
         m_data[2][it] = nodetip->pos.x;
         m_data[3][it] = nodetip->pos.y;

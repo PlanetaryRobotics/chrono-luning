@@ -91,18 +91,36 @@ void RCCar::Initialize() {
     // Create the tires and set parameters depending on type.
 
     bool use_mesh = (m_tireType == TireModelType::RIGID_MESH);
+    switch (m_tireType) {
+        case TireModelType::TMEASY: {
+            auto tire_FL = chrono_types::make_shared<RCCar_TMeasyTire>("FL");
+            auto tire_FR = chrono_types::make_shared<RCCar_TMeasyTire>("FR");
+            auto tire_RL = chrono_types::make_shared<RCCar_TMeasyTire>("RL");
+            auto tire_RR = chrono_types::make_shared<RCCar_TMeasyTire>("RR");
 
-    auto tire_FL = chrono_types::make_shared<RCCar_RigidTire>("FL", use_mesh);
-    auto tire_FR = chrono_types::make_shared<RCCar_RigidTire>("FR", use_mesh);
-    auto tire_RL = chrono_types::make_shared<RCCar_RigidTire>("RL", use_mesh);
-    auto tire_RR = chrono_types::make_shared<RCCar_RigidTire>("RR", use_mesh);
+            m_vehicle->InitializeTire(tire_FL, m_vehicle->GetAxle(0)->m_wheels[LEFT], VisualizationType::NONE);
+            m_vehicle->InitializeTire(tire_FR, m_vehicle->GetAxle(0)->m_wheels[RIGHT], VisualizationType::NONE);
+            m_vehicle->InitializeTire(tire_RL, m_vehicle->GetAxle(1)->m_wheels[LEFT], VisualizationType::NONE);
+            m_vehicle->InitializeTire(tire_RR, m_vehicle->GetAxle(1)->m_wheels[RIGHT], VisualizationType::NONE);
 
-    m_vehicle->InitializeTire(tire_FL, m_vehicle->GetAxle(0)->m_wheels[LEFT], VisualizationType::NONE);
-    m_vehicle->InitializeTire(tire_FR, m_vehicle->GetAxle(0)->m_wheels[RIGHT], VisualizationType::NONE);
-    m_vehicle->InitializeTire(tire_RL, m_vehicle->GetAxle(1)->m_wheels[LEFT], VisualizationType::NONE);
-    m_vehicle->InitializeTire(tire_RR, m_vehicle->GetAxle(1)->m_wheels[RIGHT], VisualizationType::NONE);
+            m_tire_mass = tire_FL->GetMass();
+            break;
+        }
+        default: {  // Defaults to rigid tires
+            auto tire_FL = chrono_types::make_shared<RCCar_RigidTire>("FL", use_mesh);
+            auto tire_FR = chrono_types::make_shared<RCCar_RigidTire>("FR", use_mesh);
+            auto tire_RL = chrono_types::make_shared<RCCar_RigidTire>("RL", use_mesh);
+            auto tire_RR = chrono_types::make_shared<RCCar_RigidTire>("RR", use_mesh);
 
-    m_tire_mass = tire_FL->ReportMass();
+            m_vehicle->InitializeTire(tire_FL, m_vehicle->GetAxle(0)->m_wheels[LEFT], VisualizationType::NONE);
+            m_vehicle->InitializeTire(tire_FR, m_vehicle->GetAxle(0)->m_wheels[RIGHT], VisualizationType::NONE);
+            m_vehicle->InitializeTire(tire_RL, m_vehicle->GetAxle(1)->m_wheels[LEFT], VisualizationType::NONE);
+            m_vehicle->InitializeTire(tire_RR, m_vehicle->GetAxle(1)->m_wheels[RIGHT], VisualizationType::NONE);
+
+            m_tire_mass = tire_FL->GetMass();
+            break;
+        }
+    }
 
     for (auto& axle : m_vehicle->GetAxles()) {
         for (auto& wheel : axle->GetWheels()) {
@@ -110,30 +128,19 @@ void RCCar::Initialize() {
                 wheel->GetTire()->SetStepsize(m_tire_step_size);
         }
     }
+
+    // Recalculate vehicle mass, to properly account for all subsystems
+    m_vehicle->InitializeInertiaProperties();
 }
 
 // -----------------------------------------------------------------------------
-void RCCar::SetTireVisualizationType(VisualizationType vis) {
-    for (auto& axle : m_vehicle->GetAxles()) {
-        for (auto& wheel : axle->GetWheels()) {
-            wheel->GetTire()->SetVisualizationType(vis);
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
-void RCCar::Synchronize(double time, const ChDriver::Inputs& driver_inputs, const ChTerrain& terrain) {
+void RCCar::Synchronize(double time, const DriverInputs& driver_inputs, const ChTerrain& terrain) {
     m_vehicle->Synchronize(time, driver_inputs, terrain);
 }
 
 // -----------------------------------------------------------------------------
 void RCCar::Advance(double step) {
     m_vehicle->Advance(step);
-}
-
-// -----------------------------------------------------------------------------
-double RCCar::GetTotalMass() const {
-    return m_vehicle->GetVehicleMass() + 4 * m_tire_mass;
 }
 
 }  // namespace rccar

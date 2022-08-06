@@ -148,6 +148,8 @@ set(CV_BASE_FILES
     ChDriver.cpp
     ChPart.h
     ChPart.cpp
+    ChVehicleJoint.h
+    ChVehicleJoint.cpp
     ChDriveline.h
     ChDriveline.cpp
     ChPowertrain.h
@@ -160,6 +162,8 @@ set(CV_BASE_FILES
     ChVehicle.cpp
     ChVehicleModelData.h
     ChVehicleModelData.cpp
+    ChVehicleVisualSystem.h
+    ChVehicleVisualSystem.cpp
     ChVehicleOutput.h
     ChWorldFrame.cpp
     ChWorldFrame.h
@@ -275,8 +279,8 @@ set(CV_UTILS_FILES
 )
 if(ENABLE_MODULE_IRRLICHT)
     set(CVIRR_UTILS_FILES
-        utils/ChVehicleIrrApp.h
-        utils/ChVehicleIrrApp.cpp
+        utils/ChVehicleVisualSystemIrrlicht.h
+        utils/ChVehicleVisualSystemIrrlicht.cpp
     )
 else()
     set(CVIRR_UTILS_FILES "")
@@ -396,8 +400,8 @@ set(CV_WV_SUBCHASSIS_FILES
     wheeled_vehicle/subchassis/ChBalancer.h
     wheeled_vehicle/subchassis/ChBalancer.cpp
 
-    #wheeled_vehicle/subchassis/Balancer.h
-    #wheeled_vehicle/subchassis/Balancer.cpp
+    wheeled_vehicle/subchassis/Balancer.h
+    wheeled_vehicle/subchassis/Balancer.cpp
 )
 source_group("wheeled_vehicle\\subchassis" FILES ${CV_WV_SUBCHASSIS_FILES})
 
@@ -441,8 +445,8 @@ set(CV_WV_SUSPENSION_FILES
     wheeled_vehicle/suspension/DoubleWishbone.cpp
     wheeled_vehicle/suspension/DoubleWishboneReduced.h
     wheeled_vehicle/suspension/DoubleWishboneReduced.cpp
-#    wheeled_vehicle/suspension/SingleWishbone.h
-#    wheeled_vehicle/suspension/SingleWishbone.cpp
+    wheeled_vehicle/suspension/SingleWishbone.h
+    wheeled_vehicle/suspension/SingleWishbone.cpp
     wheeled_vehicle/suspension/SolidAxle.h
     wheeled_vehicle/suspension/SolidAxle.cpp
     wheeled_vehicle/suspension/MultiLink.h
@@ -497,6 +501,8 @@ source_group("wheeled_vehicle\\test_rig" FILES ${CV_WV_TEST_RIG_FILES} ${CVIRR_W
 set(CV_WV_TIRE_FILES
     wheeled_vehicle/tire/ChRigidTire.h
     wheeled_vehicle/tire/ChRigidTire.cpp
+    wheeled_vehicle/tire/ChForceElementTire.h
+    wheeled_vehicle/tire/ChForceElementTire.cpp
     wheeled_vehicle/tire/ChPacejkaTire.h
     wheeled_vehicle/tire/ChPacejkaTire.cpp
     wheeled_vehicle/tire/ChPac02Tire.h
@@ -549,8 +555,8 @@ set(CV_WV_UTILS_FILES
 )
 if(ENABLE_MODULE_IRRLICHT)
     set(CVIRR_WV_UTILS_FILES
-        wheeled_vehicle/utils/ChWheeledVehicleIrrApp.h
-        wheeled_vehicle/utils/ChWheeledVehicleIrrApp.cpp
+        wheeled_vehicle/utils/ChWheeledVehicleVisualSystemIrrlicht.h
+        wheeled_vehicle/utils/ChWheeledVehicleVisualSystemIrrlicht.cpp
     )
 else()
     set(CVIRR_WV_UTILS_FILES "")
@@ -571,34 +577,15 @@ set(CV_WV_WHEEL_FILES
 )
 source_group("wheeled_vehicle\\wheel" FILES ${CV_WV_WHEEL_FILES})
 
-#if(MPI_CXX_FOUND)
-#    set(CV_WV_COSIM_FILES
-#        wheeled_vehicle/cosim/ChCosimManager.h
-#        wheeled_vehicle/cosim/ChCosimManager.cpp
-#        wheeled_vehicle/cosim/ChCosimNode.h
-#        wheeled_vehicle/cosim/ChCosimVehicleNode.h
-#        wheeled_vehicle/cosim/ChCosimVehicleNode.cpp
-#        wheeled_vehicle/cosim/ChCosimTireNode.h
-#        wheeled_vehicle/cosim/ChCosimTireNode.cpp
-#        wheeled_vehicle/cosim/ChCosimTerrainNode.h
-#        wheeled_vehicle/cosim/ChCosimTerrainNode.cpp
-#    )
-#    source_group("wheeled_vehicle\\cosim" FILES ${CV_WV_COSIM_FILES})
-#else()
-    set(CV_WV_COSIM_FILES "")
-#endif()
-
 # --------------- TRACKED VEHICLE FILES
 
 set(CV_TV_BASE_FILES
     tracked_vehicle/ChIdler.h
     tracked_vehicle/ChIdler.cpp
-    tracked_vehicle/ChRoadWheel.h 
-    tracked_vehicle/ChRoadWheel.cpp 
-    tracked_vehicle/ChRoadWheelAssembly.h
-    tracked_vehicle/ChRoadWheelAssembly.cpp
-    tracked_vehicle/ChRoller.h
-    tracked_vehicle/ChRoller.cpp
+    tracked_vehicle/ChTrackWheel.h 
+    tracked_vehicle/ChTrackWheel.cpp 
+    tracked_vehicle/ChTrackSuspension.h
+    tracked_vehicle/ChTrackSuspension.cpp
     tracked_vehicle/ChSprocket.h
     tracked_vehicle/ChSprocket.cpp
     tracked_vehicle/ChTrackAssembly.h
@@ -643,39 +630,30 @@ set(CV_TV_DRIVELINE_FILES
 source_group("tracked_vehicle\\driveline" FILES ${CV_TV_DRIVELINE_FILES})
 
 set(CV_TV_IDLER_FILES
-    tracked_vehicle/idler/ChSingleIdler.h
-    tracked_vehicle/idler/ChSingleIdler.cpp
-    tracked_vehicle/idler/ChDoubleIdler.h
-    tracked_vehicle/idler/ChDoubleIdler.cpp
+    tracked_vehicle/idler/ChTranslationalIdler.h
+    tracked_vehicle/idler/ChTranslationalIdler.cpp
+    tracked_vehicle/idler/ChDistanceIdler.h
+    tracked_vehicle/idler/ChDistanceIdler.cpp
 
-    tracked_vehicle/idler/SingleIdler.h
-    tracked_vehicle/idler/SingleIdler.cpp
-    tracked_vehicle/idler/DoubleIdler.h
-    tracked_vehicle/idler/DoubleIdler.cpp
+    tracked_vehicle/idler/TranslationalIdler.h
+    tracked_vehicle/idler/TranslationalIdler.cpp
+    tracked_vehicle/idler/DistanceIdler.h
+    tracked_vehicle/idler/DistanceIdler.cpp
 )
 source_group("tracked_vehicle\\idler" FILES ${CV_TV_IDLER_FILES})
 
-set(CV_TV_ROADWHEEL_FILES
-    tracked_vehicle/road_wheel/ChSingleRoadWheel.h
-    tracked_vehicle/road_wheel/ChSingleRoadWheel.cpp
-    tracked_vehicle/road_wheel/ChDoubleRoadWheel.h
-    tracked_vehicle/road_wheel/ChDoubleRoadWheel.cpp
+set(CV_TV_TRACKWHEEL_FILES
+    tracked_vehicle/track_wheel/ChSingleTrackWheel.h
+    tracked_vehicle/track_wheel/ChSingleTrackWheel.cpp
+    tracked_vehicle/track_wheel/ChDoubleTrackWheel.h
+    tracked_vehicle/track_wheel/ChDoubleTrackWheel.cpp
 
-    tracked_vehicle/road_wheel/SingleRoadWheel.h
-    tracked_vehicle/road_wheel/SingleRoadWheel.cpp
-    tracked_vehicle/road_wheel/DoubleRoadWheel.h
-    tracked_vehicle/road_wheel/DoubleRoadWheel.cpp
+    tracked_vehicle/track_wheel/SingleTrackWheel.h
+    tracked_vehicle/track_wheel/SingleTrackWheel.cpp
+    tracked_vehicle/track_wheel/DoubleTrackWheel.h
+    tracked_vehicle/track_wheel/DoubleTrackWheel.cpp
 )
-source_group("tracked_vehicle\\road_wheel" FILES ${CV_TV_ROADWHEEL_FILES})
-
-set(CV_TV_ROLLER_FILES
-    tracked_vehicle/roller/ChDoubleRoller.h
-    tracked_vehicle/roller/ChDoubleRoller.cpp
-
-    tracked_vehicle/roller/DoubleRoller.h
-    tracked_vehicle/roller/DoubleRoller.cpp
-)
-source_group("tracked_vehicle\\roller" FILES ${CV_TV_ROLLER_FILES})
+source_group("tracked_vehicle\\track_wheel" FILES ${CV_TV_TRACKWHEEL_FILES})
 
 set(CV_TV_SPROCKET_FILES
     tracked_vehicle/sprocket/ChSprocketSinglePin.h
@@ -695,15 +673,15 @@ set(CV_TV_SPROCKET_FILES
 source_group("tracked_vehicle\\sprocket" FILES ${CV_TV_SPROCKET_FILES})
 
 set(CV_TV_SUSPENSION_FILES
-    tracked_vehicle/suspension/ChLinearDamperRWAssembly.h
-    tracked_vehicle/suspension/ChLinearDamperRWAssembly.cpp
-    tracked_vehicle/suspension/ChRotationalDamperRWAssembly.h
-    tracked_vehicle/suspension/ChRotationalDamperRWAssembly.cpp
+    tracked_vehicle/suspension/ChTranslationalDamperSuspension.h
+    tracked_vehicle/suspension/ChTranslationalDamperSuspension.cpp
+    tracked_vehicle/suspension/ChRotationalDamperSuspension.h
+    tracked_vehicle/suspension/ChRotationalDamperSuspension.cpp
 
-    tracked_vehicle/suspension/LinearDamperRWAssembly.h
-    tracked_vehicle/suspension/LinearDamperRWAssembly.cpp
-    tracked_vehicle/suspension/RotationalDamperRWAssembly.h
-    tracked_vehicle/suspension/RotationalDamperRWAssembly.cpp
+    tracked_vehicle/suspension/TranslationalDamperSuspension.h
+    tracked_vehicle/suspension/TranslationalDamperSuspension.cpp
+    tracked_vehicle/suspension/RotationalDamperSuspension.h
+    tracked_vehicle/suspension/RotationalDamperSuspension.cpp
 )
 source_group("tracked_vehicle\\suspension" FILES ${CV_TV_SUSPENSION_FILES})
 
@@ -781,8 +759,10 @@ set(CV_TV_UTILS_FILES
 )
 if(ENABLE_MODULE_IRRLICHT)
     set(CVIRR_TV_UTILS_FILES
-        tracked_vehicle/utils/ChTrackedVehicleIrrApp.h
-        tracked_vehicle/utils/ChTrackedVehicleIrrApp.cpp
+        tracked_vehicle/utils/ChTrackedVehicleVisualSystemIrrlicht.h
+        tracked_vehicle/utils/ChTrackedVehicleVisualSystemIrrlicht.cpp
+        tracked_vehicle/utils/ChTrackTestRigVisualSystemIrrlicht.h
+        tracked_vehicle/utils/ChTrackTestRigVisualSystemIrrlicht.cpp
     )
 else()
     set(CVIRR_TV_UTILS_FILES "")
@@ -814,13 +794,6 @@ set(CXX_FLAGS ${CH_CXX_FLAGS})
 set(COMPILE_DEFS "CH_API_COMPILE_VEHICLE")
 set(LINK_FLAGS ${CH_LINKERFLAG_SHARED})
 set(LIBRARIES "ChronoEngine")
-
-if(MPI_CXX_FOUND)
-    set(CXX_FLAGS "${CXX_FLAGS} ${MPI_CXX_COMPILE_FLAGS}")
-    set(LINK_FLAGS "${LINK_FLAGS} ${MPI_CXX_LINK_FLAGS}")
-    include_directories(${MPI_CXX_INCLUDE_PATH})
-    list(APPEND LIBRARIES ${MPI_CXX_LIBRARIES})
-endif()
 
 if(HDF5_FOUND)
     set(COMPILE_DEFS "${COMPILE_DEFS} ${H5_BUILT_AS_DYNAMIC_LIB}")
@@ -857,14 +830,12 @@ add_library(ChronoEngine_vehicle SHARED
     ${CV_WV_UTILS_FILES}
     ${CV_WV_VEHICLE_FILES}
     ${CV_WV_WHEEL_FILES}
-    ${CV_WV_COSIM_FILES}
 #
     ${CV_TV_BASE_FILES}
     ${CV_TV_BRAKE_FILES}
     ${CV_TV_DRIVELINE_FILES}
     ${CV_TV_IDLER_FILES}
-    ${CV_TV_ROADWHEEL_FILES}
-    ${CV_TV_ROLLER_FILES}
+    ${CV_TV_TRACKWHEEL_FILES}
     ${CV_TV_SPROCKET_FILES}
     ${CV_TV_SUSPENSION_FILES}
     ${CV_TV_TRACKSHOE_FILES}
@@ -875,6 +846,8 @@ add_library(ChronoEngine_vehicle SHARED
 #
     ${CV_STB_FILES}
 )
+
+message(STATUS "Add ChronoEngine_vehicle library")
 
 set_target_properties(ChronoEngine_vehicle PROPERTIES
                       COMPILE_FLAGS "${CXX_FLAGS}"
@@ -905,11 +878,6 @@ list(APPEND LIBRARIES ChronoEngine_vehicle)
 list(APPEND LIBRARIES ChronoEngine_irrlicht) 
 include_directories(${CH_IRRLICHTINC})
 
-if(ENABLE_IRRKLANG)
-    include_directories(${CH_IRRKLANGINC})
-    list(APPEND LIBRARIES ${CH_IRRKLANGLIB})
-endif()
-
 add_library(ChronoEngine_vehicle_irrlicht SHARED
     ${CVIRR_DRIVER_FILES}
     ${CVIRR_UTILS_FILES}
@@ -918,6 +886,13 @@ add_library(ChronoEngine_vehicle_irrlicht SHARED
     ${CVIRR_TV_TEST_RIG_FILES}
     ${CVIRR_TV_UTILS_FILES}
 )
+
+if(ENABLE_IRRKLANG)
+    target_include_directories(ChronoEngine_vehicle_irrlicht PUBLIC ${CH_IRRKLANGINC})
+    list(APPEND LIBRARIES ${CH_IRRKLANGLIB})
+    set(CH_IRRLICHTINC ${CH_IRRLICHTINC} ${CH_IRRKLANGINC} PARENT_SCOPE)
+    set(IRRLICHT_LIBRARY ${IRRLICHT_LIBRARY} ${CH_IRRKLANGLIB} PARENT_SCOPE)
+endif()
 
 set_target_properties(ChronoEngine_vehicle_irrlicht PROPERTIES
                       COMPILE_FLAGS "${CXX_FLAGS}"
@@ -934,6 +909,11 @@ install(TARGETS ChronoEngine_vehicle_irrlicht
         ARCHIVE DESTINATION lib)
 
 endif()
+
+#-------------------------------------------------------------------------------
+# Trigger CMake for vehicle cosimulation
+#-------------------------------------------------------------------------------
+add_subdirectory(cosim)
 
 #-------------------------------------------------------------------------------
 # Install Chrono::Vehicle headers
@@ -970,6 +950,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
             COMMAND ${CMAKE_COMMAND} -E copy_if_different
             "${OPENCRG_DLL}"
             "${PROJECT_BINARY_DIR}/bin/$<CONFIGURATION>")
+      install(FILES "${OPENCRG_DLL}" DESTINATION bin)
     endif()
 
 endif()

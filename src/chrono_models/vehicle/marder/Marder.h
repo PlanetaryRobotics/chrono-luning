@@ -54,8 +54,8 @@ class CH_MODELS_API Marder {
     }
 
     void SetBrakeType(BrakeType brake_type) { m_brake_type = brake_type; }
-    void SetTrackShoeType(TrackShoeType shoe_type) { m_shoe_type = shoe_type; }
-    void SetDrivelineType(DrivelineTypeTV driveline_type) { m_driveline_type = driveline_type; }
+    ////void SetTrackShoeType(TrackShoeType shoe_type) { m_shoe_type = shoe_type; }
+    ////void SetDrivelineType(DrivelineTypeTV driveline_type) { m_driveline_type = driveline_type; }
     void SetPowertrainType(PowertrainModelType powertrain_type) { m_powertrain_type = powertrain_type; }
 
     void SetInitPosition(const ChCoordsys<>& pos) { m_initPos = pos; }
@@ -71,7 +71,6 @@ class CH_MODELS_API Marder {
     std::shared_ptr<ChBodyAuxRef> GetChassisBody() const { return m_vehicle->GetChassisBody(); }
     std::shared_ptr<ChDrivelineTV> GetDriveline() const { return m_vehicle->GetDriveline(); }
     std::shared_ptr<ChPowertrain> GetPowertrain() const { return m_vehicle->GetPowertrain(); }
-    double GetTotalMass() const;
 
     void Initialize();
 
@@ -81,14 +80,13 @@ class CH_MODELS_API Marder {
     void SetSprocketVisualizationType(VisualizationType vis) { m_vehicle->SetSprocketVisualizationType(vis); }
     void SetIdlerVisualizationType(VisualizationType vis) { m_vehicle->SetIdlerVisualizationType(vis); }
     void SetRollerVisualizationType(VisualizationType vis) { m_vehicle->SetRollerVisualizationType(vis); }
-    void SetRoadWheelAssemblyVisualizationType(VisualizationType vis) {
-        m_vehicle->SetRoadWheelAssemblyVisualizationType(vis);
-    }
+    void SetSuspensionVisualizationType(VisualizationType vis) { m_vehicle->SetSuspensionVisualizationType(vis); }
+    void SetIdlerWheelVisualizationType(VisualizationType vis) { m_vehicle->SetIdlerWheelVisualizationType(vis); }
     void SetRoadWheelVisualizationType(VisualizationType vis) { m_vehicle->SetRoadWheelVisualizationType(vis); }
     void SetTrackShoeVisualizationType(VisualizationType vis) { m_vehicle->SetTrackShoeVisualizationType(vis); }
 
     void Synchronize(double time,
-                     const ChDriver::Inputs& driver_inputs,
+                     const DriverInputs& driver_inputs,
                      const TerrainForces& shoe_forces_left,
                      const TerrainForces& shoe_forces_right);
     void Advance(double step);

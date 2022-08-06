@@ -48,22 +48,24 @@ class CH_MODELS_API Generic_SimpleDriveline : public ChDrivelineWV {
                             const std::vector<int>& driven_axles  ///< indexes of the driven vehicle axles
                             ) override;
 
-    /// Get the angular speed of the driveshaft.
-    /// This represents the output from the driveline subsystem that is passed to
-    /// the powertrain system.
-    virtual double GetDriveshaftSpeed() const override;
-
     /// Update the driveline subsystem: apply the specified motor torque.
     /// This represents the input to the driveline subsystem from the powertrain
     /// system.
-    virtual void Synchronize(double torque) override;
+    virtual void Synchronize(double time,                        ///< [in] current time
+                             const DriverInputs& driver_inputs,  ///< [in] current driver inputs
+                             double torque                       ///< [in] motor torque
+                             ) override;
 
     /// Get the motor torque to be applied to the specified spindle.
     virtual double GetSpindleTorque(int axle, VehicleSide side) const override;
 
+    /// Disconnect driveline from driven wheels.
+    virtual void Disconnect() override;
+
   private:
     static const double m_conicalgear_ratio;
 
+    bool m_connected;
     std::shared_ptr<ChShaft> m_driven_left;
     std::shared_ptr<ChShaft> m_driven_right;
 };

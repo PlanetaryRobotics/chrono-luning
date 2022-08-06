@@ -16,7 +16,6 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChColorAsset.h"
 #include "chrono/assets/ChCylinderShape.h"
 #include "chrono/assets/ChTriangleMeshShape.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
@@ -51,7 +50,8 @@ const double M113_TrackShoeDoublePin::m_connector_width = 0.02;
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-M113_TrackShoeDoublePin::M113_TrackShoeDoublePin(const std::string& name) : ChTrackShoeDoublePin(name) {
+M113_TrackShoeDoublePin::M113_TrackShoeDoublePin(const std::string& name, DoublePinTrackShoeType topology)
+    : ChTrackShoeDoublePin(name, topology) {
     // Collision box: pad bottom (ground contact)
     ChVehicleGeometry::BoxShape box_bottom(ChVector<>(0, 0, -0.015), QUNIT, ChVector<>(0.11, 0.19, 0.03), 0);
 
@@ -73,12 +73,12 @@ M113_TrackShoeDoublePin::M113_TrackShoeDoublePin(const std::string& name) : ChTr
 
     // Visualization cylinder: pin revolute joints
     m_geometry.m_vis_cylinders.push_back(
-        ChVehicleGeometry::CylinderShape(ChVector<>(+0.0492, 0, 0), QUNIT, 0.01, 0.3381, -1));
+        ChVehicleGeometry::CylinderShape(ChVector<>(+0.0492, 0, 0), QUNIT, 0.01, 0.3, -1));
     m_geometry.m_vis_cylinders.push_back(
-        ChVehicleGeometry::CylinderShape(ChVector<>(-0.0492, 0, 0), QUNIT, 0.01, 0.3381, -1));
+        ChVehicleGeometry::CylinderShape(ChVector<>(-0.0492, 0, 0), QUNIT, 0.01, 0.3, -1));
 
     m_geometry.m_has_mesh = false;
-    m_geometry.m_vis_mesh_file = "M113/TrackShoeDoublePin.obj";
+    m_geometry.m_vis_mesh_file = "M113/meshes/TrackShoeDoublePin.obj";
 }
 
 void M113_TrackShoeDoublePin::CreateContactMaterials(ChContactMethod contact_method) {
@@ -87,7 +87,7 @@ void M113_TrackShoeDoublePin::CreateContactMaterials(ChContactMethod contact_met
         MaterialInfo minfo;
         minfo.mu = 0.8f;
         minfo.cr = 0.75f;
-        minfo.Y = 1e7f;
+        minfo.Y = 1e9f;
         m_shoe_sprk_material = minfo.CreateMaterial(contact_method);
     }
 

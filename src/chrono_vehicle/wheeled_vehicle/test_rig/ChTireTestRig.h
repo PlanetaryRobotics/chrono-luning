@@ -48,6 +48,8 @@ class CH_VEHICLE_API ChTireTestRig {
                   ChSystem* system                 ///< containing mechanical system
     );
 
+    ~ChTireTestRig();
+
     /// Set gravitational acceleration (default: 9.81 m/s2).
     void SetGravitationalAcceleration(double grav) { m_grav = grav; }
 
@@ -129,7 +131,7 @@ class CH_VEHICLE_API ChTireTestRig {
     void Advance(double step);
 
     /// Get total rig mass.
-    double GetTotalMass() const { return m_total_mass; }
+    double GetMass() const { return m_total_mass; }
 
     /// Get applied load on rig
     /// (to enforce specified normal load, taking into account the masses of all components).

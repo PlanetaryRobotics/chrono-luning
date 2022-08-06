@@ -23,12 +23,12 @@
 
 #include "chrono/fea/ChElementBar.h"
 #include "chrono/fea/ChElementBeamEuler.h"
-#include "chrono/fea/ChElementBrick.h"
-#include "chrono/fea/ChElementHexa_20.h"
-#include "chrono/fea/ChElementHexa_8.h"
-#include "chrono/fea/ChElementShellANCF.h"
-#include "chrono/fea/ChElementTetra_10.h"
-#include "chrono/fea/ChElementTetra_4.h"
+#include "chrono/fea/ChElementHexaANCF_3813.h"
+#include "chrono/fea/ChElementHexaCorot_20.h"
+#include "chrono/fea/ChElementHexaCorot_8.h"
+#include "chrono/fea/ChElementShellANCF_3423.h"
+#include "chrono/fea/ChElementTetraCorot_10.h"
+#include "chrono/fea/ChElementTetraCorot_4.h"
 #include "chrono/fea/ChLinkDirFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
 #include "chrono/fea/ChLinkPointFrame.h"
@@ -46,11 +46,11 @@ void test_1() {
     GetLog() << "TEST: load applied to a beam                       \n\n";
 
     // The physical system: it contains all physical objects.
-    ChSystemSMC my_system;
+    ChSystemSMC sys;
 
     // Create a mesh:
     auto my_mesh = chrono_types::make_shared<ChMesh>();
-    my_system.Add(my_mesh);
+    sys.Add(my_mesh);
 
     // Create some nodes.
     auto mnodeA = chrono_types::make_shared<ChNodeFEAxyzrot>(ChFrame<>(ChVector<>(0, 0, 0)));
@@ -82,12 +82,12 @@ void test_1() {
     // Create also a truss
     auto truss = chrono_types::make_shared<ChBody>();
     truss->SetBodyFixed(true);
-    my_system.Add(truss);
+    sys.Add(truss);
 
     // Create a constraint at the end of the beam
     auto constr_a = chrono_types::make_shared<ChLinkMateGeneric>();
     constr_a->Initialize(mnodeA, truss, false, mnodeA->Frame(), mnodeA->Frame());
-    my_system.Add(constr_a);
+    sys.Add(constr_a);
     constr_a->SetConstrainedCoords(true, true, true,   // x, y, z
                                    true, true, true);  // Rx, Ry, Rz
 
@@ -96,7 +96,7 @@ void test_1() {
     // First: loads must be added to "load containers",
     // and load containers must be added to your system
     auto mloadcontainer = chrono_types::make_shared<ChLoadContainer>();
-    my_system.Add(mloadcontainer);
+    sys.Add(mloadcontainer);
 
     // Example 1:
 
@@ -147,10 +147,10 @@ void test_1() {
             ChVectorDynamic<>& F,        ///< Result F vector here, size must be = n.field coords.of loadable
             ChVectorDynamic<>* state_x,  ///< if != 0, update state (pos. part) to this, then evaluate F
             ChVectorDynamic<>* state_w   ///< if != 0, update state (speed part) to this, then evaluate F
-            ) {
+        ) {
             double Fy_max = 0.005;
             F.segment(0, 3) = ChVector<>(0, ((1 + U) / 2) * Fy_max, 0).eigen();  // load, force part
-            F.segment(3, 3).setZero();                                             // load, torque part
+            F.segment(3, 3).setZero();                                           // load, torque part
         }
 
         // Needed because inheriting ChLoaderUdistributed. Use 1 because linear load fx.
@@ -188,7 +188,7 @@ void test_1() {
             ChVectorDynamic<>& F,        ///< Result F vector here, size must be = n.field coords.of loadable
             ChVectorDynamic<>* state_x,  ///< if != 0, update state (pos. part) to this, then evaluate F
             ChVectorDynamic<>* state_w   ///< if != 0, update state (speed part) to this, then evaluate F
-            ) {
+        ) {
             ChVector<> node_pos;
             ChVector<> node_vel;
             if (state_x) {
@@ -393,14 +393,14 @@ void test_1() {
     // Setup a MINRES solver. For FEA one cannot use the default PSOR type solver.
 
     auto solver = chrono_types::make_shared<ChSolverMINRES>();
-    my_system.SetSolver(solver);
+    sys.SetSolver(solver);
     solver->SetMaxIterations(100);
     solver->SetTolerance(1e-10);
     solver->EnableDiagonalPreconditioner(true);
     solver->SetVerbose(true);
 
     // Perform a static analysis:
-    my_system.DoStaticLinear();
+    sys.DoStaticLinear();
 
     GetLog() << " constr_a reaction force  F= " << constr_a->Get_react_force() << "  \n";
     GetLog() << " constr_a reaction torque T= " << constr_a->Get_react_torque() << "  \n";

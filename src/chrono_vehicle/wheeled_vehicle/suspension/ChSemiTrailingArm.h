@@ -56,7 +56,7 @@ class CH_VEHICLE_API ChSemiTrailingArm : public ChSuspension {
     ChSemiTrailingArm(const std::string& name  ///< [in] name of the subsystem
                       );
 
-    virtual ~ChSemiTrailingArm() {}
+    virtual ~ChSemiTrailingArm();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "SemiTrailingArm"; }
@@ -87,12 +87,6 @@ class CH_VEHICLE_API ChSemiTrailingArm : public ChSuspension {
 
     /// Remove visualization assets for the suspension subsystem.
     virtual void RemoveVisualizationAssets() override;
-
-    /// Get the total mass of the suspension subsystem.
-    virtual double GetMass() const override;
-
-    /// Get the current global COM location of the suspension subsystem.
-    virtual ChVector<> GetCOMPos() const override;
 
     /// Get the wheel track for the suspension subsystem.
     virtual double GetTrack() override;
@@ -152,6 +146,9 @@ class CH_VEHICLE_API ChSemiTrailingArm : public ChSuspension {
         NUM_POINTS
     };
 
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
     /// Return the location of the specified hardpoint.
     /// The returned location must be expressed in the suspension reference frame.
     virtual const ChVector<> getLocation(PointId which) = 0;
@@ -179,12 +176,16 @@ class CH_VEHICLE_API ChSemiTrailingArm : public ChSuspension {
     /// Return the functor object for shock force.
     virtual std::shared_ptr<ChLinkTSDA::ForceFunctor> getShockForceFunctor() const = 0;
 
-    std::shared_ptr<ChBody> m_arm[2];  ///< handles to the trailing arm bodies (left/right)
+    /// Return stiffness and damping data for the arm bushing.
+    /// Returning nullptr (default) results in using a kinematic revolute joint.
+    virtual std::shared_ptr<ChVehicleBushingData> getCABushingData() const { return nullptr; }
 
-    std::shared_ptr<ChLinkLockRevolute> m_revoluteArm[2];  ///< handles to the chassis-arm revolute joints (left/right)
+    std::shared_ptr<ChBody> m_arm[2];  ///< trailing arm bodies (left/right)
 
-    std::shared_ptr<ChLinkTSDA> m_shock[2];   ///< handles to the spring links (left/right)
-    std::shared_ptr<ChLinkTSDA> m_spring[2];  ///< handles to the shock links (left/right)
+    std::shared_ptr<ChVehicleJoint> m_revoluteArm[2];  ///< chassis-arm revolute joints (left/right)
+
+    std::shared_ptr<ChLinkTSDA> m_shock[2];   ///< spring links (left/right)
+    std::shared_ptr<ChLinkTSDA> m_spring[2];  ///< shock links (left/right)
 
   private:
     // Hardpoint absolute locations
@@ -192,7 +193,7 @@ class CH_VEHICLE_API ChSemiTrailingArm : public ChSuspension {
     std::vector<ChVector<>> m_pointsR;
 
     void InitializeSide(VehicleSide side,
-                        std::shared_ptr<ChBodyAuxRef> chassis,
+                        std::shared_ptr<ChChassis> chassis,
                         const std::vector<ChVector<>>& points,
                         double ang_vel);
 

@@ -43,6 +43,7 @@ MAN_10t::MAN_10t()
       m_contactMethod(ChContactMethod::NSC),
       m_chassisCollisionType(CollisionType::NONE),
       m_fixed(false),
+      m_use_8WD_drivetrain(false),
       m_powertrainType(PowertrainModelType::SIMPLE_CVT),
       m_brake_locking(false),
       m_brake_type(BrakeType::SIMPLE),
@@ -59,6 +60,7 @@ MAN_10t::MAN_10t(ChSystem* system)
       m_contactMethod(ChContactMethod::NSC),
       m_chassisCollisionType(CollisionType::NONE),
       m_fixed(false),
+      m_use_8WD_drivetrain(false),
       m_powertrainType(PowertrainModelType::SIMPLE_CVT),
       m_brake_locking(false),
       m_brake_type(BrakeType::SIMPLE),
@@ -85,8 +87,10 @@ void MAN_10t::SetAerodynamicDrag(double Cd, double area, double air_density) {
 // -----------------------------------------------------------------------------
 void MAN_10t::Initialize() {
     // Create and initialize the MAN_10t vehicle
-    m_vehicle = m_system ? new MAN_10t_Vehicle(m_system, m_fixed, m_brake_type, m_chassisCollisionType)
-                         : new MAN_10t_Vehicle(m_fixed, m_brake_type, m_contactMethod, m_chassisCollisionType);
+    m_vehicle =
+        m_system
+            ? new MAN_10t_Vehicle(m_system, m_fixed, m_brake_type, m_chassisCollisionType, m_use_8WD_drivetrain)
+            : new MAN_10t_Vehicle(m_fixed, m_brake_type, m_contactMethod, m_chassisCollisionType, m_use_8WD_drivetrain);
 
     m_vehicle->SetInitWheelAngVel(m_initOmega);
     m_vehicle->Initialize(m_initPos, m_initFwdVel);
@@ -136,7 +140,7 @@ void MAN_10t::Initialize() {
             m_vehicle->InitializeTire(tire_RLo, m_vehicle->GetAxle(1)->GetWheel(LEFT, OUTER), VisualizationType::NONE);
             m_vehicle->InitializeTire(tire_RRo, m_vehicle->GetAxle(1)->GetWheel(RIGHT, OUTER), VisualizationType::NONE);
 
-            m_tire_mass = tire_FL->ReportMass();
+            m_tire_mass = tire_FL->GetMass();
 
             break;
         }
@@ -166,7 +170,7 @@ void MAN_10t::Initialize() {
             m_vehicle->InitializeTire(tire_RL2, m_vehicle->GetAxle(3)->m_wheels[LEFT], VisualizationType::NONE);
             m_vehicle->InitializeTire(tire_RR2, m_vehicle->GetAxle(3)->m_wheels[RIGHT], VisualizationType::NONE);
 
-            m_tire_mass = tire_FL1->ReportMass();
+            m_tire_mass = tire_FL1->GetMass();
 
             break;
         }
@@ -193,7 +197,7 @@ void MAN_10t::Initialize() {
                VisualizationType::NONE); m_vehicle->InitializeTire(tire_RRo, m_vehicle->GetAxle(1)->GetWheel(RIGHT,
                OUTER), VisualizationType::NONE);
 
-                        m_tire_mass = tire_FL->ReportMass();
+                        m_tire_mass = tire_FL->GetMass();
 
                         break;
                     }
@@ -213,27 +217,13 @@ void MAN_10t::Initialize() {
 }
 
 // -----------------------------------------------------------------------------
-void MAN_10t::SetTireVisualizationType(VisualizationType vis) {
-    for (auto& axle : m_vehicle->GetAxles()) {
-        for (auto& wheel : axle->GetWheels()) {
-            wheel->GetTire()->SetVisualizationType(vis);
-        }
-    }
-}
-
-// -----------------------------------------------------------------------------
-void MAN_10t::Synchronize(double time, const ChDriver::Inputs& driver_inputs, const ChTerrain& terrain) {
+void MAN_10t::Synchronize(double time, const DriverInputs& driver_inputs, const ChTerrain& terrain) {
     m_vehicle->Synchronize(time, driver_inputs, terrain);
 }
 
 // -----------------------------------------------------------------------------
 void MAN_10t::Advance(double step) {
     m_vehicle->Advance(step);
-}
-
-// -----------------------------------------------------------------------------
-double MAN_10t::GetTotalMass() const {
-    return m_vehicle->GetVehicleMass() + 8 * m_tire_mass;
 }
 
 }  // namespace man

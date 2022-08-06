@@ -45,10 +45,10 @@ const double M113_SprocketSinglePin::m_gear_RC = 0.3;
 const double M113_SprocketSinglePin::m_gear_R = 0.089;
 const double M113_SprocketSinglePin::m_gear_RA = 0.245;
 
-const double M113_SprocketSinglePin::m_lateral_backlash = 0.01;
+const double M113_SprocketSinglePin::m_lateral_backlash = 0.02;
 
-const std::string M113_SprocketSinglePinLeft::m_meshFile = "M113/Sprocket_L.obj";
-const std::string M113_SprocketSinglePinRight::m_meshFile = "M113/Sprocket_R.obj";
+const std::string M113_SprocketSinglePinLeft::m_meshFile = "M113/meshes/Sprocket_L.obj";
+const std::string M113_SprocketSinglePinRight::m_meshFile = "M113/meshes/Sprocket_R.obj";
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -58,7 +58,7 @@ void M113_SprocketSinglePin::CreateContactMaterial(ChContactMethod contact_metho
     MaterialInfo minfo;
     minfo.mu = 0.4f;
     minfo.cr = 0.75f;
-    minfo.Y = 1e7f;
+    minfo.Y = 1e9f;
     m_material = minfo.CreateMaterial(contact_method);
 }
 
@@ -66,13 +66,12 @@ void M113_SprocketSinglePin::CreateContactMaterial(ChContactMethod contact_metho
 // -----------------------------------------------------------------------------
 void M113_SprocketSinglePin::AddVisualizationAssets(VisualizationType vis) {
     if (vis == VisualizationType::MESH) {
-        auto trimesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
-        trimesh->LoadWavefrontMesh(GetMeshFile(), false, false);
+        auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(GetMeshFile(), false, false);
         auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
         trimesh_shape->SetMesh(trimesh);
         trimesh_shape->SetName(filesystem::path(GetMeshFile()).stem());
-        trimesh_shape->SetStatic(true);
-        m_gear->AddAsset(trimesh_shape);
+        trimesh_shape->SetMutable(false);
+        m_gear->AddVisualShape(trimesh_shape);
     } else {
         ChSprocket::AddVisualizationAssets(vis);
     }

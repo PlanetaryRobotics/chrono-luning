@@ -22,6 +22,7 @@
 
 #include "chrono_vehicle/tracked_vehicle/track_shoe/ChTrackShoeBand.h"
 #include "chrono/physics/ChLoadsBody.h"
+#include "chrono/physics/ChLoadContainer.h"
 
 namespace chrono {
 namespace vehicle {
@@ -36,10 +37,14 @@ class CH_VEHICLE_API ChTrackShoeBandBushing : public ChTrackShoeBand {
     ChTrackShoeBandBushing(const std::string& name  ///< [in] name of the subsystem
     );
 
-    virtual ~ChTrackShoeBandBushing() {}
+    virtual ~ChTrackShoeBandBushing();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "TrackShoeBandBushing"; }
+
+    /// Get track tension at this track shoe.
+    /// Return is the force due to the connections of this track shoe, expressed in the track shoe reference frame.
+    virtual ChVector<> GetTension() const override;
 
     /// Initialize this track shoe subsystem.
     /// The track shoe is created within the specified system and initialized
@@ -47,7 +52,7 @@ class CH_VEHICLE_API ChTrackShoeBandBushing : public ChTrackShoeBand {
     /// This version initializes the bodies of a CB rigid-link track shoe such that
     /// the center of the track shoe subsystem is at the specified location and all
     /// bodies have the specified orientation.
-    virtual void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,  ///< [in] handle to the chassis body
+    virtual void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,  ///< [in] chassis body
                             const ChVector<>& location,             ///< [in] location relative to the chassis frame
                             const ChQuaternion<>& rotation          ///< [in] orientation relative to the chassis frame
                             ) override;
@@ -59,6 +64,9 @@ class CH_VEHICLE_API ChTrackShoeBandBushing : public ChTrackShoeBand {
     virtual void RemoveVisualizationAssets() override final;
 
   protected:
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
     /// Return the number of segments that the web section is broken up into.
     virtual int GetNumWebSegments() const = 0;
 
@@ -68,15 +76,8 @@ class CH_VEHICLE_API ChTrackShoeBandBushing : public ChTrackShoeBand {
     /// Return a pointer to the web segment body with the provided index.
     std::shared_ptr<ChBody> GetWebSegment(size_t index) { return m_web_segments[index]; }
 
-    /// Set bushing stiffness and damping information.
-    void SetBushingParameters(
-        double Klin,        ///< linear stiffness in all directions  (default: 7e7 N/m)
-        double Krot_dof,    ///< rotational stifness in the DOF direction (default: 500 N.m/rad)
-        double Krot_other,  ///< rotatioal stiffness in other two directions (default: 1e5 N.m/rad)
-        double Dlin,        ///< linear damping in all directions (defaalt: 0.05 * 7e7 N/m.s)
-        double Drot_dof,    ///< rottional damping in the DOF direction (default: 0.05 * 500 N.m/rad.s)
-        double Drot_other   ///< rotational damping in other two direction (default: 0.05 * 1e5 N.m/rad.s)
-    );
+    /// Return bushing stiffness and damping data.
+    virtual std::shared_ptr<ChVehicleBushingData> GetBushingData() const = 0;
 
     /// Add contact geometry for a web segment body.
     virtual void AddWebContact(std::shared_ptr<ChBody> segment);
@@ -84,8 +85,9 @@ class CH_VEHICLE_API ChTrackShoeBandBushing : public ChTrackShoeBand {
   private:
     /// Connect this track shoe to the specified neighbor.
     /// This function must be called only after both track shoes have been initialized.
-    virtual void Connect(std::shared_ptr<ChTrackShoe> next,  ///< [in] handle to the neighbor track shoe
+    virtual void Connect(std::shared_ptr<ChTrackShoe> next,  ///< [in] neighbor track shoe
                          ChTrackAssembly* assembly,          ///< [in] containing track assembly
+                         ChChassis* chassis,                 ///< [in] associated chassis
                          bool ccw                            ///< [in] track assembled in counter clockwise direction
                          ) override final;
 
@@ -95,7 +97,7 @@ class CH_VEHICLE_API ChTrackShoeBandBushing : public ChTrackShoeBand {
     /// Initialize this track shoe system.
     /// This version specifies the locations and orientations of the tread body and of
     /// the web link bodies (relative to the chassis frame).
-    void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,          ///< [in] handle to chassis body
+    void Initialize(std::shared_ptr<ChBodyAuxRef> chassis,          ///< [in] chassis body
                     const std::vector<ChCoordsys<>>& component_pos  ///< [in] location & orientation of the shoe bodies
     );
 
@@ -103,23 +105,16 @@ class CH_VEHICLE_API ChTrackShoeBandBushing : public ChTrackShoeBand {
 
     virtual void Output(ChVehicleOutput& database) const override;
 
-    std::vector<std::shared_ptr<ChBody>> m_web_segments;          ///< handles to web segment bodies
-    std::vector<std::shared_ptr<ChLoadBodyBody>> m_web_bushings;  ///< handles to bushings
+    std::vector<std::shared_ptr<ChBody>> m_web_segments;          ///< web segment bodies
+    std::vector<std::shared_ptr<ChLoadBodyBody>> m_web_bushings;  ///< bushings
     double m_seg_length;                                          ///< length of a web segment
     double m_seg_mass;                                            ///< mass of a web segment
     ChVector<> m_seg_inertia;                                     ///< moments of inertia of a web segment
 
-    double m_Klin;
-    double m_Krot_dof;
-    double m_Krot_other;
-    double m_Dlin;
-    double m_Drot_dof;
-    double m_Drot_other;
-
     friend class ChTrackAssemblyBandBushing;
 };
 
-/// Vector of handles to continuous band bushing-based track shoe subsystems.
+/// Vector of continuous band bushing-based track shoe subsystems.
 typedef std::vector<std::shared_ptr<ChTrackShoeBandBushing>> ChTrackShoeBandBushingList;
 
 /// @} vehicle_tracked_shoe

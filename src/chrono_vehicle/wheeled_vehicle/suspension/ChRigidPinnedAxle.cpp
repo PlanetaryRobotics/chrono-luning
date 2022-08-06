@@ -30,8 +30,7 @@
 // =============================================================================
 
 #include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChPointPointDrawing.h"
-#include "chrono/assets/ChColorAsset.h"
+#include "chrono/assets/ChPointPointShape.h"
 
 #include "chrono_vehicle/wheeled_vehicle/suspension/ChRigidPinnedAxle.h"
 
@@ -42,6 +41,14 @@ namespace vehicle {
 // -----------------------------------------------------------------------------
 ChRigidPinnedAxle::ChRigidPinnedAxle(const std::string& name) : ChSuspension(name) {}
 
+ChRigidPinnedAxle::~ChRigidPinnedAxle() {
+    auto sys = m_axleTube->GetSystem();
+    if (sys) {
+        sys->Remove(m_axleTube);
+        sys->Remove(m_axlePin);
+    }
+}
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 void ChRigidPinnedAxle::Initialize(std::shared_ptr<ChChassis> chassis,
@@ -50,7 +57,8 @@ void ChRigidPinnedAxle::Initialize(std::shared_ptr<ChChassis> chassis,
                                    const ChVector<>& location,
                                    double left_ang_vel,
                                    double right_ang_vel) {
-    m_location = location;
+    m_parent = chassis;
+    m_rel_loc = location;
 
     // Express the suspension reference frame in the absolute coordinate system.
     ChFrame<> suspension_to_abs(location);
@@ -122,7 +130,7 @@ void ChRigidPinnedAxle::InitializeSide(VehicleSide side,
     m_axle[side]->SetNameString(m_name + "_axle" + suffix);
     m_axle[side]->SetInertia(getAxleInertia());
     m_axle[side]->SetPos_dt(-ang_vel);
-    chassis->GetSystem()->Add(m_axle[side]);
+    chassis->GetSystem()->AddShaft(m_axle[side]);
 
     m_axle_to_spindle[side] = chrono_types::make_shared<ChShaftsBody>();
     m_axle_to_spindle[side]->SetNameString(m_name + "_axle_to_spindle" + suffix);
@@ -130,25 +138,26 @@ void ChRigidPinnedAxle::InitializeSide(VehicleSide side,
     chassis->GetSystem()->Add(m_axle_to_spindle[side]);
 }
 
-// -----------------------------------------------------------------------------
-// Get the total mass of the suspension subsystem.
-// -----------------------------------------------------------------------------
-double ChRigidPinnedAxle::GetMass() const {
-    return getAxleTubeMass() + 2 * getSpindleMass();
+void ChRigidPinnedAxle::InitializeInertiaProperties() {
+    m_mass = getAxleTubeMass() + 2 * getSpindleMass();
 }
 
-// -----------------------------------------------------------------------------
-// Get the current COM location of the suspension subsystem.
-// -----------------------------------------------------------------------------
-ChVector<> ChRigidPinnedAxle::GetCOMPos() const {
-    ChVector<> com(0, 0, 0);
+void ChRigidPinnedAxle::UpdateInertiaProperties() {
+    m_parent->GetTransform().TransformLocalToParent(ChFrame<>(m_rel_loc, QUNIT), m_xform);
 
-    com += getSpindleMass() * m_spindle[LEFT]->GetPos();
-    com += getSpindleMass() * m_spindle[RIGHT]->GetPos();
+    // Calculate COM and inertia expressed in global frame
+    utils::CompositeInertia composite;
+    composite.AddComponent(m_spindle[LEFT]->GetFrame_COG_to_abs(), m_spindle[LEFT]->GetMass(),
+                           m_spindle[LEFT]->GetInertia());
+    composite.AddComponent(m_spindle[RIGHT]->GetFrame_COG_to_abs(), m_spindle[RIGHT]->GetMass(),
+                           m_spindle[RIGHT]->GetInertia());
+    composite.AddComponent(m_axleTube->GetFrame_COG_to_abs(), m_axleTube->GetMass(), m_axleTube->GetInertia());
 
-    com += getAxleTubeMass() * m_axleTube->GetPos();
+    // Express COM and inertia in subsystem reference frame
+    m_com.coord.pos = m_xform.TransformPointParentToLocal(composite.GetCOM());
+    m_com.coord.rot = QUNIT;
 
-    return com / GetMass();
+    m_inertia = m_xform.GetA().transpose() * composite.GetInertia() * m_xform.GetA();
 }
 
 // -----------------------------------------------------------------------------
@@ -171,7 +180,7 @@ ChSuspension::Force ChRigidPinnedAxle::ReportSuspensionForce(VehicleSide side) c
 void ChRigidPinnedAxle::LogConstraintViolations(VehicleSide side) {
     // Revolute joint
     {
-        ChVectorDynamic<> C = m_revolute[side]->GetC();
+        ChVectorDynamic<> C = m_revolute[side]->GetConstraintViolation();
         GetLog() << "Spindle revolute      ";
         GetLog() << "  " << C(0) << "  ";
         GetLog() << "  " << C(1) << "  ";
@@ -199,7 +208,7 @@ void ChRigidPinnedAxle::AddVisualizationAssets(VisualizationType vis) {
     cyl1->GetCylinderGeometry().p1 = pSL;
     cyl1->GetCylinderGeometry().p2 = pSR;
     cyl1->GetCylinderGeometry().rad = getAxleTubeRadius();
-    m_axleTube->AddAsset(cyl1);
+    m_axleTube->AddVisualShape(cyl1);
 
     static const double threshold2 = 1e-6;
     if (pP.Length2() > threshold2) {
@@ -207,24 +216,21 @@ void ChRigidPinnedAxle::AddVisualizationAssets(VisualizationType vis) {
         cyl2->GetCylinderGeometry().p1 = pP;
         cyl2->GetCylinderGeometry().p2 = ChVector<>(0, 0, 0);
         cyl2->GetCylinderGeometry().rad = getAxleTubeRadius() / 2;
-        m_axleTube->AddAsset(cyl2);
+        m_axleTube->AddVisualShape(cyl2);
     }
 
     auto cyl3 = chrono_types::make_shared<ChCylinderShape>();
     cyl3->GetCylinderGeometry().p1 = pP - ChVector<>(1.5 * getAxleTubeRadius(), 0, 0);
     cyl3->GetCylinderGeometry().p2 = pP + ChVector<>(1.5 * getAxleTubeRadius(), 0, 0);
     cyl3->GetCylinderGeometry().rad = getAxleTubeRadius();
-    m_axleTube->AddAsset(cyl3);
-
-    auto col = chrono_types::make_shared<ChColorAsset>(0.2f, 0.2f, 0.6f);
-    m_axleTube->AddAsset(col);
+    m_axleTube->AddVisualShape(cyl3);
 }
 
 void ChRigidPinnedAxle::RemoveVisualizationAssets() {
+    ChPart::RemoveVisualizationAssets(m_axleTube);
     ChSuspension::RemoveVisualizationAssets();
-
-    m_axleTube->GetAssets().clear();
 }
+
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 void ChRigidPinnedAxle::ExportComponentList(rapidjson::Document& jsonDocument) const {

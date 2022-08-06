@@ -39,6 +39,8 @@ endif()
 # Dependencies for OpenGL module
 # ------------------------------------------------------------------------------
 
+cmake_policy(SET CMP0072 NEW)
+
 find_package(OpenGL)
 find_package(GLM)
 find_package(GLEW)
@@ -54,13 +56,15 @@ ENDIF()
 
 # If all dependencies are available, enable building OpenGL support.
 IF(OPENGL_FOUND AND GLM_FOUND AND GLEW_FOUND AND GLFW_FOUND)
-    SET(CHRONO_OPENGL "#define CHRONO_OPENGL")
-    SET(ENABLE_OPENGL ON)
+    set(CHRONO_OPENGL "#define CHRONO_OPENGL")
+    message(STATUS "OpenGL libraries: ${OPENGL_LIBRARIES}")
+    message(STATUS "GLEW libraries:   ${GLEW_LIBRARY}")
+    message(STATUS "GLFW libraries:   ${GLFW_LIBRARY}")
 ELSE()
     # Unable to find everything, turn off OpenGL
-    MESSAGE("Cannot build ChronoEngine_OpenGL (missing dependencies).")
-    SET(CHRONO_OPENGL "#undef CHRONO_OPENGL")
-    SET(ENABLE_OPENGL OFF)
+    message("Cannot build ChronoEngine_OpenGL (missing dependencies); disabling Chrono::OpenGL")
+    set(CHRONO_OPENGL "#undef CHRONO_OPENGL")
+    set(ENABLE_MODULE_GPU OFF CACHE BOOL "Enable the Chrono::OpenGL module" FORCE)
 ENDIF()
 
 # ------------------------------------------------------------------------------
@@ -84,14 +88,15 @@ ENDIF()
 # ------------------------------------------------------------------------------
 
 SET(CH_OPENGL_INCLUDES "${CH_OPENGL_INCLUDES}" PARENT_SCOPE)
+SET(GLEW_LIBRARY       "${GLEW_LIBRARY}" PARENT_SCOPE)
+SET(GLFW_LIBRARY       "${GLFW_LIBRARY}" PARENT_SCOPE)
+SET(OPENGL_LIBRARIES   "${OPENGL_LIBRARIES}" PARENT_SCOPE)
 
 # ------------------------------------------------------------------------------
 # Add commands to compile shaders
 # ------------------------------------------------------------------------------
 
-ADD_EXECUTABLE(embedfile embedfile.cpp)
-
-#All shaders are compiled into strings by embedfile.cpp
+#All shaders are compiled into strings by embedfile.cmake
 SET(GLSL_SHADERS
   bar_frag
   bar_vert
@@ -110,10 +115,11 @@ SET(GLSL_SHADERS
 FOREACH(GLSL_SHADER ${GLSL_SHADERS})
   ADD_CUSTOM_COMMAND(
     OUTPUT  ${CMAKE_BINARY_DIR}/resources/${GLSL_SHADER}.h
-    COMMAND embedfile 
-            ${GLSL_SHADER}
-            ${CMAKE_CURRENT_SOURCE_DIR}/resources/${GLSL_SHADER}.glsl 
-            ${CMAKE_BINARY_DIR}/resources/${GLSL_SHADER}.h
+    COMMAND ${CMAKE_COMMAND} 
+            -DSYMBOL=${GLSL_SHADER}
+            -DDATA_FILE=${CMAKE_CURRENT_SOURCE_DIR}/resources/${GLSL_SHADER}.glsl 
+            -DHEADER_FILE=${CMAKE_BINARY_DIR}/resources/${GLSL_SHADER}.h
+            -P ${CMAKE_SOURCE_DIR}/cmake/embedfile.cmake
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/resources/${GLSL_SHADER}.glsl
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 ENDFOREACH()
@@ -128,10 +134,11 @@ SET(DEFAULT_OBJ_FILES
 FOREACH(DEFAULT_OBJ_FILE ${DEFAULT_OBJ_FILES})
   ADD_CUSTOM_COMMAND(
     OUTPUT  ${CMAKE_BINARY_DIR}/resources/${DEFAULT_OBJ_FILE}.h
-    COMMAND embedfile 
-            ${DEFAULT_OBJ_FILE}_mesh_data
-            ${CMAKE_CURRENT_SOURCE_DIR}/resources/${DEFAULT_OBJ_FILE}.obj
-            ${CMAKE_BINARY_DIR}/resources/${DEFAULT_OBJ_FILE}.h
+    COMMAND ${CMAKE_COMMAND}
+            -DSYMBOL=${DEFAULT_OBJ_FILE}_mesh_data
+            -DDATA_FILE=${CMAKE_CURRENT_SOURCE_DIR}/resources/${DEFAULT_OBJ_FILE}.obj
+            -DHEADER_FILE=${CMAKE_BINARY_DIR}/resources/${DEFAULT_OBJ_FILE}.h
+            -P ${CMAKE_SOURCE_DIR}/cmake/embedfile.cmake
     DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/resources/${DEFAULT_OBJ_FILE}.obj
     WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 ENDFOREACH()
@@ -168,11 +175,11 @@ ENDFOREACH()
 SET(CE_OpenGL_BASE_FILES
   ChOpenGLViewer.cpp 
   ChOpenGLCamera.cpp
-  ChOpenGLWindow.cpp
   ChOpenGLViewer.h 
   ChOpenGLCamera.h
-  ChOpenGLWindow.h
   ChOpenGLMaterials.h
+  ChVisualSystemOpenGL.h
+  ChVisualSystemOpenGL.cpp
   )
 
 SET(CE_OpenGL_CORE_FILES
@@ -205,10 +212,10 @@ SET(CE_OpenGL_SHAPES_FILES
 
 SET(CE_OpenGL_UI_FILES
   UI/ChOpenGLContacts.cpp
-  UI/ChOpenGLHUD.cpp
+  UI/ChOpenGLStats.cpp
   UI/ChOpenGLGraphs.cpp
   UI/ChOpenGLContacts.h
-  UI/ChOpenGLHUD.h
+  UI/ChOpenGLStats.h
   UI/ChOpenGLGraphs.h
   )
 
@@ -236,22 +243,20 @@ SET(CE_OpenGL_TINYOBJLOADER_FILES
   ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/tinyobjloader/tiny_obj_loader.h
   )
 
+set(CE_OpenGL_STB_FILES
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb.h
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image.h
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image.cpp
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image_write.h
+    ${CMAKE_SOURCE_DIR}/src/chrono_thirdparty/stb/stb_image_write.cpp
+)
+
 SOURCE_GROUP("" FILES ${CE_OpenGL_BASE_FILES})
 SOURCE_GROUP("core" FILES ${CE_OpenGL_CORE_FILES})
 SOURCE_GROUP("shapes" FILES ${CE_OpenGL_SHAPES_FILES})
 SOURCE_GROUP("ui" FILES ${CE_OpenGL_UI_FILES})
 SOURCE_GROUP("resources" FILES ${CE_OpenGL_RESOURCES_FILES})
-SOURCE_GROUP("tinyobjloader" FILES ${CE_OpenGL_TINYOBJLOADER_FILES})
-
-IF (MSVC)
-  # On Windows, include necessary Bullet source files.
-  SET(CE_OpenGL_BULLET_FILES 
-    ${CMAKE_SOURCE_DIR}/src/chrono/collision/bullet/BulletCollision/NarrowPhaseCollision/btPersistentManifold.cpp
-    )
-  SOURCE_GROUP("bullet" ${CE_OpenGL_BULLET_FILES})
-ELSE()
-  SET(CE_OpenGL_BULLET_FILES "")
-ENDIF()
+SOURCE_GROUP("utils" FILES ${CE_OpenGL_STB_FILES} ${CE_OpenGL_TINYOBJLOADER_FILES})
 
 # ------------------------------------------------------------------------------
 # Add the ChronoEngine_opengl library
@@ -263,18 +268,24 @@ ADD_LIBRARY(ChronoEngine_opengl SHARED
   ${CE_OpenGL_SHAPES_FILES}
   ${CE_OpenGL_UI_FILES}
   ${CE_OpenGL_RESOURCES_FILES}
+  ${CE_OpenGL_STB_FILES}
   ${CE_OpenGL_TINYOBJLOADER_FILES}
-  ${CE_OpenGL_BULLET_FILES}
 ) 
-
-SET(CE_OpenGL_LIBRARIES 
-  ${GLEW_LIBRARY}
-  ${GLFW_LIBRARY}
-  ${OPENGL_LIBRARIES}
-  ChronoEngine)
 
 SET(CE_OpenGL_FLAGS "${CH_CXX_FLAGS}")
 
+IF(${CMAKE_SYSTEM_NAME} MATCHES "Emscripten")
+  SET(CE_OpenGL_LIBRARIES 
+    # ${OPENGL_LIBRARIES}
+    ChronoEngine)
+  set (CE_OpenGL_LINK_FLAGS "-s FULL_ES3=1 -s USE_GLFW=3")
+ELSE()
+  SET(CE_OpenGL_LIBRARIES 
+    ${GLEW_LIBRARY}
+    ${GLFW_LIBRARY}
+    ${OPENGL_LIBRARIES}
+    ChronoEngine)
+ENDIF()
 
 if(ENABLE_MODULE_MULTICORE)
 	SET(CE_OpenGL_LIBRARIES ${CE_OpenGL_LIBRARIES} ChronoEngine_multicore)
@@ -284,7 +295,7 @@ endif()
 
 SET_TARGET_PROPERTIES(ChronoEngine_opengl PROPERTIES 
   COMPILE_FLAGS "${CE_OpenGL_FLAGS}"
-  LINK_FLAGS "${CH_LINKERFLAG_SHARED}")
+  LINK_FLAGS "${CE_OpenGL_LINK_FLAGS} ${CH_LINKERFLAG_SHARED}")
 
 target_compile_definitions(ChronoEngine_opengl PRIVATE "CH_API_COMPILE_OPENGL")
 target_compile_definitions(ChronoEngine_opengl PRIVATE "GLM_ENABLE_EXPERIMENTAL")
@@ -316,11 +327,13 @@ IF(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
                          COMMAND ${CMAKE_COMMAND} -E copy_if_different
                                  "${GLEW_DLL}"
                                  "${CMAKE_BINARY_DIR}/bin/$<CONFIGURATION>")
+      install(FILES "${GLEW_DLL}" DESTINATION bin)
     ENDIF()
     IF(EXISTS "${GLFW_DLL}")
       ADD_CUSTOM_COMMAND(TARGET ChronoEngine_opengl POST_BUILD
                          COMMAND ${CMAKE_COMMAND} -E copy_if_different
                          "${GLFW_DLL}"
                          "${CMAKE_BINARY_DIR}/bin/$<CONFIGURATION>")
+      install(FILES "${GLFW_DLL}" DESTINATION bin)
     ENDIF()
 ENDIF()

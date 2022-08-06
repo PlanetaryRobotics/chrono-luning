@@ -34,8 +34,6 @@
 
 #include <vector>
 
-#include "chrono/assets/ChColorAsset.h"
-
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/wheeled_vehicle/ChSuspension.h"
 
@@ -60,7 +58,7 @@ class CH_VEHICLE_API ChSolidThreeLinkAxle : public ChSuspension {
     ChSolidThreeLinkAxle(const std::string& name  ///< [in] name of the subsystem
     );
 
-    virtual ~ChSolidThreeLinkAxle() {}
+    virtual ~ChSolidThreeLinkAxle();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "SolidThreeLinkAxle"; }
@@ -91,12 +89,6 @@ class CH_VEHICLE_API ChSolidThreeLinkAxle : public ChSuspension {
 
     /// Remove visualization assets for the suspension subsystem.
     virtual void RemoveVisualizationAssets() override;
-
-    /// Get the total mass of the suspension subsystem.
-    virtual double GetMass() const override;
-
-    /// Get the current global COM location of the suspension subsystem.
-    virtual ChVector<> GetCOMPos() const override;
 
     /// Get the wheel track for the suspension subsystem.
     virtual double GetTrack() override;
@@ -148,6 +140,9 @@ class CH_VEHICLE_API ChSolidThreeLinkAxle : public ChSuspension {
         NUM_POINTS
     };
 
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
     /// Return the location of the specified hardpoint.
     /// The returned location must be expressed in the suspension reference frame.
     virtual const ChVector<> getLocation(PointId which) = 0;
@@ -186,17 +181,14 @@ class CH_VEHICLE_API ChSolidThreeLinkAxle : public ChSuspension {
     /// Return the functor object for shock force.
     virtual std::shared_ptr<ChLinkTSDA::ForceFunctor> getShockForceFunctor() const = 0;
 
-    std::shared_ptr<ChBody> m_axleTube;  ///< handles to the axle tube body
-    std::shared_ptr<ChBody> m_tierod;    ///< handles to the tierod body
-
-    std::shared_ptr<ChLinkLockFree> m_axleTubeGuide;  ///< allows all translations and rotations
-
+    std::shared_ptr<ChBody> m_axleTube;                  ///< handles to the axle tube body
+    // //std::shared_ptr<ChBody> m_tierod;                    ///< handles to the tierod body
+    // //std::shared_ptr<ChLinkLockFree> m_axleTubeGuide;     ///< allows all translations and rotations
     std::shared_ptr<ChBody> m_triangleBody;              ///< axle guide body with spherical link and rotary link
     std::shared_ptr<ChLinkLockRevolute> m_triangleRev;   ///< triangle to chassis revolute joint
     std::shared_ptr<ChLinkLockSpherical> m_triangleSph;  ///< triangle to axle tube spherical joint
 
     std::shared_ptr<ChBody> m_linkBody[2];  ///< axle guide body with spherical link and universal link
-    // std::shared_ptr<ChLinkLockSpherical> m_linkBodyToChassis[2];
     std::shared_ptr<ChLinkUniversal> m_linkBodyToChassis[2];
     std::shared_ptr<ChLinkLockSpherical> m_linkBodyToAxleTube[2];
 
@@ -229,6 +221,7 @@ class CH_VEHICLE_API ChSolidThreeLinkAxle : public ChSuspension {
 
     void InitializeSide(VehicleSide side,
                         std::shared_ptr<ChBodyAuxRef> chassis,
+                        std::shared_ptr<ChBody> scbeam,
                         const std::vector<ChVector<>>& points,
                         double ang_vel);
 

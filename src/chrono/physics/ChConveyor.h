@@ -112,6 +112,11 @@ class ChApi ChConveyor : public ChPhysicsItem {
                                    const ChState& x,
                                    const unsigned int off_v,
                                    const ChStateDelta& Dv) override;
+    virtual void IntStateGetIncrement(const unsigned int off_x,
+                                   const ChState& x_new,
+                                   const ChState& x,
+                                   const unsigned int off_v,
+                                   ChStateDelta& Dv) override;
     virtual void IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, const double c) override;
     virtual void IntLoadResidual_Mv(const unsigned int off,
                                     ChVectorDynamic<>& R,
@@ -183,6 +188,7 @@ class ChApi ChConveyor : public ChPhysicsItem {
 };
 
 CH_CLASS_VERSION(ChConveyor,0)
+
 
 }  // end namespace chrono
 

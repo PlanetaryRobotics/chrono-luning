@@ -40,11 +40,11 @@ static const std::string ref_dir = "testing/joints/transpringcb_force/";
 
 // Functor classes implementing the force for a ChLinkTSDA link.
 class MySpringForceCase01 : public ChLinkTSDA::ForceFunctor {
-    virtual double operator()(double time,         // current time
-                              double rest_length,  // undeformed length
-                              double length,       // current length
-                              double vel,          // current velocity (positive when extending)
-                              ChLinkTSDA* link     // back-pointer to associated link
+    virtual double evaluate(double time,            // current time
+                            double rest_length,     // undeformed length
+                            double length,          // current length
+                            double vel,             // current velocity (positive when extending)
+                            const ChLinkTSDA& link  // associated link
     ) {
         double spring_coef = 10;
         double damping_coef = .5;
@@ -55,11 +55,11 @@ class MySpringForceCase01 : public ChLinkTSDA::ForceFunctor {
 };
 
 class MySpringForceCase02 : public ChLinkTSDA::ForceFunctor {
-    virtual double operator()(double time,         // current time
-                              double rest_length,  // undeformed length
-                              double length,       // current length
-                              double vel,          // current velocity (positive when extending)
-                              ChLinkTSDA* link     // back-pointer to associated link
+    virtual double evaluate(double time,            // current time
+                            double rest_length,     // undeformed length
+                            double length,          // current length
+                            double vel,             // current velocity (positive when extending)
+                            const ChLinkTSDA& link  // associated link
     ) {
         double spring_coef = 100;
         double damping_coef = 5;
@@ -70,11 +70,11 @@ class MySpringForceCase02 : public ChLinkTSDA::ForceFunctor {
 };
 
 class MySpringForceCase03 : public ChLinkTSDA::ForceFunctor {
-    virtual double operator()(double time,         // current time
-                              double rest_length,  // undeformed length
-                              double length,       // current length
-                              double vel,          // current velocity (positive when extending)
-                              ChLinkTSDA* link     // back-pointer to associated link
+    virtual double evaluate(double time,            // current time
+                            double rest_length,     // undeformed length
+                            double length,          // current length
+                            double vel,             // current velocity (positive when extending)
+                            const ChLinkTSDA& link  // associated link
     ) {
         double spring_coef = 50;
         double spring_nonlin_coef = 10;
@@ -218,18 +218,18 @@ bool TestTranSpringCB(const ChVector<>& jointLocGnd,   // absolute location of t
     // Create a ChronoENGINE physical system: all bodies and constraints will be
     // handled by this ChSystem object.
 
-    ChSystemNSC my_system;
-    my_system.Set_G_acc(ChVector<>(0.0, 0.0, -g));
+    ChSystemNSC sys;
+    sys.Set_G_acc(ChVector<>(0.0, 0.0, -g));
 
-    my_system.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
-    my_system.SetSolverType(ChSolver::Type::PSOR);
-    my_system.SetSolverMaxIterations(100);
-    my_system.SetSolverForceTolerance(1e-4);
+    sys.SetTimestepperType(ChTimestepper::Type::EULER_IMPLICIT_LINEARIZED);
+    sys.SetSolverType(ChSolver::Type::PSOR);
+    sys.SetSolverMaxIterations(100);
+    sys.SetSolverForceTolerance(1e-4);
 
     // Create the ground body
 
     auto ground = chrono_types::make_shared<ChBody>();
-    my_system.AddBody(ground);
+    sys.AddBody(ground);
     ground->SetBodyFixed(true);
 
     // Create the pendulum body in an initial configuration at rest, with an
@@ -238,7 +238,7 @@ bool TestTranSpringCB(const ChVector<>& jointLocGnd,   // absolute location of t
     // The pendulum CG is assumed to be at half its length.
 
     auto pendulum = chrono_types::make_shared<ChBody>();
-    my_system.AddBody(pendulum);
+    sys.AddBody(pendulum);
     pendulum->SetPos(PendCSYS.pos);
     pendulum->SetRot(PendCSYS.rot);
     pendulum->SetMass(mass);
@@ -249,7 +249,7 @@ bool TestTranSpringCB(const ChVector<>& jointLocGnd,   // absolute location of t
     // The free length is set equal to the initial distance between "jointLocPend" and "jointLocGnd".
 
     auto spring = chrono_types::make_shared<ChLinkTSDA>();
-    spring->Initialize(pendulum, ground, false, jointLocPend, jointLocGnd, true);
+    spring->Initialize(pendulum, ground, false, jointLocPend, jointLocGnd);
     if (customSpringType == 1) {
         auto force = chrono_types::make_shared<MySpringForceCase01>();
         spring->RegisterForceFunctor(force);
@@ -260,7 +260,7 @@ bool TestTranSpringCB(const ChVector<>& jointLocGnd,   // absolute location of t
         auto force = chrono_types::make_shared<MySpringForceCase03>();
         spring->RegisterForceFunctor(force);
     }
-    my_system.AddLink(spring);
+    sys.AddLink(spring);
 
     // Perform the simulation (record results option)
     // ------------------------------------------------
@@ -324,7 +324,7 @@ bool TestTranSpringCB(const ChVector<>& jointLocGnd,   // absolute location of t
 
     // Perform a system assembly to ensure we have the correct accelerations at
     // the initial time.
-    my_system.DoFullAssembly();
+    sys.DoFullAssembly();
 
     // Total energy at initial time.
     ChMatrix33<> inertia = pendulum->GetInertia();
@@ -386,7 +386,7 @@ bool TestTranSpringCB(const ChVector<>& jointLocGnd,   // absolute location of t
         }
 
         // Advance simulation by one step
-        my_system.DoStepDynamics(simTimeStep);
+        sys.DoStepDynamics(simTimeStep);
 
         // Increment simulation time
         simTime += simTimeStep;

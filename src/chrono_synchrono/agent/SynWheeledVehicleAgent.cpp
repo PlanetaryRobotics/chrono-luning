@@ -24,7 +24,7 @@
 
 #include "chrono_vehicle/utils/ChUtilsJSON.h"
 #include "chrono_vehicle/ChVehicleModelData.h"
-
+#include "chrono_thirdparty/filesystem/path.h"
 #include "chrono_vehicle/chassis/ChRigidChassis.h"
 
 using namespace chrono::vehicle;
@@ -34,8 +34,8 @@ namespace synchrono {
 
 SynWheeledVehicleAgent::SynWheeledVehicleAgent(ChWheeledVehicle* vehicle, const std::string& filename)
     : SynAgent(), m_vehicle(vehicle) {
-    m_state = chrono_types::make_shared<SynWheeledVehicleStateMessage>(0, 0);
-    m_description = chrono_types::make_shared<SynWheeledVehicleDescriptionMessage>(0, 0);
+    m_state = chrono_types::make_shared<SynWheeledVehicleStateMessage>(AgentKey(), AgentKey());
+    m_description = chrono_types::make_shared<SynWheeledVehicleDescriptionMessage>();
 
     if (!filename.empty()) {
         SetZombieVisualizationFilesFromJSON(filename);
@@ -62,13 +62,14 @@ void SynWheeledVehicleAgent::InitializeZombie(ChSystem* system) {
         auto tire_trimesh = CreateMeshZombieComponent(m_description->tire_vis_file);
         auto wheel_trimesh = CreateMeshZombieComponent(m_description->wheel_vis_file);
 
+        //// RADU - pass this transform to AddVisualShape
         ChQuaternion<> rot = (i % 2 == 0) ? Q_from_AngZ(0) : Q_from_AngZ(CH_C_PI);
         wheel_trimesh->GetMesh()->Transform(ChVector<>(), ChMatrix33<>(rot));
         tire_trimesh->GetMesh()->Transform(ChVector<>(), ChMatrix33<>(rot));
 
         auto wheel = chrono_types::make_shared<ChBodyAuxRef>();
-        wheel->AddAsset(wheel_trimesh);
-        wheel->AddAsset(tire_trimesh);
+        wheel->AddVisualShape(wheel_trimesh);
+        wheel->AddVisualShape(tire_trimesh);
         wheel->SetCollide(false);
         wheel->SetBodyFixed(true);
         system->Add(wheel);
@@ -120,24 +121,23 @@ void SynWheeledVehicleAgent::SetZombieVisualizationFilesFromJSON(const std::stri
     m_description->SetZombieVisualizationFilesFromJSON(filename);
 }
 
-void SynWheeledVehicleAgent::SetID(SynAgentID aid) {
-    m_description->SetSourceID(aid);
-    m_state->SetSourceID(aid);
-    m_aid = aid;
+void SynWheeledVehicleAgent::SetKey(AgentKey agent_key) {
+    m_description->SetSourceKey(agent_key);
+    m_state->SetSourceKey(agent_key);
+    m_agent_key = agent_key;
 }
 
 // ------------------------------------------------------------------------
 
 std::shared_ptr<ChTriangleMeshShape> SynWheeledVehicleAgent::CreateMeshZombieComponent(const std::string& filename) {
-    auto mesh = chrono_types::make_shared<geometry::ChTriangleMeshConnected>();
-    if (!filename.empty())
-        mesh->LoadWavefrontMesh(vehicle::GetDataFile(filename), false, false);
-
     auto trimesh = chrono_types::make_shared<ChTriangleMeshShape>();
-    trimesh->SetMesh(mesh);
-    trimesh->SetStatic(true);
-    trimesh->SetName(filename);
-
+    if (!filename.empty()) {
+        auto mesh =
+            geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vehicle::GetDataFile(filename), false, false);
+        trimesh->SetMesh(mesh);
+        trimesh->SetMutable(false);
+        trimesh->SetName(filesystem::path(filename).stem());
+    }
     return trimesh;
 }
 
@@ -146,7 +146,7 @@ std::shared_ptr<ChBodyAuxRef> SynWheeledVehicleAgent::CreateChassisZombieBody(co
     auto trimesh = CreateMeshZombieComponent(filename);
 
     auto zombie_body = chrono_types::make_shared<ChBodyAuxRef>();
-    zombie_body->AddAsset(trimesh);
+    zombie_body->AddVisualShape(trimesh);
     zombie_body->SetCollide(false);
     zombie_body->SetBodyFixed(true);
     zombie_body->SetFrame_COG_to_REF(ChFrame<>({0, 0, -0.2}, {1, 0, 0, 0}));

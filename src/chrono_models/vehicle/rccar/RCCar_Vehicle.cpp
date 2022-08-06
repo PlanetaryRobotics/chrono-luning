@@ -98,12 +98,15 @@ void RCCar_Vehicle::Initialize(const ChCoordsys<>& chassisPos, double chassisFwd
     // Initialize the axle subsystems.
     m_axles[0]->Initialize(m_chassis, nullptr, m_steerings[0], ChVector<>(0), ChVector<>(0), 0.0, m_omega[0],
                            m_omega[1]);
-    m_axles[1]->Initialize(m_chassis, nullptr, nullptr, in2m * ChVector<>(-18.6725, 0, 0), ChVector<>(0), 0.0,
+    m_axles[1]->Initialize(m_chassis, nullptr, nullptr, ChVector<>(0, 0, 0), ChVector<>(0), 0.0,
                            m_omega[2], m_omega[3]);
 
     // Initialize the driveline subsystem (4WD)
     std::vector<int> driven_susp_indexes = {0, 0};
     m_driveline->Initialize(m_chassis, m_axles, driven_susp_indexes);
+
+    // Invoke base class method
+    ChWheeledVehicle::Initialize(chassisPos, chassisFwdVel);
 }
 
 // -----------------------------------------------------------------------------

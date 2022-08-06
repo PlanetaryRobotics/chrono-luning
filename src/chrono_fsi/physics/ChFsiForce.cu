@@ -19,6 +19,7 @@
 #include <thrust/sort.h>
 #include "chrono_fsi/physics/ChFsiForce.cuh"
 #include "chrono_fsi/utils/ChUtilsDevice.cuh"
+#include "chrono_fsi/physics/ChSphGeneral.cuh"
 
 //==========================================================================================================================================
 namespace chrono {
@@ -29,52 +30,51 @@ ChFsiForce::ChFsiForce(std::shared_ptr<ChBce> otherBceWorker,
                        std::shared_ptr<ProximityDataD> otherMarkersProximityD,
                        std::shared_ptr<FsiGeneralData> otherFsiGeneralData,
                        std::shared_ptr<SimParams> otherParamsH,
-                       std::shared_ptr<NumberOfObjects> otherNumObjects)
+                       std::shared_ptr<ChCounters> otherNumObjects,
+                       bool verb)
     : bceWorker(otherBceWorker),
       sortedSphMarkersD(otherSortedSphMarkersD),
       markersProximityD(otherMarkersProximityD),
       fsiGeneralData(otherFsiGeneralData),
       numObjectsH(otherNumObjects),
-      paramsH(otherParamsH) {
-    fsiCollisionSystem =
-        chrono_types::make_shared<ChCollisionSystemFsi>(sortedSphMarkersD, markersProximityD, paramsH, numObjectsH);
+      paramsH(otherParamsH),
+      verbose(verb) {
+    fsiCollisionSystem = chrono_types::make_shared<ChCollisionSystemFsi>(sortedSphMarkersD, markersProximityD,
+                                                                         fsiGeneralData, paramsH, numObjectsH);
     sphMarkersD = NULL;
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 
-void ChFsiForce::Finalize() {
+void ChFsiForce::Initialize() {
     cudaMemcpyToSymbolAsync(paramsD, paramsH.get(), sizeof(SimParams));
-    cudaMemcpyToSymbolAsync(numObjectsD, numObjectsH.get(), sizeof(NumberOfObjects));
-    printf("ChFsiForce::Finalize() numAllMarkers=%zd\n", numObjectsH->numAllMarkers);
+    cudaMemcpyToSymbolAsync(numObjectsD, numObjectsH.get(), sizeof(ChCounters));
 
     vel_XSPH_Sorted_D.resize(numObjectsH->numAllMarkers);
     vel_vis_Sorted_D.resize(numObjectsH->numAllMarkers);
     derivVelRhoD_Sorted_D.resize(numObjectsH->numAllMarkers);
-    fsiCollisionSystem->Finalize();
+    fsiCollisionSystem->Initialize();
 }
 //--------------------------------------------------------------------------------------------------------------------------------
 
 ChFsiForce::~ChFsiForce() {}
 
-void ChFsiForce::SetLinearSolver(ChFsiLinearSolver::SolverType other_solverType) {
-    switch (other_solverType) {
-        case ChFsiLinearSolver::SolverType::BICGSTAB:
+void ChFsiForce::SetLinearSolver(SolverType type) {
+    switch (type) {
+        case SolverType::BICGSTAB:
             myLinearSolver = chrono_types::make_shared<ChFsiLinearSolverBiCGStab>();
             break;
-        case ChFsiLinearSolver::SolverType::GMRES:
+        case SolverType::GMRES:
             myLinearSolver = chrono_types::make_shared<ChFsiLinearSolverGMRES>();
             break;
-            /// Extend this function with your own linear solvers
         default:
-
             myLinearSolver = chrono_types::make_shared<ChFsiLinearSolverBiCGStab>();
             std::cout << "The ChFsiLinearSolver you chose has not been implemented, reverting back to "
                          "ChFsiLinearSolverBiCGStab\n";
     }
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-// use invasive to avoid one extra copy. However, keep in mind that sorted is
-// changed.
+// Use invasive to avoid one extra copy.
+// However, keep in mind that sorted is changed.
 void ChFsiForce::CopySortedToOriginal_Invasive_R3(thrust::device_vector<Real3>& original,
                                                   thrust::device_vector<Real3>& sorted,
                                                   const thrust::device_vector<uint>& gridMarkerIndex) {
@@ -91,8 +91,8 @@ void ChFsiForce::CopySortedToOriginal_NonInvasive_R3(thrust::device_vector<Real3
     CopySortedToOriginal_Invasive_R3(original, dummySorted, gridMarkerIndex);
 }
 //--------------------------------------------------------------------------------------------------------------------------------
-// use invasive to avoid one extra copy. However, keep in mind that sorted is
-// changed.
+// Use invasive to avoid one extra copy.
+// However, keep in mind that sorted is changed.
 void ChFsiForce::CopySortedToOriginal_Invasive_R4(thrust::device_vector<Real4>& original,
                                                   thrust::device_vector<Real4>& sorted,
                                                   const thrust::device_vector<uint>& gridMarkerIndex) {

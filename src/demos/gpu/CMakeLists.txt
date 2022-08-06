@@ -15,14 +15,15 @@ SET(LIBRARIES
 # ------------------------------------------------------------------------------
 
 SET(DEMOS
-        demo_GPU_terrainBox_SMC
-        demo_GPU_ballcosim
-        demo_GPU_movingBoundary
-        demo_GPU_fixedterrain
-        demo_GPU_mixer
-				demo_GPU_compression
-				demo_GPU_repose
-				frictional_waveProp
+        # demo_GPU_terrainBox_SMC
+        # demo_GPU_ballcosim
+        # demo_GPU_movingBoundary
+        # demo_GPU_fixedterrain
+        # demo_GPU_mixer
+		# demo_GPU_compression
+		# demo_GPU_repose
+		frictional_waveProp
+		# demo_GPU_balldrop
 )
 
 # ------------------------------------------------------------------------------

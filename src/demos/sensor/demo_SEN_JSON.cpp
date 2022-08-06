@@ -23,15 +23,15 @@
 
 #include "chrono/assets/ChTriangleMeshShape.h"
 #include "chrono/assets/ChVisualMaterial.h"
-#include "chrono/assets/ChVisualization.h"
+#include "chrono/assets/ChVisualShape.h"
 #include "chrono/geometry/ChTriangleMeshConnected.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/physics/ChSystemNSC.h"
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono_thirdparty/filesystem/path.h"
 
-#include "chrono_sensor/Sensor.h"
-#include "chrono_sensor/ChCameraSensor.h"
+#include "chrono_sensor/sensors/Sensor.h"
+#include "chrono_sensor/sensors/ChCameraSensor.h"
 #include "chrono_sensor/ChSensorManager.h"
 
 using namespace chrono;
@@ -52,31 +52,31 @@ int main(int argc, char* argv[]) {
     // -----------------
     // Create the system
     // -----------------
-    ChSystemNSC mphysicalSystem;
+    ChSystemNSC sys;
 
     // ---------------------------------------
     // add a mesh to be visualized by a camera
     // ---------------------------------------
-    auto mmesh = chrono_types::make_shared<ChTriangleMeshConnected>();
-    mmesh->LoadWavefrontMesh(GetChronoDataFile("vehicle/hmmwv/hmmwv_chassis.obj"), false, true);
+    auto mmesh = ChTriangleMeshConnected::CreateFromWavefrontFile(GetChronoDataFile("vehicle/hmmwv/hmmwv_chassis.obj"),
+                                                                  false, true);
     mmesh->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(2));  // scale to a different size
 
     auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
     trimesh_shape->SetMesh(mmesh);
     trimesh_shape->SetName("HMMWV Chassis Mesh");
-    trimesh_shape->SetStatic(true);
+    trimesh_shape->SetMutable(false);
 
     auto mesh_body = chrono_types::make_shared<ChBody>();
     mesh_body->SetPos({0, 0, 0});
-    mesh_body->AddAsset(trimesh_shape);
+    mesh_body->AddVisualShape(trimesh_shape,ChFrame<>());
     mesh_body->SetBodyFixed(true);
-    mphysicalSystem.Add(mesh_body);
+    sys.Add(mesh_body);
 
     // -----------------------
     // Create a sensor manager
     // -----------------------
     float intensity = .5;
-    auto manager = chrono_types::make_shared<ChSensorManager>(&mphysicalSystem);
+    auto manager = chrono_types::make_shared<ChSensorManager>(&sys);
     manager->scene->AddPointLight({2, 2.5, 100}, {intensity, intensity, intensity}, 5000);
     manager->scene->AddPointLight({9, 2.5, 100}, {intensity, intensity, intensity}, 5000);
     manager->scene->AddPointLight({16, 2.5, 100}, {intensity, intensity, intensity}, 5000);
@@ -109,10 +109,20 @@ int main(int argc, char* argv[]) {
     // ---------------------------------------------
     // Create a imu and add it to the sensor manager
     // ---------------------------------------------
-    auto imu = Sensor::CreateFromJSON(GetChronoDataFile("sensor/json/generic/IMU.json"), mesh_body,
+    auto acc = Sensor::CreateFromJSON(GetChronoDataFile("sensor/json/generic/Accelerometer.json"), mesh_body,
                                       ChFrame<>({0, 0, 0}, Q_from_AngZ(0)));
     // add sensor to the manager
-    manager->AddSensor(imu);
+    manager->AddSensor(acc);
+
+    auto gyro = Sensor::CreateFromJSON(GetChronoDataFile("sensor/json/generic/Gyroscope.json"), mesh_body,
+                                       ChFrame<>({0, 0, 0}, Q_from_AngZ(0)));
+    // add sensor to the manager
+    manager->AddSensor(gyro);
+
+    auto mag = Sensor::CreateFromJSON(GetChronoDataFile("sensor/json/generic/Magnetometer.json"), mesh_body,
+                                      ChFrame<>({0, 0, 0}, Q_from_AngZ(0)));
+    // add sensor to the manager
+    manager->AddSensor(mag);
 
     // ---------------
     // Simulate system
@@ -120,9 +130,6 @@ int main(int argc, char* argv[]) {
     float orbit_radius = 10.f;
     float orbit_rate = 0.5f;
     float ch_time = 0.0f;
-    float zoom_rate = -0.1f;
-
-    double render_time = 0;
 
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
@@ -132,7 +139,7 @@ int main(int argc, char* argv[]) {
     int num_imu_updates = 0;
 
     while (ch_time < end_time) {
-        mphysicalSystem.DoStepDynamics(0.001);
+        sys.DoStepDynamics(0.001);
         manager->Update();
 
         cam->SetOffsetPose(chrono::ChFrame<double>(
@@ -157,13 +164,13 @@ int main(int argc, char* argv[]) {
             // std::cout << "Data recieved from gps. Frame: " << num_gps_updates << std::endl;
         }
 
-        UserIMUBufferPtr imu_data = imu->GetMostRecentBuffer<UserIMUBufferPtr>();
-        if (imu_data->Buffer) {
+        UserAccelBufferPtr acc_data = acc->GetMostRecentBuffer<UserAccelBufferPtr>();
+        if (acc_data->Buffer) {
             num_imu_updates++;
             // std::cout << "Data recieved from imu. Frame: " << num_imu_updates << std::endl;
         }
 
-        ch_time = (float)mphysicalSystem.GetChTime();
+        ch_time = (float)sys.GetChTime();
     }
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> wall_time = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);

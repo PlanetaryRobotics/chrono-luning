@@ -30,8 +30,10 @@ namespace vehicle {
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-TrackShoeDoublePin::TrackShoeDoublePin(const std::string& filename) : ChTrackShoeDoublePin("") {
-    Document d; ReadFileJSON(filename, d);
+TrackShoeDoublePin::TrackShoeDoublePin(const std::string& filename)
+    : ChTrackShoeDoublePin("", DoublePinTrackShoeType::TWO_CONNECTORS) {
+    Document d;
+    ReadFileJSON(filename, d);
     if (d.IsNull())
         return;
 
@@ -40,13 +42,22 @@ TrackShoeDoublePin::TrackShoeDoublePin(const std::string& filename) : ChTrackSho
     GetLog() << "Loaded JSON: " << filename.c_str() << "\n";
 }
 
-TrackShoeDoublePin::TrackShoeDoublePin(const rapidjson::Document& d) : ChTrackShoeDoublePin("") {
+TrackShoeDoublePin::TrackShoeDoublePin(const rapidjson::Document& d)
+    : ChTrackShoeDoublePin("", DoublePinTrackShoeType::TWO_CONNECTORS) {
     Create(d);
 }
 
 void TrackShoeDoublePin::Create(const rapidjson::Document& d) {
     // Invoke base class method.
     ChPart::Create(d);
+
+    // Read topology of the double-pin track shoe.
+    // If not defined, default to the two-connector double-ping track shoe.
+    if (d.HasMember("Topology")) {
+        std::string topology = d["Topology"].GetString();
+        if (topology.compare("One Connector") == 0)
+            m_topology = DoublePinTrackShoeType::ONE_CONNECTOR;
+    }
 
     // Read shoe body geometry and mass properties
     assert(d.HasMember("Shoe"));
@@ -166,6 +177,7 @@ void TrackShoeDoublePin::Create(const rapidjson::Document& d) {
         for (auto& cyl : m_geometry.m_coll_cylinders) {
             m_geometry.m_vis_cylinders.push_back(cyl);
         }
+        m_geometry.m_has_primitives = true;
     }
 }
 

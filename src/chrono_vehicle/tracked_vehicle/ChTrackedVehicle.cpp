@@ -36,7 +36,8 @@ ChTrackedVehicle::ChTrackedVehicle(const std::string& name, ChContactMethod cont
     m_contact_manager = chrono_types::make_shared<ChTrackContactManager>();
 }
 
-ChTrackedVehicle::ChTrackedVehicle(const std::string& name, ChSystem* system) : ChVehicle(name, system) {
+ChTrackedVehicle::ChTrackedVehicle(const std::string& name, ChSystem* system)
+    : ChVehicle(name, system) {
     m_contact_manager = chrono_types::make_shared<ChTrackContactManager>();
 }
 
@@ -49,12 +50,12 @@ ChTrackedVehicle::~ChTrackedVehicle() {}
 // vehicle subsystems (the two track assemblies and the driveline).
 // -----------------------------------------------------------------------------
 void ChTrackedVehicle::Initialize(const ChCoordsys<>& chassisPos, double chassisFwdVel) {
-    m_chassis->Initialize(m_system, chassisPos, chassisFwdVel, TrackedCollisionFamily::CHASSIS);
-
     // Disable contacts between chassis with all other tracked vehicle subsystems, except the track shoes.
     m_chassis->GetBody()->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::IDLERS);
     m_chassis->GetBody()->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::WHEELS);
     m_chassis->GetBody()->GetCollisionModel()->SetFamilyMaskNoCollisionWithFamily(TrackedCollisionFamily::ROLLERS);
+
+    ChVehicle::Initialize(chassisPos, chassisFwdVel);
 }
 
 // -----------------------------------------------------------------------------
@@ -62,7 +63,7 @@ void ChTrackedVehicle::Initialize(const ChCoordsys<>& chassisPos, double chassis
 // -----------------------------------------------------------------------------
 void ChTrackedVehicle::InitializePowertrain(std::shared_ptr<ChPowertrain> powertrain) {
     m_powertrain = powertrain;
-    powertrain->Initialize(m_chassis, m_driveline);
+    powertrain->Initialize(m_chassis);
 }
 
 // -----------------------------------------------------------------------------
@@ -72,7 +73,7 @@ void ChTrackedVehicle::InitializePowertrain(std::shared_ptr<ChPowertrain> powert
 // forces on the track shoes (expressed in the global reference frame).
 // -----------------------------------------------------------------------------
 void ChTrackedVehicle::Synchronize(double time,
-                                   const ChDriver::Inputs& driver_inputs,
+                                   const DriverInputs& driver_inputs,
                                    const TerrainForces& shoe_forces_left,
                                    const TerrainForces& shoe_forces_right) {
     // Let the driveline combine driver inputs if needed.
@@ -90,15 +91,15 @@ void ChTrackedVehicle::Synchronize(double time,
         // Extract the torque from the powertrain.
         powertrain_torque = m_powertrain->GetOutputTorque();
         // Synchronize the associated powertrain system (pass throttle input).
-        m_powertrain->Synchronize(time, driver_inputs.m_throttle);
+        m_powertrain->Synchronize(time, driver_inputs, m_driveline->GetDriveshaft()->GetPos_dt());
     }
 
     // Apply powertrain torque to the driveline's input shaft.
-    m_driveline->Synchronize(driver_inputs.m_steering, powertrain_torque);
+    m_driveline->Synchronize(time, driver_inputs, powertrain_torque);
 
     // Pass the steering input to any chassis connectors (in case one of them is actuated).
     for (auto& connector : m_chassis_connectors) {
-        connector->Synchronize(time, driver_inputs.m_steering);
+        connector->Synchronize(time, driver_inputs);
     }
 
     m_chassis->Synchronize(time);
@@ -139,9 +140,14 @@ void ChTrackedVehicle::SetIdlerVisualizationType(VisualizationType vis) {
     m_tracks[1]->SetIdlerVisualizationType(vis);
 }
 
-void ChTrackedVehicle::SetRoadWheelAssemblyVisualizationType(VisualizationType vis) {
-    m_tracks[0]->SetRoadWheelAssemblyVisualizationType(vis);
-    m_tracks[1]->SetRoadWheelAssemblyVisualizationType(vis);
+void ChTrackedVehicle::SetSuspensionVisualizationType(VisualizationType vis) {
+    m_tracks[0]->SetSuspensionVisualizationType(vis);
+    m_tracks[1]->SetSuspensionVisualizationType(vis);
+}
+
+void ChTrackedVehicle::SetIdlerWheelVisualizationType(VisualizationType vis) {
+    m_tracks[0]->SetIdlerWheelVisualizationType(vis);
+    m_tracks[1]->SetIdlerWheelVisualizationType(vis);
 }
 
 void ChTrackedVehicle::SetRoadWheelVisualizationType(VisualizationType vis) {
@@ -175,14 +181,14 @@ void ChTrackedVehicle::SetSprocketCollide(bool state) {
 }
 
 void ChTrackedVehicle::SetIdlerCollide(bool state) {
-    m_tracks[0]->GetIdler()->SetCollide(state);
-    m_tracks[1]->GetIdler()->SetCollide(state);
+    m_tracks[0]->GetIdlerWheel()->SetCollide(state);
+    m_tracks[1]->GetIdlerWheel()->SetCollide(state);
 }
 
 void ChTrackedVehicle::SetRoadWheelCollide(bool state) {
-    for (size_t i = 0; i < m_tracks[0]->GetNumRoadWheelAssemblies(); ++i)
+    for (size_t i = 0; i < m_tracks[0]->GetNumTrackSuspensions(); ++i)
         m_tracks[0]->GetRoadWheel(i)->SetCollide(state);
-    for (size_t i = 0; i < m_tracks[1]->GetNumRoadWheelAssemblies(); ++i)
+    for (size_t i = 0; i < m_tracks[1]->GetNumTrackSuspensions(); ++i)
         m_tracks[1]->GetRoadWheel(i)->SetCollide(state);
 }
 
@@ -209,17 +215,17 @@ void ChTrackedVehicle::SetCollide(int flags) {
     for (auto& c : m_chassis_rear)
         c->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::CHASSIS)) != 0);
 
-    m_tracks[0]->GetIdler()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::IDLER_LEFT)) != 0);
-    m_tracks[1]->GetIdler()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::IDLER_RIGHT)) != 0);
+    m_tracks[0]->GetIdlerWheel()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::IDLER_LEFT)) != 0);
+    m_tracks[1]->GetIdlerWheel()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::IDLER_RIGHT)) != 0);
 
     m_tracks[0]->GetSprocket()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_LEFT)) != 0);
     m_tracks[1]->GetSprocket()->SetCollide((flags & static_cast<int>(TrackedCollisionFlag::SPROCKET_RIGHT)) != 0);
 
     bool collide_wheelsL = (flags & static_cast<int>(TrackedCollisionFlag::WHEELS_LEFT)) != 0;
     bool collide_wheelsR = (flags & static_cast<int>(TrackedCollisionFlag::WHEELS_RIGHT)) != 0;
-    for (size_t i = 0; i < m_tracks[0]->GetNumRoadWheelAssemblies(); ++i)
+    for (size_t i = 0; i < m_tracks[0]->GetNumTrackSuspensions(); ++i)
         m_tracks[0]->GetRoadWheel(i)->SetCollide(collide_wheelsL);
-    for (size_t i = 0; i < m_tracks[1]->GetNumRoadWheelAssemblies(); ++i)
+    for (size_t i = 0; i < m_tracks[1]->GetNumTrackSuspensions(); ++i)
         m_tracks[1]->GetRoadWheel(i)->SetCollide(collide_wheelsR);
 
     bool collide_rollersL = (flags & static_cast<int>(TrackedCollisionFlag::ROLLERS_LEFT)) != 0;
@@ -282,22 +288,46 @@ void ChTrackedVehicle::EnableCustomContact(std::shared_ptr<ChTrackCustomContact>
 }
 
 // -----------------------------------------------------------------------------
-// Calculate and return the total vehicle mass
+// Calculate the total vehicle mass
 // -----------------------------------------------------------------------------
-double ChTrackedVehicle::GetVehicleMass() const {
-    double mass = m_chassis->GetMass();
+void ChTrackedVehicle::InitializeInertiaProperties() {
+    m_mass = 0;
+
+    m_chassis->AddMass(m_mass);
+
     for (auto& c : m_chassis_rear)
-        mass += c->GetMass();
-    mass += m_tracks[0]->GetMass() + m_tracks[1]->GetMass();
-    return mass;
+        c->AddMass(m_mass);
+
+    m_tracks[0]->AddMass(m_mass);
+    m_tracks[1]->AddMass(m_mass);
 }
 
 // -----------------------------------------------------------------------------
-// Calculate and return the current vehicle COM location
+// Calculate current vehicle inertia properties 
 // -----------------------------------------------------------------------------
-ChVector<> ChTrackedVehicle::GetVehicleCOMPos() const {
-    //// TODO
-    return ChVector<>(0, 0, 0);
+void ChTrackedVehicle::UpdateInertiaProperties() {
+    // 1. Calculate the vehicle COM location relative to the global reference frame
+    // 2. Calculate vehicle inertia relative to global reference frame
+    ChVector<> com(0);
+    ChMatrix33<> inertia(0);
+    
+    m_chassis->AddInertiaProperties(com, inertia);
+
+    for (auto& c : m_chassis_rear)
+        c->AddInertiaProperties(com, inertia);
+
+    m_tracks[0]->AddInertiaProperties(com, inertia);
+    m_tracks[1]->AddInertiaProperties(com, inertia);
+
+    // 3. Express vehicle COM frame relative to vehicle reference frame
+    m_com.coord.pos = GetTransform().TransformPointParentToLocal(com / GetMass());
+    m_com.coord.rot = GetTransform().GetRot();
+
+    // 4. Express inertia relative to vehicle COM frame
+    //    Notes: - vehicle COM frame aligned with vehicle frame
+    //           - 'com' still scaled by total mass here
+    const ChMatrix33<>& A = GetTransform().GetA();
+    m_inertia = A.transpose() * (inertia - utils::CompositeInertia::InertiaShiftMatrix(com)) * A;
 }
 
 // -----------------------------------------------------------------------------

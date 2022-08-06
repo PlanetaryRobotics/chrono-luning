@@ -20,6 +20,7 @@
 #include "chrono_models/vehicle/m113/M113_BrakeSimple.h"
 #include "chrono_models/vehicle/m113/M113_BrakeShafts.h"
 #include "chrono_models/vehicle/m113/M113_Idler.h"
+#include "chrono_models/vehicle/m113/M113_IdlerWheel.h"
 #include "chrono_models/vehicle/m113/M113_RoadWheel.h"
 #include "chrono_models/vehicle/m113/M113_SprocketBand.h"
 #include "chrono_models/vehicle/m113/M113_Suspension.h"
@@ -52,45 +53,51 @@ const ChVector<> M113_TrackAssemblyBandBushing::m_susp_locs_R[5] = {  //
 // track shoes.
 // Create the suspensions, idler, brake, sprocket, and track shoes.
 // -----------------------------------------------------------------------------
-M113_TrackAssemblyBandBushing::M113_TrackAssemblyBandBushing(VehicleSide side, BrakeType brake_type)
+M113_TrackAssemblyBandBushing::M113_TrackAssemblyBandBushing(VehicleSide side,
+                                                             BrakeType brake_type,
+                                                             bool use_suspension_bushings)
     : ChTrackAssemblyBandBushing("", side) {
     size_t num_shoes = 0;
     std::string suspName("M113_Suspension");
     std::string shoeName("M113_TrackShoe");
     switch (side) {
-    case LEFT:
-        SetName("M113_TrackAssemblyLeft");
-        m_idler = chrono_types::make_shared<M113_IdlerLeft>();
-        m_brake = chrono_types::make_shared<M113_BrakeSimple>("M113_BrakeLeft");
-        m_sprocket = chrono_types::make_shared<M113_SprocketBandLeft>();
-        num_shoes = 105;
-        suspName += "Left_";
-        shoeName += "Left_";
-        break;
-    case RIGHT:
-        SetName("M113_TrackAssemblyRight");
-        m_idler = chrono_types::make_shared<M113_IdlerRight>();
-        m_brake = chrono_types::make_shared<M113_BrakeSimple>("M113_BrakeRight");
-        m_sprocket = chrono_types::make_shared<M113_SprocketBandRight>();
-        num_shoes = 106;
-        suspName += "Right_";
-        shoeName += "Right_";
-        break;
+        case LEFT:
+            SetName("M113_TrackAssemblyLeft");
+            m_idler = chrono_types::make_shared<M113_Idler>("M113_Idler_Left", side);
+            m_brake = chrono_types::make_shared<M113_BrakeSimple>("M113_BrakeLeft");
+            m_sprocket = chrono_types::make_shared<M113_SprocketBandLeft>();
+            num_shoes = 105;
+            suspName += "Left_";
+            shoeName += "Left_";
+            break;
+        case RIGHT:
+            SetName("M113_TrackAssemblyRight");
+            m_idler = chrono_types::make_shared<M113_Idler>("M113_Idler_Right", side);
+            m_brake = chrono_types::make_shared<M113_BrakeSimple>("M113_BrakeRight");
+            m_sprocket = chrono_types::make_shared<M113_SprocketBandRight>();
+            num_shoes = 106;
+            suspName += "Right_";
+            shoeName += "Right_";
+            break;
     }
 
     m_suspensions.resize(5);
-    m_suspensions[0] = chrono_types::make_shared<M113_Suspension>(suspName + "0", side, 0, true);
-    m_suspensions[1] = chrono_types::make_shared<M113_Suspension>(suspName + "1", side, 0, true);
-    m_suspensions[2] = chrono_types::make_shared<M113_Suspension>(suspName + "2", side, 2, false);
-    m_suspensions[3] = chrono_types::make_shared<M113_Suspension>(suspName + "3", side, 2, false);
-    m_suspensions[4] = chrono_types::make_shared<M113_Suspension>(suspName + "4", side, 0, true);
+    m_suspensions[0] =
+        chrono_types::make_shared<M113_Suspension>(suspName + "0", side, 0, use_suspension_bushings, true);
+    m_suspensions[1] =
+        chrono_types::make_shared<M113_Suspension>(suspName + "1", side, 0, use_suspension_bushings, true);
+    m_suspensions[2] =
+        chrono_types::make_shared<M113_Suspension>(suspName + "2", side, 2, use_suspension_bushings, false);
+    m_suspensions[3] =
+        chrono_types::make_shared<M113_Suspension>(suspName + "3", side, 2, use_suspension_bushings, false);
+    m_suspensions[4] =
+        chrono_types::make_shared<M113_Suspension>(suspName + "4", side, 0, use_suspension_bushings, true);
 
     for (size_t it = 0; it < num_shoes; it++) {
         m_shoes.push_back(chrono_types::make_shared<M113_TrackShoeBandBushing>(shoeName + std::to_string(it)));
     }
 }
 
-// -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 const ChVector<> M113_TrackAssemblyBandBushing::GetSprocketLocation() const {
     return m_sprocket_loc;

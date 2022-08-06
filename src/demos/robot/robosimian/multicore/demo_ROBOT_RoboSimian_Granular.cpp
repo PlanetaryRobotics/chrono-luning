@@ -31,7 +31,7 @@
 
 #include "chrono_vehicle/terrain/GranularTerrain.h"
 
-#include "chrono_opengl/ChOpenGLWindow.h"
+#include "chrono_opengl/ChVisualSystemOpenGL.h"
 
 #include "chrono_thirdparty/cxxopts/ChCLI.h"
 #include "chrono_thirdparty/filesystem/path.h"
@@ -229,7 +229,7 @@ int main(int argc, char* argv[]) {
     sys->Set_G_acc(ChVector<double>(0, 0, -9.8));
     ////sys->Set_G_acc(ChVector<double>(0, 0, 0));
 
-    int max_threads = omp_get_num_procs();
+    int max_threads = ChOMP::GetNumThreads();
     if (nthreads > max_threads)
         nthreads = max_threads;
     sys->SetNumThreads(nthreads);
@@ -320,11 +320,15 @@ int main(int argc, char* argv[]) {
     // Initialize OpenGL
     // -----------------
 
+    opengl::ChVisualSystemOpenGL vis;
     if (render) {
-        opengl::ChOpenGLWindow& gl_window = opengl::ChOpenGLWindow::getInstance();
-        gl_window.Initialize(1280, 720, "RoboSimian - Granular terrain", sys);
-        gl_window.SetCamera(ChVector<>(2, -2, 0), ChVector<>(0, 0, 0), ChVector<>(0, 0, 1), 0.05f);
-        gl_window.SetRenderMode(opengl::WIREFRAME);
+        vis.AttachSystem(sys);
+        vis.SetWindowTitle("RoboSimian - Granular terrain");
+        vis.SetWindowSize(1280, 720);
+        vis.SetRenderMode(opengl::WIREFRAME);
+        vis.Initialize();
+        vis.SetCameraPosition(ChVector<>(2, -2, 0), ChVector<>(0, 0, 0));
+        vis.SetCameraVertical(CameraVerticalDir::Z);
     }
 
     // ---------------------------------
@@ -408,7 +412,7 @@ int main(int argc, char* argv[]) {
         if (pov_output && sim_frame % pov_steps == 0) {
             char filename[100];
             sprintf(filename, "%s/data_%04d.dat", pov_dir.c_str(), pov_frame + 1);
-            utils::WriteShapesPovray(sys, filename);
+            utils::WriteVisualizationAssets(sys, filename);
             pov_frame++;
         }
 
@@ -426,9 +430,8 @@ int main(int argc, char* argv[]) {
         ////}
 
         if (render) {
-            opengl::ChOpenGLWindow& gl_window = opengl::ChOpenGLWindow::getInstance();
-            if (gl_window.Active()) {
-                gl_window.Render();
+            if (vis.Run()) {
+                vis.Render();
             } else {
                 break;
             }

@@ -36,8 +36,6 @@
 
 #include <vector>
 
-#include "chrono/assets/ChColorAsset.h"
-
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/wheeled_vehicle/ChSuspension.h"
 
@@ -63,7 +61,7 @@ class CH_VEHICLE_API ChSolidBellcrankThreeLinkAxle : public ChSuspension {
     ChSolidBellcrankThreeLinkAxle(const std::string& name  ///< [in] name of the subsystem
     );
 
-    virtual ~ChSolidBellcrankThreeLinkAxle() {}
+    virtual ~ChSolidBellcrankThreeLinkAxle();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "SolidBellcrankThreeLinkAxle"; }
@@ -95,12 +93,6 @@ class CH_VEHICLE_API ChSolidBellcrankThreeLinkAxle : public ChSuspension {
 
     /// Remove visualization assets for the suspension subsystem.
     virtual void RemoveVisualizationAssets() override;
-
-    /// Get the total mass of the suspension subsystem.
-    virtual double GetMass() const override;
-
-    /// Get the current global COM location of the suspension subsystem.
-    virtual ChVector<> GetCOMPos() const override;
 
     /// Get the wheel track for the suspension subsystem.
     virtual double GetTrack() override;
@@ -160,6 +152,9 @@ class CH_VEHICLE_API ChSolidBellcrankThreeLinkAxle : public ChSuspension {
         NUM_POINTS
     };
 
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
     /// Return the location of the specified hardpoint.
     /// The returned location must be expressed in the suspension reference frame.
     virtual const ChVector<> getLocation(PointId which) = 0;
@@ -214,10 +209,10 @@ class CH_VEHICLE_API ChSolidBellcrankThreeLinkAxle : public ChSuspension {
     /// Return the functor object for shock force.
     virtual std::shared_ptr<ChLinkTSDA::ForceFunctor> getShockForceFunctor() const = 0;
 
-    std::shared_ptr<ChBody> m_axleTube;    ///< handles to the axle tube body
-    std::shared_ptr<ChBody> m_bellcrank;   ///< handles to the bellcrank body
-    std::shared_ptr<ChBody> m_knuckle[2];  ///< handles to the knuckle body
-    std::shared_ptr<ChBody> m_draglink;    ///< handles to the draglink body
+    std::shared_ptr<ChBody> m_axleTube;    ///< axle tube body
+    std::shared_ptr<ChBody> m_bellcrank;   ///< bellcrank body
+    std::shared_ptr<ChBody> m_knuckle[2];  ///< knuckle body
+    std::shared_ptr<ChBody> m_draglink;    ///< draglink body
 
     std::shared_ptr<ChLinkLockRevolute> m_revBellcrank;        ///< rotation about z-axis
     std::shared_ptr<ChLinkLockSpherical> m_sphericalDraglink;  ///< connection draglink/steering
@@ -232,13 +227,12 @@ class CH_VEHICLE_API ChSolidBellcrankThreeLinkAxle : public ChSuspension {
     std::shared_ptr<ChLinkUniversal> m_linkBodyToChassis[2];
     std::shared_ptr<ChLinkLockSpherical> m_linkBodyToAxleTube[2];
 
-    // std::shared_ptr<ChLinkDistance> m_tierod[2];  ///< connects knuckle and bellcrank
-    std::shared_ptr<ChBody> m_tierodBody[2];  ///< handles to the tierod bodies
-    std::shared_ptr<ChLinkLockSpherical> m_tierodBodyToKnuckle[2];
-    std::shared_ptr<ChLinkLockSpherical> m_tierodBodyToBellcrank[2];
+    std::shared_ptr<ChBody> m_tierodBody[2];                          ///< tierod bodies
+    std::shared_ptr<ChLinkLockSpherical> m_tierodBodyToKnuckle[2];    ///< tierod-knuckle connection
+    std::shared_ptr<ChLinkLockSpherical> m_tierodBodyToBellcrank[2];  ///< tierod-bellcranck connection
 
-    std::shared_ptr<ChLinkTSDA> m_shock[2];   ///< handles to the spring links (L/R)
-    std::shared_ptr<ChLinkTSDA> m_spring[2];  ///< handles to the shock links (L/R)
+    std::shared_ptr<ChLinkTSDA> m_shock[2];   ///< spring links (L/R)
+    std::shared_ptr<ChLinkTSDA> m_spring[2];  ///< shock links (L/R)
 
   private:
     // Hardpoint absolute locations

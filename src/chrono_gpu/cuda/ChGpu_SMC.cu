@@ -9,11 +9,12 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Conlain Kelly, Nic Olsen, Dan Negrut, Ruochun Zhang
+// Authors: Conlain Kelly, Nic Olsen, Ruochun Zhang, Dan Negrut
 // =============================================================================
 
 #include <cmath>
 #include <numeric>
+#include <fstream>
 
 #include "chrono_gpu/cuda/ChGpu_SMC.cuh"
 #include "chrono_gpu/utils/ChGpuUtilities.h"
@@ -72,6 +73,52 @@ __host__ double ChSystemGpu_impl::GetMaxParticleZ(bool getMax) {
     gpuErrchk(cudaDeviceSynchronize());
     gpuErrchk(cudaPeekAtLastError());
     return *(sphere_data->sphere_stats_buffer + nSpheres);
+}
+
+__host__ unsigned int ChSystemGpu_impl::GetNumParticleAboveZ(float ZValue) {
+    size_t nSpheres = sphere_local_pos_Z.size();
+    if (nSpheres == 0)
+        CHGPU_ERROR("ERROR! 0 particle in system! Please call this method after Initialize().\n");
+
+    const unsigned int threadsPerBlock = 1024;
+    unsigned int nBlocks = (nSpheres + threadsPerBlock - 1) / threadsPerBlock;
+    elementalZAboveValue<<<nBlocks, threadsPerBlock>>>(sphere_data->sphere_stats_buffer_int, sphere_data, nSpheres,
+                                                       gran_params, ZValue);
+    gpuErrchk(cudaDeviceSynchronize());
+
+    // Use CUB to find the max or min Z.
+    size_t temp_storage_bytes = 0;
+    cub::DeviceReduce::Sum(NULL, temp_storage_bytes, sphere_data->sphere_stats_buffer_int,
+                           sphere_data->sphere_stats_buffer_int + nSpheres, nSpheres);
+    void* d_scratch_space = (void*)stateOfSolver_resources.pDeviceMemoryScratchSpace(temp_storage_bytes);
+    cub::DeviceReduce::Sum(d_scratch_space, temp_storage_bytes, sphere_data->sphere_stats_buffer_int,
+                           sphere_data->sphere_stats_buffer_int + nSpheres, nSpheres);
+    gpuErrchk(cudaDeviceSynchronize());
+    gpuErrchk(cudaPeekAtLastError());
+    return *(sphere_data->sphere_stats_buffer_int + nSpheres);
+}
+
+__host__ unsigned int ChSystemGpu_impl::GetNumParticleAboveX(float XValue) {
+    size_t nSpheres = sphere_local_pos_X.size();
+    if (nSpheres == 0)
+        CHGPU_ERROR("ERROR! 0 particle in system! Please call this method after Initialize().\n");
+
+    const unsigned int threadsPerBlock = 1024;
+    unsigned int nBlocks = (nSpheres + threadsPerBlock - 1) / threadsPerBlock;
+    elementalXAboveValue<<<nBlocks, threadsPerBlock>>>(sphere_data->sphere_stats_buffer_int, sphere_data, nSpheres,
+                                                       gran_params, XValue);
+    gpuErrchk(cudaDeviceSynchronize());
+
+    // Use CUB to find the max or min X.
+    size_t temp_storage_bytes = 0;
+    cub::DeviceReduce::Sum(NULL, temp_storage_bytes, sphere_data->sphere_stats_buffer_int,
+                           sphere_data->sphere_stats_buffer_int + nSpheres, nSpheres);
+    void* d_scratch_space = (void*)stateOfSolver_resources.pDeviceMemoryScratchSpace(temp_storage_bytes);
+    cub::DeviceReduce::Sum(d_scratch_space, temp_storage_bytes, sphere_data->sphere_stats_buffer_int,
+                           sphere_data->sphere_stats_buffer_int + nSpheres, nSpheres);
+    gpuErrchk(cudaDeviceSynchronize());
+    gpuErrchk(cudaPeekAtLastError());
+    return *(sphere_data->sphere_stats_buffer_int + nSpheres);
 }
 
 // Reset broadphase data structures
@@ -225,7 +272,7 @@ __host__ void ChSystemGpu_impl::defragment_initial_positions() {
     }
 
     // swap into the correct data structures
-	sphere_local_pos_X.swap(sphere_pos_x_tmp);
+    sphere_local_pos_X.swap(sphere_pos_x_tmp);
     sphere_local_pos_Y.swap(sphere_pos_y_tmp);
     sphere_local_pos_Z.swap(sphere_pos_z_tmp);
 
@@ -355,6 +402,7 @@ __host__ void ChSystemGpu_impl::setupSphereDataStructures() {
     // resizing on-the-call, to save time, in case that quarry function is called with a high frequency. The last
     // element in this array is to store the reduced value.
     TRACK_VECTOR_RESIZE(sphere_stats_buffer, nSpheres + 1, "sphere_stats_buffer", 0);
+    TRACK_VECTOR_RESIZE(sphere_stats_buffer_int, nSpheres + 1, "sphere_stats_buffer_int", 0);
 
     // NOTE that this will get resized again later, this is just the first estimate
     TRACK_VECTOR_RESIZE(spheres_in_SD_composite, 2 * nSpheres, "spheres_in_SD_composite", NULL_CHGPU_ID);
@@ -402,7 +450,7 @@ __host__ void ChSystemGpu_impl::setupSphereDataStructures() {
     // If this is a new-boot, we usually want to do this defragment.
     // But if this is a restart, then probably no. We do not want every time the simulation restarts,
     // we have the order of particles completely changed: it may be bad for visualization or debugging
-	if (defragment_on_start) {
+    if (defragment_on_start) {
         defragment_initial_positions();
     }
 
@@ -437,6 +485,7 @@ __host__ void ChSystemGpu_impl::setupSphereDataStructures() {
         float3 null_history = {0., 0., 0.};
         TRACK_VECTOR_RESIZE(contact_history_map, MAX_SPHERES_TOUCHED_BY_SPHERE * nSpheres, "contact_history_map",
                             null_history);
+        TRACK_VECTOR_RESIZE(contact_duration, MAX_SPHERES_TOUCHED_BY_SPHERE * nSpheres, "contact_duration", 0);
 
         // If the user provides a checkpointed history array, we load it here
         bool user_provided_friction_history = user_friction_history.size() != 0;
@@ -484,6 +533,9 @@ __host__ void ChSystemGpu_impl::setupSphereDataStructures() {
         float3 null_force = {0.0f, 0.0f, 0.0f};
         TRACK_VECTOR_RESIZE(rolling_friction_torque, MAX_SPHERES_TOUCHED_BY_SPHERE * nSpheres,
                             "rolling friction torque", null_force);
+        TRACK_VECTOR_RESIZE(char_collision_time, MAX_SPHERES_TOUCHED_BY_SPHERE * nSpheres,
+                            "characterisitc collision time", 0);
+        TRACK_VECTOR_RESIZE(v_rot_array, MAX_SPHERES_TOUCHED_BY_SPHERE * nSpheres, "v rot", null_force);
     }
 
     // make sure the right pointers are packed
@@ -494,7 +546,7 @@ __host__ void ChSystemGpu_impl::setupSphereDataStructures() {
 /// runSphereBroadphase goes through three stages. First, a kernel figures out for each SD, how many spheres touch it.
 /// Then, there is a prefix scan done (which requires two CUB function calls) to figure out offsets into the big fat
 /// array that contains, for SD after SD, which spheres touch the SD. This last thing is accomplished by a kernel call.
-/// 
+///
 /// CAVEAT: in this approach, the outcome of the prefix scan operation will be canibalized during the kernel call that
 /// updates the big fat composite array. As such, there is a "scratch-pad" version that is used along the way
 /// </summary>
@@ -505,7 +557,7 @@ __host__ void ChSystemGpu_impl::runSphereBroadphase() {
     // reset the number of spheres per SD, the offsets in the big composite array, and the big fat composite array
     resetBroadphaseInformation();
 
-    // Frist stage of the computation in this function: Figure out the how many spheres touch each SD. 
+    // Frist stage of the computation in this function: Figure out the how many spheres touch each SD.
     unsigned int nBlocks = (nSpheres + CUDA_THREADS_PER_BLOCK - 1) / CUDA_THREADS_PER_BLOCK;
     getNumberOfSpheresTouchingEachSD<CUDA_THREADS_PER_BLOCK>
         <<<nBlocks, CUDA_THREADS_PER_BLOCK>>>(sphere_data, nSpheres, gran_params);
@@ -522,7 +574,7 @@ __host__ void ChSystemGpu_impl::runSphereBroadphase() {
     cub::DeviceScan::ExclusiveSum(NULL, temp_storage_bytes, in_ptr, out_ptr, nSDs);
     gpuErrchk(cudaDeviceSynchronize());
     gpuErrchk(cudaPeekAtLastError());
-   
+
     // give CUB needed temporary storage on the device
     void* d_scratch_space = (void*)stateOfSolver_resources.pDeviceMemoryScratchSpace(temp_storage_bytes);
     // Run the actual exclusive prefix sum
@@ -547,7 +599,6 @@ __host__ void ChSystemGpu_impl::runSphereBroadphase() {
     gpuErrchk(cudaDeviceSynchronize());
     gpuErrchk(cudaPeekAtLastError());
 }
-
 
 __host__ void ChSystemGpu_impl::updateBCPositions() {
     for (unsigned int i = 0; i < BC_params_list_UU.size(); i++) {
@@ -597,16 +648,15 @@ __host__ void ChSystemGpu_impl::updateBCPositions() {
 __host__ double ChSystemGpu_impl::AdvanceSimulation(float duration) {
     // Figure our the number of blocks that need to be launched to cover the box
     unsigned int nBlocks = (nSpheres + CUDA_THREADS_PER_BLOCK - 1) / CUDA_THREADS_PER_BLOCK;
-
     // Settling simulation loop.
     float duration_SU = (float)(duration / TIME_SU2UU);
     unsigned int nsteps = (unsigned int)std::round(duration_SU / stepSize_SU);
-
     METRICS_PRINTF("advancing by %f at timestep %f, %u timesteps at approx user timestep %f\n", duration_SU,
                    stepSize_SU, nsteps, duration / nsteps);
     float time_elapsed_SU = 0;  // time elapsed in this advance call
 
     packSphereDataPointers();
+
     // Run the simulation, there are aggressive synchronizations because we want to have no race conditions
     for (unsigned int n = 0; n < nsteps; n++) {
         updateBCPositions();
@@ -618,7 +668,7 @@ __host__ double ChSystemGpu_impl::AdvanceSimulation(float duration) {
 
         if (gran_params->friction_mode == CHGPU_FRICTION_MODE::FRICTIONLESS) {
             // Compute sphere-sphere forces
-            computeSphereForces_frictionless<<<nSDs, MAX_COUNT_OF_SPHERES_PER_SD>>>(
+            computeSphereForces_frictionless_matBased<<<nSDs, MAX_COUNT_OF_SPHERES_PER_SD>>>(
                 sphere_data, gran_params, BC_type_list.data(), BC_params_list_SU.data(),
                 (unsigned int)BC_params_list_SU.size());
             gpuErrchk(cudaPeekAtLastError());
@@ -630,9 +680,17 @@ __host__ double ChSystemGpu_impl::AdvanceSimulation(float duration) {
             gpuErrchk(cudaPeekAtLastError());
             gpuErrchk(cudaDeviceSynchronize());
 
-            computeSphereContactForces<<<nBlocks, CUDA_THREADS_PER_BLOCK>>>(
-                sphere_data, gran_params, BC_type_list.data(), BC_params_list_SU.data(),
-                (unsigned int)BC_params_list_SU.size(), nSpheres);
+            if (gran_params->use_mat_based == true) {
+                computeSphereContactForces_matBased<<<nBlocks, CUDA_THREADS_PER_BLOCK>>>(
+                    sphere_data, gran_params, BC_type_list.data(), BC_params_list_SU.data(),
+                    (unsigned int)BC_params_list_SU.size(), nSpheres);
+
+            } else {
+                computeSphereContactForces<<<nBlocks, CUDA_THREADS_PER_BLOCK>>>(
+                    sphere_data, gran_params, BC_type_list.data(), BC_params_list_SU.data(),
+                    (unsigned int)BC_params_list_SU.size(), nSpheres);
+            }
+
             gpuErrchk(cudaPeekAtLastError());
             gpuErrchk(cudaDeviceSynchronize());
         }
@@ -646,10 +704,15 @@ __host__ double ChSystemGpu_impl::AdvanceSimulation(float duration) {
             const unsigned int nThreadsUpdateHist = 2 * CUDA_THREADS_PER_BLOCK;
             unsigned int fricMapSize = nSpheres * MAX_SPHERES_TOUCHED_BY_SPHERE;
             unsigned int nBlocksFricHistoryPostProcess = (fricMapSize + nThreadsUpdateHist - 1) / nThreadsUpdateHist;
+
+            METRICS_PRINTF("Update Friction Data!\n");
+
             updateFrictionData<<<nBlocksFricHistoryPostProcess, nThreadsUpdateHist>>>(fricMapSize, sphere_data,
                                                                                       gran_params);
+
             gpuErrchk(cudaPeekAtLastError());
             gpuErrchk(cudaDeviceSynchronize());
+            METRICS_PRINTF("Update angular velocity.\n");
             updateAngVels<<<nBlocks, CUDA_THREADS_PER_BLOCK>>>(stepSize_SU, sphere_data, nSpheres, gran_params);
             gpuErrchk(cudaPeekAtLastError());
             gpuErrchk(cudaDeviceSynchronize());

@@ -32,16 +32,26 @@ namespace vehicle {
 // -----------------------------------------------------------------------------
 ChSprocket::ChSprocket(const std::string& name) : ChPart(name), m_lateral_contact(true) {}
 
-ChSprocket::~ChSprocket() {}
+ChSprocket::~ChSprocket() {
+    auto sys = m_gear->GetSystem();
+    if (sys) {
+        sys->Remove(m_gear);
+        sys->Remove(m_axle);
+        sys->Remove(m_axle_to_spindle);
+        sys->Remove(m_revolute);
+
+        sys->UnregisterCustomCollisionCallback(m_callback);
+    }
+}
 
 // -----------------------------------------------------------------------------
-void ChSprocket::Initialize(std::shared_ptr<ChBodyAuxRef> chassis, const ChVector<>& location, ChTrackAssembly* track) {
-    // The sprocket reference frame is aligned with that of the chassis and centered at the
-    // specified location.
-    ////ChFrame<> sprocket_to_abs(location);
-    ////sprocket_to_abs.ConcatenatePreTransformation(chassis->GetFrame_REF_to_abs());
-    ChVector<> loc = chassis->GetFrame_REF_to_abs().TransformPointLocalToParent(location);
-    ChQuaternion<> chassisRot = chassis->GetFrame_REF_to_abs().GetRot();
+void ChSprocket::Initialize(std::shared_ptr<ChChassis> chassis, const ChVector<>& location, ChTrackAssembly* track) {
+    m_parent = chassis;
+    m_rel_loc = location;
+
+    // The sprocket reference frame is aligned with that of the chassis and centered at the specified location.
+    ChVector<> loc = chassis->GetBody()->GetFrame_REF_to_abs().TransformPointLocalToParent(location);
+    ChQuaternion<> chassisRot = chassis->GetBody()->GetFrame_REF_to_abs().GetRot();
     ChQuaternion<> y2z = Q_from_AngX(CH_C_PI_2);
     ChMatrix33<> rot_y2z(y2z);
 
@@ -59,7 +69,7 @@ void ChSprocket::Initialize(std::shared_ptr<ChBodyAuxRef> chassis, const ChVecto
     ChCoordsys<> rev_csys(loc, chassisRot * y2z);
     m_revolute = chrono_types::make_shared<ChLinkLockRevolute>();
     m_revolute->SetNameString(m_name + "_revolute");
-    m_revolute->Initialize(chassis, m_gear, rev_csys);
+    m_revolute->Initialize(chassis->GetBody(), m_gear, rev_csys);
     chassis->GetSystem()->AddLink(m_revolute);
 
     // Create and initialize the axle shaft and its connection to the gear. Note that the
@@ -67,7 +77,7 @@ void ChSprocket::Initialize(std::shared_ptr<ChBodyAuxRef> chassis, const ChVecto
     m_axle = chrono_types::make_shared<ChShaft>();
     m_axle->SetNameString(m_name + "_axle");
     m_axle->SetInertia(GetAxleInertia());
-    chassis->GetSystem()->Add(m_axle);
+    chassis->GetSystem()->AddShaft(m_axle);
 
     m_axle_to_spindle = chrono_types::make_shared<ChShaftsBody>();
     m_axle_to_spindle->SetNameString(m_name + "_axle_to_spindle");
@@ -79,12 +89,19 @@ void ChSprocket::Initialize(std::shared_ptr<ChBodyAuxRef> chassis, const ChVecto
     CreateContactMaterial(chassis->GetSystem()->GetContactMethod());
 
     // Set user-defined custom collision callback class for sprocket-shoes contact.
-    chassis->GetSystem()->RegisterCustomCollisionCallback(GetCollisionCallback(track));
+    m_callback = GetCollisionCallback(track);
+    chassis->GetSystem()->RegisterCustomCollisionCallback(m_callback);
 }
 
-// -----------------------------------------------------------------------------
-double ChSprocket::GetMass() const {
-    return GetGearMass();
+void ChSprocket::InitializeInertiaProperties() {
+    m_mass = GetGearMass();
+    m_inertia = ChMatrix33<>(0);
+    m_inertia.diagonal() = GetGearInertia().eigen();
+    m_com = ChFrame<>();
+}
+
+void ChSprocket::UpdateInertiaProperties() {
+    m_xform = m_gear->GetFrame_REF_to_abs();
 }
 
 // -----------------------------------------------------------------------------
@@ -98,30 +115,28 @@ void ChSprocket::AddVisualizationAssets(VisualizationType vis) {
     ChQuaternion<> y2z = Q_from_AngX(CH_C_PI_2);
     ChMatrix33<> rot_y2z(y2z);
 
+    //// RADU TODO: can use a single instance of the LineShape
+
     auto asset_1 = chrono_types::make_shared<ChLineShape>();
     asset_1->SetLineGeometry(profile);
-    asset_1->Pos = ChVector<>(0, sep / 2, 0);
-    asset_1->Rot = rot_y2z;
     asset_1->SetColor(ChColor(1, 0, 0));
-    m_gear->AddAsset(asset_1);
+    m_gear->AddVisualShape(asset_1, ChFrame<>(ChVector<>(0, sep / 2, 0), rot_y2z));
 
     auto asset_2 = chrono_types::make_shared<ChLineShape>();
     asset_2->SetLineGeometry(profile);
-    asset_2->Pos = ChVector<>(0, -sep / 2, 0);
-    asset_2->Rot = rot_y2z;
     asset_2->SetColor(ChColor(1, 0, 0));
-    m_gear->AddAsset(asset_2);
+    m_gear->AddVisualShape(asset_2, ChFrame<>(ChVector<>(0, -sep / 2, 0), rot_y2z));
 }
 
 void ChSprocket::RemoveVisualizationAssets() {
-    m_gear->GetAssets().clear();
+    ChPart::RemoveVisualizationAssets(m_gear);
 }
 
 // -----------------------------------------------------------------------------
 std::shared_ptr<geometry::ChTriangleMeshConnected> ChSprocket::CreateVisualizationMesh(double radius,
                                                                                        double width,
                                                                                        double delta,
-                                                                                       ChVector<float> color) const {
+                                                                                       ChColor color) const {
     auto sep = GetSeparation();
     auto profile = GetProfile();
 
@@ -153,8 +168,8 @@ std::shared_ptr<geometry::ChTriangleMeshConnected> ChSprocket::CreateVisualizati
     std::vector<ChVector<>>& normals = mesh->getCoordsNormals();
     std::vector<ChVector<int>>& idx_vertices = mesh->getIndicesVertexes();
     std::vector<ChVector<int>>& idx_normals = mesh->getIndicesNormals();
-    ////std::vector<ChVector<>>& uv_coords = mesh->getCoordsUV();
-    std::vector<ChVector<float>>& colors = mesh->getCoordsColors();
+    ////std::vector<ChVector2<>>& uv_coords = mesh->getCoordsUV();
+    std::vector<ChColor>& colors = mesh->getCoordsColors();
 
     // Calculate number of vertices, normals, and faces. Resize mesh arrays.
     auto npoints = ppoints.size();
@@ -277,7 +292,7 @@ void ChSprocket::ApplyAxleTorque(double torque) {
 
 // -----------------------------------------------------------------------------
 void ChSprocket::LogConstraintViolations() {
-    ChVectorDynamic<> C = m_revolute->GetC();
+    ChVectorDynamic<> C = m_revolute->GetConstraintViolation();
     GetLog() << "  Sprocket-chassis revolute\n";
     GetLog() << "  " << C(0) << "  ";
     GetLog() << "  " << C(1) << "  ";

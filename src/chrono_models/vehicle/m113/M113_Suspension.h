@@ -22,7 +22,7 @@
 #include <string>
 
 #include "chrono_vehicle/ChSubsysDefs.h"
-#include "chrono_vehicle/tracked_vehicle/suspension/ChLinearDamperRWAssembly.h"
+#include "chrono_vehicle/tracked_vehicle/suspension/ChTranslationalDamperSuspension.h"
 
 #include "chrono_models/ChApiModels.h"
 
@@ -33,10 +33,10 @@ namespace m113 {
 /// @addtogroup vehicle_models_m113
 /// @{
 
-/// Linear-damper M113 suspension (road-wheel assembly).
-class CH_MODELS_API M113_Suspension : public ChLinearDamperRWAssembly {
+/// Linear-damper M113 track suspension.
+class CH_MODELS_API M113_Suspension : public ChTranslationalDamperSuspension {
   public:
-    M113_Suspension(const std::string& name, VehicleSide side, int index, bool has_shock);
+    M113_Suspension(const std::string& name, VehicleSide side, int index, bool use_bushings, bool has_shock);
     ~M113_Suspension();
 
     /// Return the location of the specified hardpoint.
@@ -50,17 +50,24 @@ class CH_MODELS_API M113_Suspension : public ChLinearDamperRWAssembly {
     /// Return a visualization radius for the arm body.
     virtual double GetArmVisRadius() const override { return m_arm_radius; }
 
-    /// Return the functor object for the torsional spring torque.
-    virtual std::shared_ptr<ChLinkRotSpringCB::TorqueFunctor> GetSpringTorqueFunctor() const override { return m_spring_torqueCB; }
+    /// Return bushing data.
+    virtual std::shared_ptr<ChVehicleBushingData> getArmBushingData() const override { return m_bushing_data; }
 
+    /// Return the free (rest) angle of the spring element.
+    virtual double GetSpringRestAngle() const override { return 0; }
+    /// Return the functor object for the torsional spring torque.
+    virtual std::shared_ptr<ChLinkRSDA::TorqueFunctor> GetSpringTorqueFunctor() const override {
+        return m_spring_torqueCB;
+    }
     /// Return the functor object for the translational shock force.
     virtual std::shared_ptr<ChLinkTSDA::ForceFunctor> GetShockForceFunctor() const override { return m_shock_forceCB; }
 
   private:
     VehicleSide m_side;
 
-    std::shared_ptr<ChLinkRotSpringCB::TorqueFunctor> m_spring_torqueCB;
+    std::shared_ptr<ChLinkRSDA::TorqueFunctor> m_spring_torqueCB;
     std::shared_ptr<ChLinkTSDA::ForceFunctor> m_shock_forceCB;
+    std::shared_ptr<ChVehicleBushingData> m_bushing_data;
 
     static const double m_arm_mass;
     static const ChVector<> m_arm_inertia;

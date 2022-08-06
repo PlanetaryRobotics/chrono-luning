@@ -16,7 +16,6 @@
 //
 // =============================================================================
 
-#include "chrono/assets/ChColorAsset.h"
 #include "chrono/assets/ChCylinderShape.h"
 #include "chrono/assets/ChTriangleMeshShape.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
@@ -64,7 +63,7 @@ const double M113_TrackShoeBandANCF::m_tread_thickness = 0.0157 * 1.04;
 const ChVector<> M113_TrackShoeBandANCF::m_guide_box_dims(0.0529, 0.0114, 0.075);
 const double M113_TrackShoeBandANCF::m_guide_box_offset_x = 0;
 
-const std::string M113_TrackShoeBandANCF::m_meshFile = "M113/TrackShoeBandANCF.obj";
+const std::string M113_TrackShoeBandANCF::m_meshFile = "M113/meshes/TrackShoeBandANCF.obj";
 const std::string M113_TrackShoeBandANCF::m_tread_meshName = "M113_Tread";
 
 // -----------------------------------------------------------------------------
@@ -98,7 +97,7 @@ void M113_TrackShoeBandANCF::CreateContactMaterials(ChContactMethod contact_meth
         MaterialInfo minfo;
         minfo.mu = 0.8f;
         minfo.cr = 0.75f;
-        minfo.Y = 1e7f;
+        minfo.Y = 1e9f;
         m_tooth_material = minfo.CreateMaterial(contact_method);
     }
 }

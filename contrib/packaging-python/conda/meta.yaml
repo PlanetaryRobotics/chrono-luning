@@ -1,11 +1,10 @@
 # change the version number in case of a release build
 package:
   name: pychrono
-  version: 6.0.0
+  version: 7.0.0
 
 source:
   path: ../../..
-
 
 build:
   rpaths:
@@ -13,24 +12,46 @@ build:
   script_env:
     - CC
     - CXX
+    - CI_PROJECT_DIR
+    #- VS_VERSION=16.0
+    #- VS_YEAR=2019
 
   number: {{ environ.get('GIT_DESCRIBE_NUMBER', 0) }}
   binary_relocation: true
   #features:
-  #  - vc9               [win and py27]
-  #  - vc14              [win and py35]
-  #  - vc14              [win and py36]
+  #  - vc9              # [win and py27]
+  #  - vc14             # [win and py35]
+  #  - vc14             # [win and py36]
 
 requirements:
   build:
+    #- {{ compiler('c')}} # [not win]
+    #- {{ compiler('cxx') }} # [not win]
     - python
-    - cmake >=3.9.3
-    - swig >=3.0.12
+    - cmake >=3.10          # [not win]
+    - ninja   # [linux or osx]
+    - pip     # [linux]
+    - jinja2  # [linux]
+    - llvm-openmp   # [linux]
+    - libglvnd-glx-cos7-x86_64 # [linux]
+    - swig >=4.0.0
     - mkl
-
+    - mkl-devel
+    - freeglut # [linux]
+    - libxxf86vm-devel-cos7-x86_64 # [linux]
+    - irrlicht
+    - opencascade
+    - numpy >=1.16
+    - glew
+    - glfw
+    - eigen >=3.3.7
+    
   run:
     - python
     - mkl
+    - numpy >=1.16
+    - glew
+    - glfw
 
 test:
   requires:

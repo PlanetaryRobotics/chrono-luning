@@ -24,9 +24,10 @@
 
 #include "chrono/core/ChQuaternion.h"
 #include "chrono/core/ChVector.h"
+#include "chrono/core/ChFrame.h"
 #include "chrono/physics/ChBodyAuxRef.h"
 #include "chrono/physics/ChMaterialSurface.h"
-#include "chrono/physics/ChLinkRotSpringCB.h"
+#include "chrono/physics/ChLinkRSDA.h"
 #include "chrono/physics/ChLinkTSDA.h"
 #include "chrono/assets/ChColor.h"
 
@@ -90,6 +91,13 @@ struct TerrainForce {
 /// Vector of terrain conatct force structures.
 typedef std::vector<TerrainForce> TerrainForces;
 
+/// Driver (vehicle control) inputs.
+struct DriverInputs {
+    double m_steering;  ///< steering input [-1, +1]
+    double m_throttle;  ///< throttle input [0, 1]
+    double m_braking;   ///< braking input [0, 1]
+};
+
 // -----------------------------------------------------------------------------
 // Utility functor classes for force elements
 // -----------------------------------------------------------------------------
@@ -98,7 +106,11 @@ typedef std::vector<TerrainForce> TerrainForces;
 class LinearSpringForce : public ChLinkTSDA::ForceFunctor {
   public:
     LinearSpringForce(double k) : m_k(k) {}
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return -m_k * (length - rest_length);
     }
 
@@ -110,7 +122,11 @@ class LinearSpringForce : public ChLinkTSDA::ForceFunctor {
 class LinearDamperForce : public ChLinkTSDA::ForceFunctor {
   public:
     LinearDamperForce(double c) : m_c(c) {}
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return -m_c * vel;
     }
 
@@ -122,7 +138,11 @@ class LinearDamperForce : public ChLinkTSDA::ForceFunctor {
 class LinearSpringDamperForce : public ChLinkTSDA::ForceFunctor {
   public:
     LinearSpringDamperForce(double k, double c) : m_k(k), m_c(c) {}
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return -m_k * (length - rest_length) - m_c * vel;
     }
 
@@ -135,7 +155,11 @@ class LinearSpringDamperForce : public ChLinkTSDA::ForceFunctor {
 class LinearSpringDamperActuatorForce : public ChLinkTSDA::ForceFunctor {
   public:
     LinearSpringDamperActuatorForce(double k, double c, double f) : m_k(k), m_c(c), m_f(f) {}
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return m_f - m_k * (length - rest_length) - m_c * vel;
     }
 
@@ -155,7 +179,11 @@ class MapSpringForce : public ChLinkTSDA::ForceFunctor {
         }
     }
     void add_point(double x, double y) { m_map.AddPoint(x, y); }
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return -m_map.Get_y(length - rest_length);
     }
 
@@ -180,7 +208,11 @@ class MapSpringBistopForce : public ChLinkTSDA::ForceFunctor {
         }
     }
     void add_point(double x, double y) { m_map.AddPoint(x, y); }
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         double defl_bump = 0.0;
         double defl_rebound = 0.0;
 
@@ -260,7 +292,11 @@ class LinearSpringBistopForce : public ChLinkTSDA::ForceFunctor {
         m_rebound.AddPoint(60.0e-3, 125000.0);
     }
 
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         double force = 0;
 
         double defl_spring = rest_length - length;
@@ -314,7 +350,11 @@ class DegressiveDamperForce : public ChLinkTSDA::ForceFunctor {
           m_degr_compression(degr_compression),
           m_degr_expansion(degr_expansion) {}
 
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         if (vel >= 0) {
             return -m_c_expansion * vel / (1.0 + m_degr_expansion * vel);
         } else {
@@ -339,7 +379,11 @@ class MapDamperForce : public ChLinkTSDA::ForceFunctor {
         }
     }
     void add_point(double x, double y) { m_map.AddPoint(x, y); }
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return -m_map.Get_y(vel);
     }
 
@@ -364,7 +408,11 @@ class MapSpringDamperActuatorForce : public ChLinkTSDA::ForceFunctor {
     void add_pointK(double x, double y) { m_mapK.AddPoint(x, y); }
     void add_pointC(double x, double y) { m_mapC.AddPoint(x, y); }
     void set_f(double f) { m_f = f; }
-    virtual double operator()(double time, double rest_length, double length, double vel, ChLinkTSDA* link) override {
+    virtual double evaluate(double time,
+                            double rest_length,
+                            double length,
+                            double vel,
+                            const ChLinkTSDA& link) override {
         return m_f - m_mapK.Get_y(length - rest_length) - m_mapC.Get_y(vel);
     }
 
@@ -375,10 +423,10 @@ class MapSpringDamperActuatorForce : public ChLinkTSDA::ForceFunctor {
 };
 
 /// Utility class for specifying a linear rotational spring torque.
-class LinearSpringTorque : public ChLinkRotSpringCB::TorqueFunctor {
+class LinearSpringTorque : public ChLinkRSDA::TorqueFunctor {
   public:
     LinearSpringTorque(double k, double rest_angle = 0) : m_k(k), m_rest_angle(rest_angle) {}
-    virtual double operator()(double time, double angle, double vel, ChLinkRotSpringCB* link) override {
+    virtual double evaluate(double time, double angle, double vel, const ChLinkRSDA& link) override {
         return -m_k * (angle - m_rest_angle);
     }
 
@@ -388,10 +436,10 @@ class LinearSpringTorque : public ChLinkRotSpringCB::TorqueFunctor {
 };
 
 /// Utility class for specifying a linear rotational damper torque.
-class LinearDamperTorque : public ChLinkRotSpringCB::TorqueFunctor {
+class LinearDamperTorque : public ChLinkRSDA::TorqueFunctor {
   public:
     LinearDamperTorque(double c) : m_c(c) {}
-    virtual double operator()(double time, double angle, double vel, ChLinkRotSpringCB* link) override {
+    virtual double evaluate(double time, double angle, double vel, const ChLinkRSDA& link) override {
         return -m_c * vel;
     }
 
@@ -400,10 +448,10 @@ class LinearDamperTorque : public ChLinkRotSpringCB::TorqueFunctor {
 };
 
 /// Utility class for specifying a linear rotational spring-damper torque.
-class LinearSpringDamperTorque : public ChLinkRotSpringCB::TorqueFunctor {
+class LinearSpringDamperTorque : public ChLinkRSDA::TorqueFunctor {
   public:
     LinearSpringDamperTorque(double k, double c, double rest_angle = 0) : m_k(k), m_c(c), m_rest_angle(rest_angle) {}
-    virtual double operator()(double time, double angle, double vel, ChLinkRotSpringCB* link) override {
+    virtual double evaluate(double time, double angle, double vel, const ChLinkRSDA& link) override {
         return -m_k * (angle - m_rest_angle) - m_c * vel;
     }
 
@@ -414,11 +462,11 @@ class LinearSpringDamperTorque : public ChLinkRotSpringCB::TorqueFunctor {
 };
 
 /// Utility class for specifying a linear rotational spring-damper torque with pre-tension.
-class LinearSpringDamperActuatorTorque : public ChLinkRotSpringCB::TorqueFunctor {
+class LinearSpringDamperActuatorTorque : public ChLinkRSDA::TorqueFunctor {
   public:
     LinearSpringDamperActuatorTorque(double k, double c, double t, double rest_angle = 0)
         : m_k(k), m_c(c), m_t(t), m_rest_angle(rest_angle) {}
-    virtual double operator()(double time, double angle, double vel, ChLinkRotSpringCB* link) override {
+    virtual double evaluate(double time, double angle, double vel, const ChLinkRSDA& link) override {
         return m_t - m_k * (angle - m_rest_angle) - m_c * vel;
     }
 
@@ -430,7 +478,7 @@ class LinearSpringDamperActuatorTorque : public ChLinkRotSpringCB::TorqueFunctor
 };
 
 /// Utility class for specifying a map rotational spring torque.
-class MapSpringTorque : public ChLinkRotSpringCB::TorqueFunctor {
+class MapSpringTorque : public ChLinkRSDA::TorqueFunctor {
   public:
     MapSpringTorque() {}
     MapSpringTorque(const std::vector<std::pair<double, double>>& data, double rest_angle = 0)
@@ -440,7 +488,7 @@ class MapSpringTorque : public ChLinkRotSpringCB::TorqueFunctor {
         }
     }
     void add_point(double x, double y) { m_map.AddPoint(x, y); }
-    virtual double operator()(double time, double angle, double vel, ChLinkRotSpringCB* link) override {
+    virtual double evaluate(double time, double angle, double vel, const ChLinkRSDA& link) override {
         return -m_map.Get_y(angle - m_rest_angle);
     }
 
@@ -450,7 +498,7 @@ class MapSpringTorque : public ChLinkRotSpringCB::TorqueFunctor {
 };
 
 /// Utility class for specifying a map rotational damper torque.
-class MapDamperTorque : public ChLinkRotSpringCB::TorqueFunctor {
+class MapDamperTorque : public ChLinkRSDA::TorqueFunctor {
   public:
     MapDamperTorque() {}
     MapDamperTorque(const std::vector<std::pair<double, double>>& data) {
@@ -459,7 +507,7 @@ class MapDamperTorque : public ChLinkRotSpringCB::TorqueFunctor {
         }
     }
     void add_point(double x, double y) { m_map.AddPoint(x, y); }
-    virtual double operator()(double time, double angle, double vel, ChLinkRotSpringCB* link) override {
+    virtual double evaluate(double time, double angle, double vel, const ChLinkRSDA& link) override {
         return -m_map.Get_y(vel);
     }
 
@@ -568,6 +616,16 @@ enum class TrackShoeType {
     BAND_ANCF      ///< rigid tooth-ANCF web continuous band track shoe and sprocket
 };
 
+/// Topology of the double-pin track shoe.
+/// The "full" double-pin track shoe mechanism uses separate bodies for the left and right connector bodies.  The
+/// "reduced" model uses a single connector body. The mass and inertia of the composite connector body in the reduced
+/// model are calculated based on the provided values for an individual connector body.  Furthermore, the collision
+/// geometry is the same, meaning both models of a double-pin track shoe can interact with the same type of sprocket.
+enum class DoublePinTrackShoeType {
+    TWO_CONNECTORS,  ///< two connector bodies
+    ONE_CONNECTOR    ///< one connector body
+};
+
 /// Enum for guide pin (track shoe/roadwheel/idler).
 enum class GuidePinType {
     CENTRAL_PIN,  ///< track shoes with central guiding pin and double wheels
@@ -667,6 +725,15 @@ class CH_VEHICLE_API ChVehicleGeometry {
         int m_matID;           ///< index in contact material list
     };
 
+    /// Line shape for visualization.
+    struct LineShape {
+        LineShape(const ChVector<>& pos, const ChQuaternion<>& rot, std::shared_ptr<geometry::ChLine> line)
+            : m_pos(pos), m_rot(rot), m_line(line) {}
+        ChVector<> m_pos;                          ///< position relative to body
+        ChQuaternion<> m_rot;                      ///< orientation relative to body
+        std::shared_ptr<geometry::ChLine> m_line;  ///< line data
+    };
+
     /// Convex hulls shape for collision.
     struct ConvexHullsShape {
         ConvexHullsShape(const std::string& filename, int matID = -1) : m_filename(filename), m_matID(matID) {}
@@ -696,12 +763,14 @@ class CH_VEHICLE_API ChVehicleGeometry {
     std::vector<BoxShape> m_vis_boxes;           ///< list of visualization boxes
     std::vector<SphereShape> m_vis_spheres;      ///< list of visualization spheres
     std::vector<CylinderShape> m_vis_cylinders;  ///< list of visualization cylinders
+    std::vector<LineShape> m_vis_lines;          ///< list of visualization lines
 
     bool m_has_colors;          ///< true if primitive colors were provided
     ChColor m_color_boxes;      ///< visualization color
     ChColor m_color_spheres;    ///< visualization color
     ChColor m_color_cylinders;  ///< visualization color
 
+    bool m_has_obj;               ///< true if the body uses visualization from an OBJ
     bool m_has_mesh;              ///< true if the body uses a visualization mesh
     std::string m_vis_mesh_file;  ///< name of Wavefront OBJ file with visualizaiton mesh
 

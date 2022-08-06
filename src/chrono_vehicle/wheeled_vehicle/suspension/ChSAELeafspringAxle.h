@@ -65,8 +65,6 @@
 
 #include <vector>
 
-#include "chrono/assets/ChColorAsset.h"
-
 #include "chrono_vehicle/ChApiVehicle.h"
 #include "chrono_vehicle/wheeled_vehicle/ChSuspension.h"
 
@@ -118,7 +116,7 @@ class CH_VEHICLE_API ChSAELeafspringAxle : public ChSuspension {
     ChSAELeafspringAxle(const std::string& name  ///< [in] name of the subsystem
     );
 
-    virtual ~ChSAELeafspringAxle() {}
+    virtual ~ChSAELeafspringAxle();
 
     /// Get the name of the vehicle subsystem template.
     virtual std::string GetTemplateName() const override { return "SAELeafspringAxle"; }
@@ -149,12 +147,6 @@ class CH_VEHICLE_API ChSAELeafspringAxle : public ChSuspension {
 
     /// Remove visualization assets for the suspension subsystem.
     virtual void RemoveVisualizationAssets() override;
-
-    /// Get the total mass of the suspension subsystem.
-    virtual double GetMass() const override;
-
-    /// Get the current global COM location of the suspension subsystem.
-    virtual ChVector<> GetCOMPos() const override;
 
     /// Get the wheel track for the suspension subsystem.
     virtual double GetTrack() override;
@@ -207,6 +199,9 @@ class CH_VEHICLE_API ChSAELeafspringAxle : public ChSuspension {
         NUM_POINTS
     };
 
+    virtual void InitializeInertiaProperties() override;
+    virtual void UpdateInertiaProperties() override;
+
     /// Return the location of the specified hardpoint.
     /// The returned location must be expressed in the suspension reference frame.
     virtual const ChVector<> getLocation(PointId which) = 0;
@@ -254,41 +249,50 @@ class CH_VEHICLE_API ChSAELeafspringAxle : public ChSuspension {
     /// Return the functor object for auxiliary shock force.
     virtual std::shared_ptr<ChLinkTSDA::ForceFunctor> getShockForceFunctor() const = 0;
 
-    virtual std::shared_ptr<ChLinkRotSpringCB::TorqueFunctor> getLatTorqueFunctorA() const = 0;
-    virtual std::shared_ptr<ChLinkRotSpringCB::TorqueFunctor> getLatTorqueFunctorB() const = 0;
+    virtual std::shared_ptr<ChLinkRSDA::TorqueFunctor> getLatTorqueFunctorA() const = 0;
+    virtual std::shared_ptr<ChLinkRSDA::TorqueFunctor> getLatTorqueFunctorB() const = 0;
 
-    virtual std::shared_ptr<ChLinkRotSpringCB::TorqueFunctor> getVertTorqueFunctorA() const = 0;
-    virtual std::shared_ptr<ChLinkRotSpringCB::TorqueFunctor> getVertTorqueFunctorB() const = 0;
+    virtual std::shared_ptr<ChLinkRSDA::TorqueFunctor> getVertTorqueFunctorA() const = 0;
+    virtual std::shared_ptr<ChLinkRSDA::TorqueFunctor> getVertTorqueFunctorB() const = 0;
 
-    std::shared_ptr<ChBody> m_axleTube;  ///< handles to the axle tube body
-    std::shared_ptr<ChBody> m_tierod;    ///< handles to the tierod body
+    /// Return stiffness and damping data for the shackle bushing.
+    /// Returning nullptr (default) results in using a kinematic revolute joint.
+    virtual std::shared_ptr<ChVehicleBushingData> getShackleBushingData() const { return nullptr; }
+    /// Return stiffness and damping data for the clamp bushing.
+    /// Returning nullptr (default) results in using a kinematic revolute joint.
+    virtual std::shared_ptr<ChVehicleBushingData> getClampBushingData() const { return nullptr; }
+    /// Return stiffness and damping data for the leafspring bushing.
+    /// Returning nullptr (default) results in using a kinematic revolute joint.
+    virtual std::shared_ptr<ChVehicleBushingData> getLeafspringBushingData() const { return nullptr; }
 
-    std::shared_ptr<ChLinkTSDA> m_shock[2];   ///< handles to the spring links (L/R)
-    std::shared_ptr<ChLinkTSDA> m_spring[2];  ///< handles to the shock links (L/R)
+    std::shared_ptr<ChBody> m_axleTube;  ///< axle tube body
+
+    std::shared_ptr<ChLinkTSDA> m_shock[2];   ///< spring links (L/R)
+    std::shared_ptr<ChLinkTSDA> m_spring[2];  ///< shock links (L/R)
 
     // Leafspring related elements
-    std::shared_ptr<ChBody> m_shackle[2];                 ///< handles to the shackle bodies
-    std::shared_ptr<ChLinkLockRevolute> m_shackleRev[2];  ///< chassis-shackle rotational joint
+    std::shared_ptr<ChBody> m_shackle[2];             ///< shackle bodies
+    std::shared_ptr<ChVehicleJoint> m_shackleRev[2];  ///< chassis-shackle rotational joint
 
-    std::shared_ptr<ChBody> m_frontleaf[2];                  ///< handles to the frontleaf bodies
+    std::shared_ptr<ChBody> m_frontleaf[2];                  ///< frontleaf bodies
     std::shared_ptr<ChLinkLockSpherical> m_frontleafSph[2];  ///< frontleaf-chassis spherical joint
-    std::shared_ptr<ChLinkLockRevolute> m_frontleafRev[2];   ///< frontleaf-clampA rotational joint
+    std::shared_ptr<ChVehicleJoint> m_frontleafRev[2];       ///< frontleaf-clampA rotational joint
 
-    std::shared_ptr<ChBody> m_rearleaf[2];                  ///< handles to the rearleaf bodies
+    std::shared_ptr<ChBody> m_rearleaf[2];                  ///< rearleaf bodies
     std::shared_ptr<ChLinkLockSpherical> m_rearleafSph[2];  ///< rearleaf-chassis spherical joint
-    std::shared_ptr<ChLinkLockRevolute> m_rearleafRev[2];   ///< rearleaf-clampB rotational joint
+    std::shared_ptr<ChVehicleJoint> m_rearleafRev[2];       ///< rearleaf-clampB rotational joint
 
-    std::shared_ptr<ChBody> m_clampA[2];                 ///< handles to the clampA bodies
-    std::shared_ptr<ChLinkLockRevolute> m_clampARev[2];  ///< clampA-axleTube rotational joint Z
+    std::shared_ptr<ChBody> m_clampA[2];             ///< clampA bodies
+    std::shared_ptr<ChVehicleJoint> m_clampARev[2];  ///< clampA-axleTube rotational joint Z
 
-    std::shared_ptr<ChBody> m_clampB[2];                 ///< handles to the clampB bodies
-    std::shared_ptr<ChLinkLockRevolute> m_clampBRev[2];  ///< clampB-axleTube rotational joint Z
+    std::shared_ptr<ChBody> m_clampB[2];             ///< clampB bodies
+    std::shared_ptr<ChVehicleJoint> m_clampBRev[2];  ///< clampB-axleTube rotational joint Z
 
-    std::shared_ptr<ChLinkRotSpringCB> m_latRotSpringA[2];  ///< mimics lateral stiffness of frontleaf
-    std::shared_ptr<ChLinkRotSpringCB> m_latRotSpringB[2];  ///< mimics lateral stiffness of rearleaf
+    std::shared_ptr<ChLinkRSDA> m_latRotSpringA[2];  ///< mimics lateral stiffness of frontleaf
+    std::shared_ptr<ChLinkRSDA> m_latRotSpringB[2];  ///< mimics lateral stiffness of rearleaf
 
-    std::shared_ptr<ChLinkRotSpringCB> m_vertRotSpringA[2];  ///< mimics vertical stiffness of frontleaf
-    std::shared_ptr<ChLinkRotSpringCB> m_vertRotSpringB[2];  ///< mimics vertical stiffness of rearleaf
+    std::shared_ptr<ChLinkRSDA> m_vertRotSpringA[2];  ///< mimics vertical stiffness of frontleaf
+    std::shared_ptr<ChLinkRSDA> m_vertRotSpringB[2];  ///< mimics vertical stiffness of rearleaf
 
   private:
     // Hardpoint absolute locations
@@ -304,7 +308,7 @@ class CH_VEHICLE_API ChSAELeafspringAxle : public ChSuspension {
     ChVector<> m_tierodOuterR;
 
     void InitializeSide(VehicleSide side,
-                        std::shared_ptr<ChBodyAuxRef> chassis,
+                        std::shared_ptr<ChChassis> chassis,
                         const std::vector<ChVector<>>& points,
                         double ang_vel);
 
