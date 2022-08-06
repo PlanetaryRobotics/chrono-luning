@@ -1403,6 +1403,13 @@ int ChSystemGpu_impl::GetNumContacts() const {
     return total_nc / 2;
 }
 
+// set up parameters related to wave propagation test
+void ChSystemGpu_impl::setWavePropagationParameters(int sphereID, float forceRatio, float gravity) {
+    gran_params->F_ext_ratio = forceRatio;
+    gran_params->top_center_sphereID = sphereID;
+    gran_params->grav_mag = gravity;
+}
+
 // Partitions the big domain (BD) and sets the number of SDs that BD is split in.
 void ChSystemGpu_impl::partitionBD() {
     // Create BC walls and potential trajactory function

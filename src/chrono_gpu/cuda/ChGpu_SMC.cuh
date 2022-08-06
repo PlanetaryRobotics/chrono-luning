@@ -658,22 +658,25 @@ inline __device__ float3 computeSphereNormalForces(float& reciplength,
     // multiplier caused by Hooke vs Hertz force model
     float hertz_force_factor = sqrt(penetration_over_R);
 
+
+    // wave prop specific model
+    hertz_force_factor = 1.0f;
+
     // add spring term
     float3 force_accum =
         hertz_force_factor * gran_params->K_n_s2s_SU * sphereRadius_SU * penetration_over_R * contact_normal;
 
     // Add damping term
     const float m_eff = gran_params->sphere_mass_SU / 2.f;
-    force_accum = force_accum - gran_params->Gamma_n_s2s_SU * vrel_n * m_eff * hertz_force_factor;
+    float loge = log(0.01);
+    float gn = 2*loge * sqrt(m_eff * gran_params->K_n_s2s_SU/(loge * loge + PI_F * PI_F));
+    force_accum = force_accum + gn * vrel_n;
     return force_accum;
 }
 
 /// Compute normal forces for a contacting pair
 // returns the normal force and sets sqrt(R*penetration)
 // and beta = log(cor)/sqrt(log(cor)^2 + pi^2)
-// LULUTODO: check effective mass, eff_radius etc
-// LULUTODO: Is this called by sphere-mesh and sphere-wall?? nope
-// LULUTODO: check damping componenet as well
 inline __device__ float3 computeSphereNormalForces_matBased(float3& vrel_t,
                                                             float3& contact_normal,
                                                             float& sqrt_Rd,
@@ -834,12 +837,13 @@ static __global__ void computeSphereContactForces(ChSystemGpu_impl::GranSphereDa
                 make_float3(sphere_data->pos_X_dt[theirSphereID], sphere_data->pos_Y_dt[theirSphereID],
                             sphere_data->pos_Z_dt[theirSphereID]),
                 gran_params);
-
+            
             if (gran_params->recording_contactInfo == true) {
                 sphere_data->normal_contact_force[body_A_offset + contact_id] = force_accum;
             }
 
             float hertz_force_factor = sqrtf(2. * (1 - (1. / reciplength)));  // sqrt(delta_n / (2 R_eff)
+            hertz_force_factor = 1;
 
             // add frictional terms, if needed
             if (gran_params->friction_mode != CHGPU_FRICTION_MODE::FRICTIONLESS) {
@@ -897,6 +901,15 @@ static __global__ void computeSphereContactForces(ChSystemGpu_impl::GranSphereDa
         // add in gravity and wall forces
         applyExternalForces(mySphereID, myOwnerSD, my_sphere_pos, my_sphere_vel, my_omega, bodyA_force, bodyA_AngAcc,
                             gran_params, sphere_data, bc_type_list, bc_params_list, nBCs);
+
+
+        if (mySphereID == gran_params->top_center_sphereID){
+            float force_ratio = gran_params->F_ext_ratio;
+            float grav = gran_params->grav_mag;
+            float acc_unit = gran_params->LENGTH_UNIT/(gran_params->TIME_UNIT * gran_params->TIME_UNIT);
+            float external_force = force_ratio * (gran_params->sphere_mass_SU) * grav / acc_unit;
+            bodyA_force.z = bodyA_force.z - external_force;
+        }
 
         // Write the force back to global memory so that we can apply them AFTER this kernel finishes
         atomicAdd(sphere_data->sphere_acc_X + mySphereID, bodyA_force.x / gran_params->sphere_mass_SU);

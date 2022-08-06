@@ -23,6 +23,7 @@ SET(DEMOS
 		demo_GPU_compression
 		demo_GPU_repose
 		demo_GPU_balldrop
+		frictional_waveProp
 )
 
 # ------------------------------------------------------------------------------

@@ -249,6 +249,11 @@ void ChSystemGpu::SetRestitution_WALL(double someValue) {
     m_sys->COR_wall_UU = someValue;
 }
 
+void ChSystemGpu::setWavePropagationParameters(int sphereID, float forceRatio, float gravity) {
+    m_sys->setWavePropagationParameters(sphereID, forceRatio, gravity);
+}
+
+
 // -----------------------------------------------------------------------------
 
 void ChSystemGpuMesh::UseMaterialBasedModel(bool val) {
@@ -322,6 +327,10 @@ void ChSystemGpu::SetVerbosity(CHGPU_VERBOSITY level) {
 void ChSystemGpuMesh::SetMeshVerbosity(CHGPU_MESH_VERBOSITY level) {
     mesh_verbosity = level;
 }
+
+
+
+
 
 // -----------------------------------------------------------------------------
 

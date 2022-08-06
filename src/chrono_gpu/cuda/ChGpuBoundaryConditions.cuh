@@ -397,6 +397,8 @@ inline __device__ bool addBCForces_Plane_frictionless(const int64_t3& sphPos,
 
         float3 contact_normal = plane_params.normal;
         float force_model_multiplier = sqrt(penetration / sphereRadius_SU);
+        // wave prop specific
+        force_model_multiplier = 1.0f;
         force_accum = gran_params->K_n_s2w_SU * penetration * contact_normal;
 
         // point of contact
@@ -413,7 +415,10 @@ inline __device__ bool addBCForces_Plane_frictionless(const int64_t3& sphPos,
         const float m_eff = gran_params->sphere_mass_SU;
 
         // damping term
-        force_accum = force_accum + -1. * gran_params->Gamma_n_s2w_SU * projection * contact_normal * m_eff;
+        float loge = log(0.01);
+        float gn = 2*loge * sqrt(m_eff * gran_params->K_n_s2s_SU/(loge * loge + CUDART_PI_F * CUDART_PI_F));
+        force_accum = force_accum + gn * projection * contact_normal;
+
         force_accum = force_accum * force_model_multiplier;
 
         force_from_BCs = force_from_BCs + force_accum;
@@ -616,6 +621,7 @@ inline __device__ bool addBCForces_Plane(unsigned int sphID,
             } else {
                 float penetration = sphereRadius_SU - dist;
                 float force_model_multiplier = sqrt(penetration / sphereRadius_SU);
+                force_model_multiplier = 1.0f;
 
                 tangent_force = computeFrictionForces(gran_params, sphere_data, sphID, BC_histmap_label,
                                                       gran_params->static_friction_coeff_s2w, gran_params->K_t_s2w_SU,
