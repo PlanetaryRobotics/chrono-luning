@@ -92,7 +92,6 @@ class ChSystemGpu_impl {
     /// Structure with simulation parameters for sphere-based granular dynamics.
     /// This structure is stored in CUDA unified memory so that it can be accessed from both host and device.
     struct GranParams {
-        // parameters associated with wave propagation test
         float F_ext_ratio;
         unsigned int top_center_sphereID;
         float grav_mag;
@@ -385,6 +384,9 @@ class ChSystemGpu_impl {
     /// Return number of particle-particle contacts.
     int GetNumContacts() const;
 
+    /// set up wave propagation test parameters
+    void setWavePropagationParameters(int sphereID, float forceRatio, float gravity);
+    
     /// Return position of BC plane.
     float3 GetBCPlanePosition(size_t plane_id) const;
 

@@ -22,6 +22,7 @@
 #include <ctime>
 #include <iomanip>
 #include <algorithm>
+#include <stdlib.h>
 
 #include "chrono_thirdparty/filesystem/path.h"
 #include "chrono_gpu/physics/ChSystemGpu.h"
@@ -30,10 +31,12 @@
 #include "chrono/utils/ChUtilsSamplers.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
-#include "demos/gpu/GoldenburgHelpers.hpp"
+#include "demos/gpu/GoldenburgHelpers.cpp"
 
 using namespace chrono;
 using namespace chrono::gpu;
+
+bool verbose = true;
 
 // Show command line usage
 void ShowUsage(std::string name) {
@@ -66,15 +69,15 @@ int main(int argc, char* argv[]) {
     double sphere_volume = 4.0f / 3.0f * CH_C_PI * sphere_radius * sphere_radius * sphere_radius;
     double sphere_mass = sphere_density * sphere_volume;
 
-    double gravity = 980.0f;
+    double gravity = 1000.0f;
 
     // stiffness
-    double kt_over_kn = 0.8f;
+    double kt_over_kn = 1.0f;
     double kn = 30000 * sphere_mass * gravity / sphere_radius;
     double kt = kt_over_kn * kn;
     // damping parameters
-    double gamma_n = 50000;
-    double gamma_t = kt_over_kn * gamma_n;
+    double gamma_n = 5000;
+    double gamma_t = 5000;
 
     printf("radius, %e, density, %e, mu, %e, {kn, kt, gn, gt} = {%e, %e, %e, %e}\n", sphere_radius, sphere_density,
            friction_coeff, kn, kt, gamma_n, gamma_t);
@@ -86,22 +89,22 @@ int main(int argc, char* argv[]) {
     // set gravity
     double grav_X = 0.0f;
     double grav_Y = 0.0f;
-    double grav_Z = -980.0f;
+    double grav_Z = -1000.0f;
     double grav_mag = std::abs(grav_Z);
 
-    // time integrator
-    // double time_settling = 5.0f;
-    // double time_Fduration = 2.0f;
-    // double time_extF = 4.0f;
-    // double time_end = time_settling + time_Fduration + time_extF;
-    // double step_size = 5e-6;
 
-    // time integrator for testing
-    double time_settling = 1.0f;
-    double time_Fduration = 1.0f;
-    double time_extF = 1.0f;
+    // time integrator for Milad
+    // double time_settling = 0.5f;
+    // double time_Fduration = 0.5f;
+    // double time_extF = 0.5f;
+    // double step_size = 5e-7;
+
+    double time_settling = 0.5f;
+    double time_Fduration = 0.5f;
+    double time_extF = 0.5f;
+    double step_size = 1e-7;
+
     double time_end = time_settling + time_Fduration + time_extF;
-    double step_size = 1e-5;
 
     // setup simulation gran_sys
     ChSystemGpu gran_sys(sphere_radius, sphere_density, ChVector<float>(box_X, box_Y, box_Z));
@@ -114,7 +117,7 @@ int main(int argc, char* argv[]) {
 
     // normal force model
     gran_sys.SetKn_SPH2SPH(kn);
-    gran_sys.SetKn_SPH2WALL(2 * kn);
+    gran_sys.SetKn_SPH2WALL(kn);
     gran_sys.SetGn_SPH2SPH(gamma_n);
     gran_sys.SetGn_SPH2WALL(gamma_n);
 
@@ -134,11 +137,10 @@ int main(int argc, char* argv[]) {
     gran_sys.SetBDFixed(true);
 
     // set time integrator
-    gran_sys.SetTimeIntegrator(CHGPU_TIME_INTEGRATOR::FORWARD_EULER);
+    gran_sys.SetTimeIntegrator(CHGPU_TIME_INTEGRATOR::CHUNG);
     gran_sys.SetFixedStepSize(step_size);
 
     // record contact info
-    gran_sys.SetRecordingContactInfo(true);
     gran_sys.Initialize();
     int top_center_sphereID = findTopCenterSphereID(gran_sys, numSpheres);
 
@@ -164,13 +166,16 @@ int main(int argc, char* argv[]) {
 
     clock_t start = std::clock();
 
+
+    char output_pos_filename[500];
+
     // PHASE ONE: SETTLING
     while (curr_time < time_settling) {
         gran_sys.AdvanceSimulation(frame_size);
         curr_time += frame_size;
 
         pos_force_array =
-            getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, 2 * kn, gamma_n, sphere_mass, -box_Z / 2.0f);
+            getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, kn, gamma_n, sphere_mass, -box_Z / 2.0f);
 
         force_left = pos_force_array.at(0).force;
         force_right = pos_force_array.at(x_dim_num - 1).force;
@@ -179,8 +184,11 @@ int main(int argc, char* argv[]) {
         sysKE = getSystemKE(sphere_radius, sphere_density, gran_sys, numSpheres);
         avgKE = sysKE / numSpheres / (sphere_mass * gravity * sphere_radius);
 
-        std::cout << curr_time << ", " << diff << ", " << avgKE << std::endl;
+        std::cout << curr_time << ", " << diff << ", " << avgKE << ", " << gran_sys.GetParticlePosition(452).x() <<  std::endl;
         currframe++;
+        sprintf(output_pos_filename, "%s/output_pos_step%05d.csv", out_dir, currframe);
+        gran_sys.WriteParticleFile(std::string(output_pos_filename));
+
     }
 
     // output reaction force at settling stage
@@ -196,17 +204,24 @@ int main(int argc, char* argv[]) {
     char settling_pos_filename[500];
     sprintf(settling_pos_filename, "%s/settling_position.csv", out_dir);
     gran_sys.WriteParticleFile(std::string(settling_pos_filename));
-    // write contact network at settling stage
-    char settling_contact_filename[500];
-    sprintf(settling_contact_filename, "%s/settling_contact_forces.csv", out_dir);
-    gran_sys.WriteContactInfoFile(std::string(settling_contact_filename));
 
+    if (verbose){
+        std::cout << "finish PHASE ONE, settling phase" << std::endl;
+    }
+
+
+    // ************************************
     // PHASE TWO: APPLYING FORCE GRADUALLY
+    // ************************************
     int F_ext_ratio_array_size = std::round(time_Fduration / step_size) + 1;
-    double F_ext_ratio_array[F_ext_ratio_array_size];
+
+    double *F_ext_ratio_array = (double*) malloc(F_ext_ratio_array_size * sizeof(double));
+
     double slope = F_ext_ratio / time_Fduration;
+
     for (int i = 0; i < F_ext_ratio_array_size; i++) {
         F_ext_ratio_array[i] = slope * step_size * i;
+
     }
     int force_counter = 0;
     while (curr_time < time_settling + time_Fduration && force_counter < F_ext_ratio_array_size) {
@@ -217,7 +232,7 @@ int main(int argc, char* argv[]) {
         force_counter++;
 
         if (force_counter % print_force_per_steps == 0) {
-            pos_force_array = getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, 2 * kn, gamma_n, sphere_mass,
+            pos_force_array = getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, kn, gamma_n, sphere_mass,
                                                       -box_Z / 2.0f);
 
             force_left = pos_force_array.at(0).force;
@@ -226,11 +241,11 @@ int main(int argc, char* argv[]) {
 
             sysKE = getSystemKE(sphere_radius, sphere_density, gran_sys, numSpheres);
             avgKE = sysKE / numSpheres / (sphere_mass * gravity * sphere_radius);
-            std::cout << curr_time << ", " << diff << ", " << avgKE << ", " << F_ext_ratio_array[force_counter - 1]
+            std::cout << curr_time << ", " << diff << ", " << avgKE << ", " << F_ext_ratio_array[force_counter - 1] << ", " << gran_sys.GetParticlePosition(452).x()
                       << std::endl;
         }
     }
-
+    free(F_ext_ratio_array);
     // PHASE THREE: KEEPING EXTERNAL FORCE CONSTANT
     gran_sys.setWavePropagationParameters(top_center_sphereID, F_ext_ratio, grav_mag);
     while (curr_time < time_end) {
@@ -241,13 +256,17 @@ int main(int argc, char* argv[]) {
         avgKE = sysKE / numSpheres / (sphere_mass * gravity * sphere_radius);
 
         pos_force_array =
-            getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, 2 * kn, gamma_n, sphere_mass, -box_Z / 2.0f);
+            getSortedBoundaryForces(gran_sys, numSpheres, sphere_radius, kn, gamma_n, sphere_mass, -box_Z / 2.0f);
 
         force_left = pos_force_array.at(0).force;
         force_right = pos_force_array.at(x_dim_num - 1).force;
         diff = std::abs((force_left - force_right) / force_left);
 
-        std::cout << curr_time << ", " << diff << ", " << avgKE << std::endl;
+        std::cout << curr_time << ", " << diff << ", " << avgKE << ", " << gran_sys.GetParticlePosition(452).x() <<  std::endl;
+
+        sprintf(output_pos_filename, "%s/output_pos_step%05d.csv", out_dir, currframe);
+        gran_sys.WriteParticleFile(std::string(output_pos_filename));
+
         currframe++;
     }
 
@@ -263,10 +282,6 @@ int main(int argc, char* argv[]) {
     char end_pos_filename[500];
     sprintf(end_pos_filename, "%s/ending_position_F_%.1fmg.csv", out_dir, F_ext_ratio);
     gran_sys.WriteParticleFile(std::string(end_pos_filename));
-
-    char end_contact_filename[500];
-    sprintf(end_contact_filename, "%s/ending_contact_forces_network_F_%.1fmg.csv", out_dir, F_ext_ratio);
-    gran_sys.WriteContactInfoFile(std::string(end_contact_filename));
 
     clock_t end_time = std::clock();
     double computation_time = ((double)(end_time - start)) / CLOCKS_PER_SEC;
