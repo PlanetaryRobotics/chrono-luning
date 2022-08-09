@@ -40,19 +40,30 @@ bool verbose = true;
 
 // Show command line usage
 void ShowUsage(std::string name) {
-    std::cout << "usage: " + name + " <radius (cm)> " + " <fric coeff mu> " + " <F_ext_ratio * mg> " << std::endl;
+    std::cout << "usage: " + name + " <fric coeff mu> " + " <F_ext_ratio * mg> " + "<stiffness ratio > 30000>"  +  " <folder name>s" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
-    if (argc != 4) {
+    if (argc != 5) {
         ShowUsage(argv[0]);
         return 1;
     }
 
+    double sphere_radius = 5;
+
     // sphere input parameters
-    double sphere_radius = std::stof(argv[1]);
-    double friction_coeff = std::stof(argv[2]);
-    double F_ext_ratio = std::stof(argv[3]);
+    double friction_coeff = std::stof(argv[1]);
+    double F_ext_ratio = std::stof(argv[2]);
+    double stiffness_ratio = std::stof(argv[3]);
+    // double duration = std::stof(argv[4]);
+    std::string test_dir = argv[4];
+
+    if (!filesystem::create_directory(filesystem::path(test_dir))) {
+        std::cout << "Error creating directory " << test_dir << std::endl;
+        return -1;
+    }
+
+
 
     double sphere_density = 7.8;
 
@@ -73,7 +84,7 @@ int main(int argc, char* argv[]) {
 
     // stiffness
     double kt_over_kn = 1.0f;
-    double kn = 30000 * sphere_mass * gravity / sphere_radius;
+    double kn = stiffness_ratio * sphere_mass * gravity / sphere_radius;
     double kt = kt_over_kn * kn;
     // damping parameters
     double gamma_n = 5000;
@@ -99,10 +110,14 @@ int main(int argc, char* argv[]) {
     // double time_extF = 0.5f;
     // double step_size = 5e-7;
 
+    // double time_settling = 0.5f;
+    // double time_Fduration = 0.5f;
+    // double time_extF = 0.5f;
     double time_settling = 0.5f;
-    double time_Fduration = 0.5f;
-    double time_extF = 0.5f;
-    double step_size = 1e-7;
+    double time_Fduration = 0.3f;
+    double time_extF = 0.2f;
+
+    double step_size = 2e-7;
 
     double time_end = time_settling + time_Fduration + time_extF;
 
@@ -145,8 +160,8 @@ int main(int argc, char* argv[]) {
     int top_center_sphereID = findTopCenterSphereID(gran_sys, numSpheres);
 
     // set output directory
-    char out_dir[100];
-    sprintf(out_dir, "61_radius_%.0ecm_mu_%.1e", sphere_radius, friction_coeff);
+    char out_dir[300];
+    sprintf(out_dir, "%s/radius_%.0ecm_mu_%.1e", test_dir.c_str(), sphere_radius, friction_coeff);
 
     // create folder for outputs
     if (!filesystem::create_directory(filesystem::path(out_dir))) {
@@ -267,17 +282,20 @@ int main(int argc, char* argv[]) {
         sprintf(output_pos_filename, "%s/output_pos_step%05d.csv", out_dir, currframe);
         gran_sys.WriteParticleFile(std::string(output_pos_filename));
 
+        // write output file of position vs force
+        char outForceFile_string[500];
+        sprintf(outForceFile_string, "%s/ending_pos_force_F_%.1fmg_frame_%03d.csv", out_dir, F_ext_ratio, currframe);
+        std::ofstream outstream(std::string(outForceFile_string), std::ios::out);
+
+        for (int i = 0; i < pos_force_array.size(); i++) {
+            outstream << std::setprecision(7) << pos_force_array.at(i).pos << ", " << pos_force_array.at(i).force << "\n";
+        }
+        outstream.close();
+
+
         currframe++;
     }
 
-    char outForceFile_string[500];
-    sprintf(outForceFile_string, "%s/ending_pos_force_F_%.1fmg.csv", out_dir, F_ext_ratio);
-    std::ofstream outstream(std::string(outForceFile_string), std::ios::out);
-
-    for (int i = 0; i < pos_force_array.size(); i++) {
-        outstream << std::setprecision(7) << pos_force_array.at(i).pos << ", " << pos_force_array.at(i).force << "\n";
-    }
-    outstream.close();
 
     char end_pos_filename[500];
     sprintf(end_pos_filename, "%s/ending_position_F_%.1fmg.csv", out_dir, F_ext_ratio);

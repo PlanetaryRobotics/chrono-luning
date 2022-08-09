@@ -310,11 +310,11 @@ inline __device__ void updateMultiStepDisplacement(ChSystemGpu_impl::GranSphereD
                                                    const float force_model_multiplier,
                                                    const float3& tangent_force) {
     // Reverse engineer the delta_t from the clamped force and update the map
-    // sphere_data->contact_history_map[contact_index] =
-    //     ((tangent_force) - gamma_t * vrel_t) / -k_t;
-    // try this: if kt*ut > mu * Fn, ut = mu * Fn/kt
     sphere_data->contact_history_map[contact_index] =
-        tangent_force / -k_t;
+        ((tangent_force) - gamma_t * vrel_t) / -k_t;
+    // try this: if kt*ut > mu * Fn, ut = mu * Fn/kt
+    // sphere_data->contact_history_map[contact_index] =
+    //     tangent_force / -k_t;
 
 
 }
@@ -358,8 +358,8 @@ inline __device__ float3 computeFrictionForces(ChSystemGpu_impl::GranParamsPtr g
     float gt = 2*loge * sqrt(m_eff * gran_params->K_n_s2s_SU/(loge * loge + 3.1415926 * 3.1415926));
     force_model_multiplier = 1.0f;
     float3 tangent_force = force_model_multiplier * (-k_t * delta_t + gt * vrel_t);
-    // const float ft = Length(tangent_force);  // could be small
-    const float ft = Length(-k_t * delta_t);  // could be small
+    const float ft = Length(tangent_force);  // could be small
+    // const float ft = Length(-k_t * delta_t);  // could be small
 
     // TODO what value is (1) a negligible SU force (2) a safe number to divide by numerically?
     constexpr float CHGPU_MACHINE_EPSILON = 1e-6f;
