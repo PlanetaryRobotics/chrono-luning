@@ -67,7 +67,7 @@ int main(int argc, char* argv[]) {
 
     double sphere_density = 7.8;
 
-    // 31 spheres per layer, total of 15 layers
+    // 61 spheres per layer, total of 15 layers
     int x_dim_num = 61;
     int z_dim_num = 15;
 
