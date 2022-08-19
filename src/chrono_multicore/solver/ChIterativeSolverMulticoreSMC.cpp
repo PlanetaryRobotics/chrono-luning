@@ -250,29 +250,27 @@ void function_CalcContactForces(
 
     switch (contact_model) {
         case ChSystemSMC::ContactForceModel::Hooke:
-            if (use_mat_props) {
-                real tmp_k = (16.0 / 15) * Sqrt(eff_radius[index]) * E_eff;
-                char_vel = (displ_mode == ChSystemSMC::TangentialDisplacementModel::MultiStep) ? relvel_init : char_vel;
-                real v2 = char_vel * char_vel;
-                real loge = (cr_eff < eps) ? Log(eps) : Log(cr_eff);
-                loge = (cr_eff > 1 - eps) ? Log(1 - eps) : loge;
-                real tmp_g = 1 + Pow(CH_C_PI / loge, 2);
-                kn = tmp_k * Pow(m_eff * v2 / tmp_k, 1.0 / 5);
-                kt = kn;
-                gn = Sqrt(4 * m_eff * kn / tmp_g);
-                gt = gn;
-            } else {
-                kn = user_kn;
-                kt = user_kt;
-                gn = m_eff * user_gn;
-                gt = m_eff * user_gt;
-            }
+            // change this here for goldenburg test
+{           kn = user_kn;
+            kt = user_kn;
+
+            // real tmp_k = (16.0 / 15) * Sqrt(eff_radius[index]) * E_eff;
+            // char_vel = (displ_mode == ChSystemSMC::TangentialDisplacementModel::MultiStep) ? relvel_init : char_vel;
+            // real v2 = char_vel * char_vel;
+
+
+            real loge = (cr_eff < eps) ? Log(eps) : Log(cr_eff);
+            loge = (cr_eff > 1 - eps) ? Log(1 - eps) : loge;
+            real tmp_g = 1 + Pow(CH_C_PI / loge, 2);
+
+            gn = Sqrt(4 * m_eff * kn / tmp_g);
+            gt = gn;
 
             kn_simple = kn;
             gn_simple = gn;
 
             break;
-
+}
         case ChSystemSMC::ContactForceModel::Hertz:
             if (use_mat_props) {
                 real sqrt_Rd = Sqrt(eff_radius[index] * delta_n);

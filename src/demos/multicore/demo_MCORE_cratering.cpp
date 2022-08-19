@@ -119,6 +119,7 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
                                  const ChVector<>& ctorque,
                                  ChContactable* modA,
                                  ChContactable* modB) override {
+
         auto bodyA = static_cast<ChBody*>(modA);
         auto bodyB = static_cast<ChBody*>(modB);
 
