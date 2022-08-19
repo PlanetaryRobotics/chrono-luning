@@ -40,7 +40,7 @@ bool verbose = true;
 
 // Show command line usage
 void ShowUsage(std::string name) {
-    std::cout << "usage: " + name + " <fric coeff mu> "  + " <stiffness ratio > 30000> " + " <step_size> " +  " <folder name>s" << std::endl;
+    std::cout << "usage: " + name + " <fric coeff mu> " + " <F_ext_ratio * mg> " + "<stiffness ratio > 30000>"  +  " <folder name>s" << std::endl;
 }
 
 int main(int argc, char* argv[]) {
@@ -53,8 +53,8 @@ int main(int argc, char* argv[]) {
 
     // sphere input parameters
     double friction_coeff = std::stof(argv[1]);
-    double stiffness_ratio = std::stof(argv[2]);
-    double step_size = std::stof(argv[3]);
+    double F_ext_ratio = std::stof(argv[2]);
+    double stiffness_ratio = std::stof(argv[3]);
     // double duration = std::stof(argv[4]);
     std::string test_dir = argv[4];
 
@@ -82,7 +82,6 @@ int main(int argc, char* argv[]) {
 
     double gravity = 1000.0f;
 
-    double F_ext_ratio = 100;
     // stiffness
     double kt_over_kn = 1.0f;
     double kn = stiffness_ratio * sphere_mass * gravity / sphere_radius;
@@ -118,7 +117,7 @@ int main(int argc, char* argv[]) {
     double time_Fduration = 0.3f;
     double time_extF = 0.2f;
 
-    // double step_size = 2e-7;
+    double step_size = 2e-7;
 
     double time_end = time_settling + time_Fduration + time_extF;
 

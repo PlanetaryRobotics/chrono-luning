@@ -35,6 +35,7 @@
 
 
 #include "chrono_multicore/physics/ChSystemMulticore.h"
+#include "chrono_thirdparty/filesystem/path.h"
 
 #include "chrono/core/ChTimer.h"
 #include "chrono/ChConfig.h"
@@ -86,7 +87,7 @@ double gravity = 1000;
 // double time_step = 1e-6; // 
 
 
-double kn_ratio = 3e5;  // step size: 1e-6 for kn ratio 3e5
+double kn_ratio = 1e5;  // step size: 1e-6 for kn ratio 3e5
 double time_step = 5e-6; // 
 
 double F_ext_ratio = 100.f;
@@ -126,7 +127,7 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
 
     void writeNormalForces(const std::string& filename){        
         m_csv.write_to_file(filename);
-        std::cout << "Successfully write csv file! " << std::endl;
+        std::cout << "Successfully write normal force file: " <<  filename  << std::endl;
     }
 
   private:
@@ -160,11 +161,6 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
                     m_csv << std::scientific << pA.x() << force_global.z() << std::endl;
                 }
 
-        }
-
-        if (modA == top_middle.get()){
-            ChVector<> force_global = plane_coord * cforce;
-            std::cout << "top midlle contact force: " << force_global.x() << ", " << force_global.y() << ", " << force_global.z() << std::endl;
         }
         return true;
     }
@@ -310,29 +306,70 @@ void AddFallingBalls(ChSystemMulticoreSMC* sys, double sphere_radius, double mu)
     }
 }
 
+
+// Show command line usage
+void ShowUsage(std::string name) {
+    std::cout << "usage: " + name + " <fric coeff mu> "  + " <stiffness ratio > 3e4>"  + " <step size> " +  " <test_folder> " << std::endl;
+}
+
+
+
 // -----------------------------------------------------------------------------
 // Create the system, specify simulation parameters, and run simulation loop.
 // -----------------------------------------------------------------------------
 int main(int argc, char* argv[]) {
     GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
+
+    if (argc != 5) {
+        ShowUsage(argv[0]);
+        return 1;
+    }    
+
+
+    // input parameters
+    double mu = std::stof(argv[1]);
+    kn_ratio = std::stof(argv[2]);
+    time_step = std::stof(argv[3]);
+
+    char test_dir[300];
+    sprintf(test_dir, "%s_kn_%.0e_dt_%.0e", argv[4], kn_ratio, time_step);
+
+
+    if (!filesystem::create_directory(filesystem::path(test_dir))) {
+        std::cout << "Error creating directory " << test_dir << std::endl;
+        return -1;
+    }
+    std::cout << "Create test folder: " << test_dir << std::endl;
+    std::cout << "Running tests of kn = " << kn_ratio << "mg/R, and step size of " << time_step << std::endl;
+
+    // set subfolder directory, mu=0, 0.1 and 0.5
+    char subtest_dir[300];
+    sprintf(subtest_dir, "%s/mu_%.1e", test_dir, mu);
+
+    // create folder for outputs
+    if (!filesystem::create_directory(filesystem::path(subtest_dir))) {
+        std::cout << "Error creating sub directory " << subtest_dir << std::endl;
+        return -1;
+    }
+    std::cout << "Create test subfolder: " << subtest_dir << std::endl;
+
+
     // Simulation parameters
     // ---------------------
-    double mu = 0.5;
     double time_settle = 0.1;
     double time_F_dur = 0.03;
-    double time_end = 0.3;
+    double time_end = 0.4;
+
+    double output_rate = 0.02; // write output contact force every 0.02 seconds
+    int output_per_step = (int)(output_rate/time_step);
 
     // variables for timing
     struct timeval start;
     struct timeval end;
     
-
-
     uint max_iteration = 100;
     real tolerance = 1e-3;
-
-    double out_fps = 100;
 
     // Create system
     // -------------
@@ -364,8 +401,6 @@ int main(int argc, char* argv[]) {
     // ----------------------------------
     AddContainer(&msystem, sphere_radius, mu);
     AddFallingBalls(&msystem, sphere_radius, mu);
-
-    // 
 
 
     // Perform the simulation
@@ -400,6 +435,9 @@ int main(int argc, char* argv[]) {
     clock_t cpu_time = clock();
     gettimeofday(&start, NULL);
 
+    auto body = msystem.Get_bodylist().at(2);
+    double sphere_mass = body->GetMass();
+
     for (curr_step = 0; curr_step < num_steps; curr_step++) {
         msystem.DoStepDynamics(time_step);
 
@@ -412,17 +450,16 @@ int main(int argc, char* argv[]) {
 
         curr_time += time_step;
 
-        int output_per_step = 1000; // write output to console per 1000 time step
-
-
-        
         if (curr_step%output_per_step == 0){
             gettimeofday(&end, NULL);
-
-            auto body = msystem.Get_bodylist().at(2);
-            std::cout << "t = " << msystem.GetChTime() << ", KE/mgR: " << calcKE(&msystem)/(gravity * body->GetMass() * sphere_radius ) << ", simulation of " << output_per_step * time_step << "sec took " <<  time_diff(&start, &end) << std::endl;
+            double KE_ratio = calcKE(&msystem)/(gravity * sphere_mass * sphere_radius );
+            std::cout << "t = " << curr_time << ", KE/mgR: " <<  KE_ratio << ", simulation of " << output_rate << "sec took " <<  time_diff(&start, &end) << " cpu seconds. " << std::endl;
 
             gettimeofday(&start, NULL);
+
+            if (KE_ratio < 1e-12){
+                break;
+            }
 
             
         }
@@ -434,12 +471,7 @@ int main(int argc, char* argv[]) {
 
     }
     msystem.GetContactContainer()->ReportAllContacts(creporter);
-    // std::vector<double> normalF;
-    // creporter->getNormalForce(normalF);
-
-    // std::cout << ", F_l = " << normalF.at(0) << ", F_r = "  << normalF.at(count_Y) << std::endl;
-
-    const std::string contact_file = "contacts_settled.csv";
+    const std::string contact_file = (std::string)subtest_dir + "/" + "contacts_settled.csv";
     creporter->writeNormalForces(contact_file);
     
 
@@ -447,15 +479,13 @@ int main(int argc, char* argv[]) {
     // PHASE TWO: APPLYING FORCE GRADUALLY
     // ************************************
     int F_ext_ratio_array_size = std::round(time_F_dur / time_step) + 1;
-
     double *F_ext_ratio_array = (double*) malloc(F_ext_ratio_array_size * sizeof(double));
-
     double slope = F_ext_ratio / time_F_dur;
 
     for (int i = 0; i < F_ext_ratio_array_size; i++) {
         F_ext_ratio_array[i] = slope * time_step * i;
-
     }
+
     int force_counter = 0;
     while (curr_time < time_settle + time_F_dur && force_counter < F_ext_ratio_array_size) {
         msystem.DoStepDynamics(time_step);
@@ -478,13 +508,16 @@ int main(int argc, char* argv[]) {
 
         force_counter++;
 
-        std::cout << "t = " << msystem.GetChTime() << ", apply force = " << F_ext_ratio_array[force_counter] <<  ", KE/mgR: " << calcKE(&msystem)/(gravity * top_middle->GetMass() * sphere_radius )<< std::endl;
-
+        if (curr_step % output_per_step == 0){
+            std::cout << "t = " << curr_time << ", apply force = " << F_ext_ratio_array[force_counter] <<  ", KE/mgR: " << calcKE(&msystem)/(gravity * sphere_mass * sphere_radius )<< std::endl;
+        }
+        curr_step++;
 
     }
+
+    // free the memory because i'm a good samaritan 
     free(F_ext_ratio_array);
 
-    int frame_counter = 0;
     while(curr_time < time_end){
 
         // apply constant force
@@ -502,24 +535,21 @@ int main(int argc, char* argv[]) {
 
         curr_time += time_step;
 
-        frame_counter++;
 
-        if (frame_counter%50000 == 0){
-
-            auto creporter = chrono_types::make_shared<ContactReporter>(msystem.Get_bodylist().at(0));
-
-
+        if (curr_step % output_per_step == 0){
+            creporter = chrono_types::make_shared<ContactReporter>(msystem.Get_bodylist().at(0));
             msystem.GetContactContainer()->ReportAllContacts(creporter);
 
             char end_filename[500];
-            sprintf(end_filename, "contacts_wF_%04d.csv", int(frame_counter/1000));
+            sprintf(end_filename, "%s/contacts_wF_%04d.csv", subtest_dir, int(curr_time/output_rate));
 
             creporter->writeNormalForces(std::string(end_filename));
 
-            std::cout << "t = " << msystem.GetChTime() << ", KE/mgR: " << calcKE(&msystem)/(gravity * top_middle->GetMass() * sphere_radius )<< std::endl;
-
+            std::cout << "t = " << curr_time << ", KE/mgR: " << calcKE(&msystem)/(gravity * sphere_mass * sphere_radius )<< std::endl;
 
         }
+        curr_step++;
+
 
     }
 
