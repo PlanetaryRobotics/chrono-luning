@@ -87,7 +87,7 @@ double gravity = 1000;
 
 
 double kn_ratio = 3e5;  // step size: 1e-6 for kn ratio 3e5
-double time_step = 1e-6; // 
+double time_step = 5e-6; // 
 
 double F_ext_ratio = 100.f;
 
@@ -376,48 +376,25 @@ int main(int argc, char* argv[]) {
     double normal_force = 0;
     auto creporter = chrono_types::make_shared<ContactReporter>(msystem.Get_bodylist().at(0));
 
-    // #ifdef CHRONO_OPENGL
-    //     opengl::ChVisualSystemOpenGL vis;
-    //     vis.AttachSystem(&msystem);
-    //     vis.SetWindowTitle("Balls SMC");
-    //     vis.SetWindowSize(1280, 720);
-    //     vis.SetRenderMode(opengl::WIREFRAME);
-    //     vis.Initialize();
-    //     vis.SetCameraPosition(ChVector<>(0, -10, 2), ChVector<>(0, 0, 0));
-    //     vis.SetCameraVertical(CameraVerticalDir::Z);
-
-    // while (true) {
-    //     if (vis.Run()) {
-    //         msystem.DoStepDynamics(time_step);
-    //         vis.Render();
-    //         // Print cumulative contact force on container bin.
-    //         real3 frc = msystem.GetBodyContactForce(0);
-    //         std::cout << "t = " << msystem.GetChTime() << ", KE: " << calcKE(&msystem) << std::endl;
-    //         msystem.GetContactContainer()->ReportAllContacts(creporter);
-    //         std::vector<double> normalF;
-    //         creporter->getNormalForce(normalF);
-
-    //         std::cout << ", F_l = " << normalF.at(0) << ", F_r = "  << normalF.at(count_Y) << std::endl;
-
-    //     } else {
-    //         break;
-    //     }
-    // }
-    // #else
-
     bool useVis = false;
-    opengl::ChVisualSystemOpenGL vis;
 
-    if (useVis == true){
-        vis.AttachSystem(&msystem);
-        vis.SetWindowTitle("Balls SMC");
-        vis.SetWindowSize(1280, 720);
-        vis.SetRenderMode(opengl::WIREFRAME);
-        vis.Initialize();
-        vis.SetCameraPosition(ChVector<>(0, -10, 2), ChVector<>(0, 0, 0));
-        vis.SetCameraVertical(CameraVerticalDir::Z);
-   
-    }
+    #ifdef CHRONO_OPENGL
+        opengl::ChVisualSystemOpenGL vis;
+    #endif
+
+    #ifdef CHRONO_OPENGL
+        if (useVis == true){
+            vis.AttachSystem(&msystem);
+            vis.SetWindowTitle("Balls SMC");
+            vis.SetWindowSize(1280, 720);
+            vis.SetRenderMode(opengl::WIREFRAME);
+            vis.Initialize();
+            vis.SetCameraPosition(ChVector<>(0, -10, 2), ChVector<>(0, 0, 0));
+            vis.SetCameraVertical(CameraVerticalDir::Z);
+    
+        }
+    #endif
+
 
     int curr_step = 0;
     clock_t cpu_time = clock();
@@ -426,9 +403,12 @@ int main(int argc, char* argv[]) {
     for (curr_step = 0; curr_step < num_steps; curr_step++) {
         msystem.DoStepDynamics(time_step);
 
-        if (useVis == true){
-            vis.Render();
-        }
+
+        #ifdef CHRONO_OPENGL
+            if (useVis == true){
+                vis.Render();
+            }
+        #endif
 
         curr_time += time_step;
 
@@ -480,10 +460,11 @@ int main(int argc, char* argv[]) {
     while (curr_time < time_settle + time_F_dur && force_counter < F_ext_ratio_array_size) {
         msystem.DoStepDynamics(time_step);
 
-
-        if (useVis == true){
-            vis.Render();
-        }
+        #ifdef CHRONO_OPENGL
+            if (useVis == true){
+                vis.Render();
+            }
+        #endif
 
 
         curr_time += time_step;
@@ -512,9 +493,12 @@ int main(int argc, char* argv[]) {
 
 
         msystem.DoStepDynamics(time_step);
-        if (useVis == true){
-            vis.Render();
-        }
+
+        #ifdef CHRONO_OPENGL
+            if (useVis == true){
+                vis.Render();
+            }           
+        #endif
 
         curr_time += time_step;
 

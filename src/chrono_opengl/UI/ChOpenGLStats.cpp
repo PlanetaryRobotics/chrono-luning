@@ -309,9 +309,9 @@ void ChOpenGLStatsDefault::GenerateSolver(ChSystem& sys) {
     text.Render(buffer, screen.LEFT, screen.TOP - screen.SPACING * 11, screen.SX, screen.SY);
     sprintf(buffer, "ITERS    %04d", int(iters));
     text.Render(buffer, screen.LEFT, screen.TOP - screen.SPACING * 12, screen.SX, screen.SY);
-    sprintf(buffer, "RESIDUAL %04f", residual);
+    sprintf(buffer, "RESIDUAL %04e", residual);
     text.Render(buffer, screen.LEFT, screen.TOP - screen.SPACING * 13, screen.SX, screen.SY);
-    sprintf(buffer, "CORRECT  %04f", dlambda);
+    sprintf(buffer, "CORRECT  %04e", dlambda);
     text.Render(buffer, screen.LEFT, screen.TOP - screen.SPACING * 14, screen.SX, screen.SY);
     sprintf(buffer, "--------------------------------");
     text.Render(buffer, screen.LEFT, screen.TOP - screen.SPACING * 15, screen.SX, screen.SY);

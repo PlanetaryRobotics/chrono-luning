@@ -33,7 +33,8 @@ SET(DEMOS
     demo_MCORE_particlesNSC
     demo_MCORE_cratering
     goldenburg
-    # debug
+    debug
+    pyramid
 )
 
 # Add programs that require OpenGL

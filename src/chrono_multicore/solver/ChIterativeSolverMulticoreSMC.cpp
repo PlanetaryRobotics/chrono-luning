@@ -90,6 +90,8 @@ void function_CalcContactForces(
     int b1 = body_pairs[index].x;
     int b2 = body_pairs[index].y;
 
+
+
     // If the two contact shapes are actually separated, set zero forces and torques.
     if (depth[index] >= 0) {
         ct_bid[2 * index] = b1;
@@ -100,6 +102,9 @@ void function_CalcContactForces(
         ct_torque[2 * index + 1] = real3(0);
         return;
     }
+    
+
+
 
     // Kinematic information
     // ---------------------
@@ -418,6 +423,9 @@ void function_CalcContactForces(
 
                 ct_bid[2 * index] = b1;
                 ct_bid[2 * index + 1] = b2;
+
+                
+
                 ct_force[2 * index] = -force;
                 ct_force[2 * index + 1] = force;
                 ct_torque[2 * index] = -torque1_loc + m_roll1 + m_spin1;
@@ -433,9 +441,26 @@ void function_CalcContactForces(
     // The tangential force is a vector with two parts: one depends on the stored
     // contact history tangential (or shear) displacement vector delta_t, and the
     // other depends on the current relative velocity vector (for viscous damping).
+
+    // force into 2D case
+    // make changes to delta_t, normal and relvel_t
+    delta_t.y = 0;
+    relvel_t.y = 0;
+    normal[index].y = 0;
+
+
     real forceN_mag = kn * delta_n - gn * relvel_n_mag;
     real3 forceT_stiff = kt * delta_t;
+
+
     real3 forceT_damp = gt * relvel_t;
+
+
+
+    // if (b1 == 4 && b2 == 7){
+    //     printf("4 and 7, normal_y = %e, relvel_t = %e\n", normal[index].y, relvel_t.y);
+    // }
+
 
     // Apply Coulomb friction law.
     // We must enforce force_T_mag <= mu_eff * |forceN_mag|.
