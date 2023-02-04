@@ -24,17 +24,15 @@ ENDIF()
 
 # Programs that can work with or without OpenGL
 SET(DEMOS
-    demo_MCORE_ballsSMC
-    demo_MCORE_ballsNSC
-    demo_MCORE_mixerSMC
-    demo_MCORE_mixerNSC
-    demo_MCORE_fluidNSC
-    demo_MCORE_snowMPM
-    demo_MCORE_particlesNSC
-    demo_MCORE_cratering
+    # demo_MCORE_ballsSMC
+    # demo_MCORE_ballsNSC
+    # demo_MCORE_mixerSMC
+    # demo_MCORE_mixerNSC
+    # demo_MCORE_fluidNSC
+    # demo_MCORE_snowMPM
+    # demo_MCORE_particlesNSC
+    # demo_MCORE_cratering
     goldenburg
-    debug
-    pyramid
 )
 
 # Add programs that require OpenGL

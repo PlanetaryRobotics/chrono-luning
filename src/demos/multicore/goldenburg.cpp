@@ -9,7 +9,7 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Radu Serban
+// Authors: Luning Fang
 // =============================================================================
 //
 // Chrono::Multicore test program using SMC method for frictional contact.
@@ -120,7 +120,9 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
   public:
     ContactReporter(std::shared_ptr<ChBody> obj1){
         m_obj1 = obj1;
+        // csv output header
         m_csv << "pos" << "force" << std::endl;
+        m_csv_all << "i" << "j" << "fn" << "fx" << "fy" << std::endl; 
     }
 
     void getNormalForce(std::vector<double>& normal_F_array){normal_F_array = contact_force_z;}
@@ -128,6 +130,11 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
     void writeNormalForces(const std::string& filename){        
         m_csv.write_to_file(filename);
         std::cout << "Successfully write normal force file: " <<  filename  << std::endl;
+    }
+
+    void writeContactForcesAll(const std::string& filename){        
+        m_csv_all.write_to_file(filename);
+        std::cout << "Successfully write all contact forces: " <<  filename  << std::endl;
     }
 
   private:
@@ -155,13 +162,12 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
                         fprintf(stderr, "contact pairs out of range! new sphere in contact %d \n", bodyB->GetId());
                         return -1;
                     }
-
-
                     contact_force_z.at( bodyB->GetId() - 1) = force_global.z();
                     m_csv << std::scientific << pA.x() << force_global.z() << std::endl;
                 }
-
         }
+
+        m_csv_all << modA->GetPhysicsItem()->GetIdentifier() << modB->GetPhysicsItem()->GetIdentifier() << cforce << std::endl;
         return true;
     }
 
@@ -169,7 +175,9 @@ class ContactReporter : public ChContactContainer::ReportContactCallback {
     std::shared_ptr<ChBody> m_obj2;
     std::vector<double> contact_force_z = std::vector<double>(count_Y+1);
     utils::CSV_writer m_csv;
+    utils::CSV_writer m_csv_all; // csv stream for all contacts
 };
+
 
 float time_diff(struct timeval *start, struct timeval *end)
 {
@@ -191,10 +199,8 @@ void AddContainer(ChSystemMulticoreSMC* sys, double sphere_radius, double mu) {
     double volume = 4.f/3.f * CH_C_PI * sphere_radius * sphere_radius * sphere_radius;
     double mass = rho * volume;
 
-    mat->SetYoungModulus(1e7);
     mat->SetKn(kn_ratio * mass * gravity/sphere_radius);
     mat->SetKt(kn_ratio * mass * gravity/sphere_radius);
-
     mat->SetFriction(mu);
     mat->SetRestitution(cr);
 
@@ -226,11 +232,7 @@ void AddContainer(ChSystemMulticoreSMC* sys, double sphere_radius, double mu) {
 
     bin->GetCollisionModel()->BuildModel();
 
-    sys->AddBody(bin);
-
-    fprintf(stderr, "Add container\n");
-
-    
+    sys->AddBody(bin);    
 }
 
 // -----------------------------------------------------------------------------
@@ -348,7 +350,7 @@ int main(int argc, char* argv[]) {
     sprintf(subtest_dir, "%s/mu_%.1e", test_dir, mu);
 
     // create folder for outputs
-    if (!filesystem::create_directory(filesystem::path(subtest_dir))) {
+    if (!filesystem::create_subdirectory(filesystem::path(subtest_dir))) {
         std::cout << "Error creating sub directory " << subtest_dir << std::endl;
         return -1;
     }
@@ -357,9 +359,14 @@ int main(int argc, char* argv[]) {
 
     // Simulation parameters
     // ---------------------
-    double time_settle = 0.1;
+    // double time_settle = 0.1;
+    // double time_F_dur = 0.03;
+    // double time_end = 0.5;
+
+    double time_settle = 0.5;
     double time_F_dur = 0.03;
-    double time_end = 0.4;
+    double time_end = 1;
+
 
     double output_rate = 0.02; // write output contact force every 0.02 seconds
     int output_per_step = (int)(output_rate/time_step);
@@ -368,12 +375,8 @@ int main(int argc, char* argv[]) {
     struct timeval start;
     struct timeval end;
     
-    uint max_iteration = 100;
-    real tolerance = 1e-3;
-
     // Create system
     // -------------
-
     ChSystemMulticoreSMC msystem;
 
     // Set number of threads
@@ -383,9 +386,6 @@ int main(int argc, char* argv[]) {
     msystem.Set_G_acc(ChVector<>(0, 0, -gravity));
 
     // Set solver parameters
-    msystem.GetSettings()->solver.max_iteration_bilateral = max_iteration;
-    msystem.GetSettings()->solver.tolerance = tolerance;
-
     msystem.GetSettings()->collision.narrowphase_algorithm = ChNarrowphase::Algorithm::MPR;
     msystem.GetSettings()->collision.bins_per_axis = vec3(4, 4, 4);
 
@@ -394,8 +394,7 @@ int main(int argc, char* argv[]) {
     // msystem.GetSettings()->solver.contact_force_model = ChSystemSMC::ContactForceModel::Hertz;
     msystem.GetSettings()->solver.contact_force_model = ChSystemSMC::ContactForceModel::Hooke;
     msystem.GetSettings()->solver.tangential_displ_mode = ChSystemSMC::TangentialDisplacementModel::MultiStep;
-
-    msystem.GetSettings()->solver.use_material_properties = true;
+    msystem.GetSettings()->solver.use_material_properties = false;
 
     // Create the fixed and moving bodies
     // ----------------------------------
@@ -473,6 +472,8 @@ int main(int argc, char* argv[]) {
     msystem.GetContactContainer()->ReportAllContacts(creporter);
     const std::string contact_file = (std::string)subtest_dir + "/" + "contacts_settled.csv";
     creporter->writeNormalForces(contact_file);
+    const std::string tangential_result_file = (std::string)subtest_dir + "/" + "tangential_force_settled.csv";
+    creporter->writeContactForcesAll(tangential_result_file);
     
 
     // ************************************
