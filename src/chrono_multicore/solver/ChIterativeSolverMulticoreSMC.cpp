@@ -256,6 +256,7 @@ void function_CalcContactForces(
     switch (contact_model) {
         case ChSystemSMC::ContactForceModel::Hooke:
             // change this here for goldenburg test
+            // TODO: try matching gamma_t and gamma_n in Tyler's thesis...
 {           kn = user_kn;
             kt = user_kn;
 

@@ -14,8 +14,6 @@
 #include "chrono/utils/ChUtilsCreators.h"
 #include "chrono/utils/ChUtilsInputOutput.h"
 
-#include "chrono/utils/ChUtilsInputOutput.h"
-
 
 #include "chrono_opengl/ChVisualSystemOpenGL.h"
 
@@ -43,8 +41,8 @@ double gravity = 10;
 // double time_step = 1e-6; // 
 
 
-double kn_ratio = 1e5;  // step size: 1e-6 for kn ratio 3e5
-double time_step = 5e-6; // 
+double kn_ratio = 4e8;  // step size: 1e-6 for kn ratio 3e5
+double time_step = 1e-7; // 
 
 double F_ext_ratio = 100.f;
 

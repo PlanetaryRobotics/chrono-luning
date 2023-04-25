@@ -101,9 +101,9 @@ int main(int argc, char* argv[]) {
 
     // Simulation parameters for debugging 
     // ---------------------
-    double time_settle = 0.2;
+    double time_settle = 0.5;
     double time_F_dur = 0.03;
-    double time_end = 0.5;
+    double time_end = 1;
     // Simulation parameters for actual tests
     // double time_settle = 0.5;
     // double time_F_dur = 0.03;
@@ -190,7 +190,7 @@ int main(int argc, char* argv[]) {
             // print out contact force and write particle positions
             WrtieOutputInfo(&msystem, subtest_dir, int(curr_step/output_per_step));
 
-            if (KE_ratio < 1e-12){
+            if (KE_ratio < 1e-7){
                 break;
             }            
         }
