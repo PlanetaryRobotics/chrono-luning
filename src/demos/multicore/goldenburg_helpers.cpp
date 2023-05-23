@@ -15,7 +15,6 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 
-#include "chrono_opengl/ChVisualSystemOpenGL.h"
 
 using namespace chrono;
 
@@ -29,19 +28,16 @@ int count_Z = 15;
 
 // Material properties (same on bin and balls)
 float Y = 2e8f;
-float cr = 1e-4;
+// float cr = 1e-1;
+float cr = 0.01;
 
 auto top_middle = chrono_types::make_shared <ChBody>();
 
 double rho = 7.4;
 double gravity = 10;
-//double kn_ratio = 3e7;  // step size: 1e-7 for kn ratio 3e7
-
-// double kn_ratio = 3e5;  // step size: 1e-6 for kn ratio 3e5
-// double time_step = 1e-6; // 
 
 
-double kn_ratio = 4e8;  // step size: 1e-6 for kn ratio 3e5
+double kn_ratio = 4e6;  // step size: 1e-6 for kn ratio 3e5
 double time_step = 1e-7; // 
 
 double F_ext_ratio = 100.f;

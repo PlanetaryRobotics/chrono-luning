@@ -270,6 +270,8 @@ void function_CalcContactForces(
             real tmp_g = 1 + Pow(CH_C_PI / loge, 2);
 
             gn = Sqrt(4 * m_eff * kn / tmp_g);
+
+            // Tyler's thesis set gt = 0 try this 
             gt = gn;
 
             kn_simple = kn;

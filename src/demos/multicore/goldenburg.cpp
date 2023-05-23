@@ -44,7 +44,6 @@
 #include "chrono/utils/ChUtilsInputOutput.h"
 
 
-#include "chrono_opengl/ChVisualSystemOpenGL.h"
 #include "demos/multicore/goldenburg_helpers.cpp"
 using namespace chrono;
 using namespace chrono::collision;
@@ -62,6 +61,7 @@ void ShowUsage(std::string name) {
 // Create the system, specify simulation parameters, and run simulation loop.
 // -----------------------------------------------------------------------------
 int main(int argc, char* argv[]) {
+
     GetLog() << "Copyright (c) 2017 projectchrono.org\nChrono version: " << CHRONO_VERSION << "\n\n";
 
 
@@ -146,40 +146,14 @@ int main(int argc, char* argv[]) {
     double curr_time = 0;
     auto creporter = chrono_types::make_shared<ContactReporter>();
 
-    bool useVis = false;
-
-    #ifdef CHRONO_OPENGL
-        opengl::ChVisualSystemOpenGL vis;
-    #endif
-
-    #ifdef CHRONO_OPENGL
-        if (useVis == true){
-            vis.AttachSystem(&msystem);
-            vis.SetWindowTitle("Balls SMC");
-            vis.SetWindowSize(1280, 720);
-            vis.SetRenderMode(opengl::WIREFRAME);
-            vis.Initialize();
-            vis.SetCameraPosition(ChVector<>(0, -10, 2), ChVector<>(0, 0, 0));
-            vis.SetCameraVertical(CameraVerticalDir::Z);
     
-        }
-    #endif
-
-
     int curr_step = 0;
     gettimeofday(&start, NULL);
 
     for (curr_step = 0; curr_step < num_steps; curr_step++) {
         msystem.DoStepDynamics(time_step);
 
-
-        #ifdef CHRONO_OPENGL
-            if (useVis == true){
-                vis.Render();
-            }
-        #endif
-
-        curr_time += time_step;
+           curr_time += time_step;
 
         if (curr_step%output_per_step == 0){
             gettimeofday(&end, NULL);
@@ -190,7 +164,7 @@ int main(int argc, char* argv[]) {
             // print out contact force and write particle positions
             WrtieOutputInfo(&msystem, subtest_dir, int(curr_step/output_per_step));
 
-            if (KE_ratio < 1e-7){
+            if (KE_ratio < 1e-7 && curr_time > 0.2){
                 break;
             }            
         }
