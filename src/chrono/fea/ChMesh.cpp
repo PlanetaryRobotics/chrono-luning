@@ -169,25 +169,19 @@ void ChMesh::Update(double m_time, bool update_assets) {
     }
 }
 
+void ChMesh::AddCollisionModelsToSystem(ChCollisionSystem* coll_sys) const {
+    for (const auto& surf : vcontactsurfaces)
+        surf->AddCollisionModelsToSystem(coll_sys);
+}
+
+void ChMesh::RemoveCollisionModelsFromSystem(ChCollisionSystem* coll_sys) const {
+    for (const auto& surf : vcontactsurfaces)
+        surf->RemoveCollisionModelsFromSystem(coll_sys);
+}
+
 void ChMesh::SyncCollisionModels() {
-    for (unsigned int j = 0; j < vcontactsurfaces.size(); j++) {
-        vcontactsurfaces[j]->SurfaceSyncCollisionModels();
-    }
-}
-
-void ChMesh::AddCollisionModelsToSystem() {
-    assert(GetSystem());
-    SyncCollisionModels();
-    for (unsigned int j = 0; j < vcontactsurfaces.size(); j++) {
-        vcontactsurfaces[j]->SurfaceAddCollisionModelsToSystem(GetSystem());
-    }
-}
-
-void ChMesh::RemoveCollisionModelsFromSystem() {
-    assert(GetSystem());
-    for (unsigned int j = 0; j < vcontactsurfaces.size(); j++) {
-        vcontactsurfaces[j]->SurfaceRemoveCollisionModelsFromSystem(GetSystem());
-    }
+    for (const auto& surf : vcontactsurfaces)
+        surf->SyncCollisionModels();
 }
 
 //// STATE BOOKKEEPING FUNCTIONS
@@ -318,7 +312,7 @@ void ChMesh::IntLoadResidual_F(const unsigned int off, ChVectorDynamic<>& R, con
     // nodes gravity forces
     local_off_v = 0;
     if (automatic_gravity_load && system) {
-        //#pragma omp parallel for schedule(dynamic, 4) num_threads(nthreads)
+        // #pragma omp parallel for schedule(dynamic, 4) num_threads(nthreads)
         //***PARALLEL FOR***, (no need here to use omp atomic to avoid race condition in writing to R)
         for (int in = 0; in < vnodes.size(); in++) {
             if (!vnodes[in]->IsFixed()) {
@@ -376,6 +370,26 @@ void ChMesh::IntLoadResidual_Mv(const unsigned int off,      ///< offset in R re
     // internal masses
     for (unsigned int ie = 0; ie < velements.size(); ie++) {
         velements[ie]->EleIntLoadResidual_Mv(R, w, c);
+    }
+}
+
+void ChMesh::IntLoadLumpedMass_Md(const unsigned int off,
+                                  ChVectorDynamic<>& Md,
+                                  double& error,
+                                  const double c
+) {
+    // nodal masses
+    unsigned int local_off_v = 0;
+    for (unsigned int j = 0; j < vnodes.size(); j++) {
+        if (!vnodes[j]->IsFixed()) {
+            vnodes[j]->NodeIntLoadLumpedMass_Md(off + local_off_v, Md, error, c);
+            local_off_v += vnodes[j]->GetNdofW_active();
+        }
+    }
+
+    // internal masses
+    for (unsigned int ie = 0; ie < velements.size(); ie++) {
+        velements[ie]->EleIntLoadLumpedMass_Md(Md, error, c);
     }
 }
 

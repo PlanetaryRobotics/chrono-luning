@@ -18,9 +18,9 @@
 
 #include "chrono_vehicle/wheeled_vehicle/test_rig/ChTireTestRig.h"
 
-#include "chrono/assets/ChBoxShape.h"
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChSphereShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
 #include "chrono/assets/ChTexture.h"
 #include "chrono/physics/ChLoadContainer.h"
 #include "chrono_vehicle/terrain/RigidTerrain.h"
@@ -226,7 +226,6 @@ void ChTireTestRig::Advance(double step) {
     // Synchronize subsystems
     m_terrain->Synchronize(time);
     m_tire->Synchronize(time, *m_terrain.get());
-    m_spindle_body->Empty_forces_accumulators();
     m_wheel->Synchronize();
 
     // Advance state
@@ -247,17 +246,17 @@ void ChTireTestRig::CreateMechanism(Mode mode) {
     const double mass = m_wheel->GetWheelMass() + m_tire->GetTireMass();
     const ChVector<> inertia = m_wheel->GetWheelInertia() + m_tire->GetTireInertia();
 
-    m_ground_body = std::shared_ptr<ChBody>(m_system->NewBody());
+    m_ground_body = chrono_types::make_shared<ChBody>();
     m_system->AddBody(m_ground_body);
     m_ground_body->SetName("rig_ground");
     m_ground_body->SetIdentifier(0);
     m_ground_body->SetBodyFixed(true);
     {
-        auto box = chrono_types::make_shared<ChBoxShape>(100, dim / 3, dim / 3);
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(100, dim / 3, dim / 3);
         m_ground_body->AddVisualShape(box);
     }
 
-    m_carrier_body = std::shared_ptr<ChBody>(m_system->NewBody());
+    m_carrier_body = chrono_types::make_shared<ChBody>();
     m_system->AddBody(m_carrier_body);
     m_carrier_body->SetName("rig_carrier");
     m_carrier_body->SetIdentifier(1);
@@ -274,12 +273,12 @@ void ChTireTestRig::CreateMechanism(Mode mode) {
                                                     dim / 2,                     //
                                                     mat);
 
-        auto box = chrono_types::make_shared<ChBoxShape>(dim / 3, dim / 3, 10 * dim);
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(dim / 3, dim / 3, 10 * dim);
         box->AddMaterial(mat);
         m_carrier_body->AddVisualShape(box, ChFrame<>(ChVector<>(0, 0, -5 * dim)));
     }
 
-    m_chassis_body = std::shared_ptr<ChBody>(m_system->NewBody());
+    m_chassis_body = chrono_types::make_shared<ChBody>();
     m_system->AddBody(m_chassis_body);
     m_chassis_body->SetName("rig_chassis");
     m_chassis_body->SetIdentifier(2);
@@ -290,7 +289,7 @@ void ChTireTestRig::CreateMechanism(Mode mode) {
         auto mat = chrono_types::make_shared<ChVisualMaterial>();
         mat->SetDiffuseColor({0.2f, 0.8f, 0.2f});
 
-        auto sphere = chrono_types::make_shared<ChSphereShape>(dim);
+        auto sphere = chrono_types::make_shared<ChVisualShapeSphere>(dim);
         sphere->AddMaterial(mat);
         m_chassis_body->AddVisualShape(sphere);
 
@@ -301,7 +300,7 @@ void ChTireTestRig::CreateMechanism(Mode mode) {
                                                     mat);
     }
 
-    m_slip_body = std::shared_ptr<ChBody>(m_system->NewBody());
+    m_slip_body = chrono_types::make_shared<ChBody>();
     m_system->AddBody(m_slip_body);
     m_slip_body->SetName("rig_slip");
     m_slip_body->SetIdentifier(3);
@@ -312,12 +311,12 @@ void ChTireTestRig::CreateMechanism(Mode mode) {
         auto mat = chrono_types::make_shared<ChVisualMaterial>();
         mat->SetDiffuseColor({0.2f, 0.8f, 0.2f});
 
-        auto box = chrono_types::make_shared<ChBoxShape>(4 * dim, dim, 4 * dim);
+        auto box = chrono_types::make_shared<ChVisualShapeBox>(4 * dim, dim, 4 * dim);
         box->AddMaterial(mat);
         m_slip_body->AddVisualShape(box);
     }
 
-    m_spindle_body = std::shared_ptr<ChBody>(m_system->NewBody());
+    m_spindle_body = chrono_types::make_shared<ChBody>();
     m_spindle_body->SetBodyFixed(mode == Mode::SUSPEND);
     ChQuaternion<> qc;
     qc.Q_from_AngX(-m_camber_angle);
@@ -368,7 +367,7 @@ void ChTireTestRig::CreateMechanism(Mode mode) {
     }
 
     // Initialize subsystems
-    m_wheel->Initialize(m_spindle_body, LEFT);
+    m_wheel->Initialize(nullptr, m_spindle_body, LEFT);
     m_wheel->SetVisualizationType(VisualizationType::NONE);
     m_wheel->SetTire(m_tire);
     m_tire->SetStepsize(m_tire_step);

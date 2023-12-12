@@ -439,6 +439,10 @@ public:
                                     ChVectorDynamic<>& R,
                                     const ChVectorDynamic<>& w,
                                     const double c) override;
+    virtual void IntLoadLumpedMass_Md(const unsigned int off,
+                                      ChVectorDynamic<>& Md,
+                                      double& error,
+                                      const double c) override;
     virtual void IntLoadResidual_CqL(const unsigned int off_L,
                                      ChVectorDynamic<>& R,
                                      const ChVectorDynamic<>& L,
@@ -601,7 +605,6 @@ public:
 
     friend class ChSystem;
     friend class ChSystemMulticore;
-    friend class ChSystemDistributed;
 
   public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
