@@ -19,6 +19,7 @@ SET(DEMOS
     demo_GPU_fixedTerrain
     demo_GPU_mixer
     demo_GPU_repose
+    single_wheel_DEM
 )
 
 # ------------------------------------------------------------------------------
