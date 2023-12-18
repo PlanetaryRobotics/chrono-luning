@@ -22,6 +22,7 @@ SET(DEMOS
     demo_GPU_compression
     demo_GPU_repose
     demo_GPU_ballDrop
+    single_wheel_DEM
 )
 
 # ------------------------------------------------------------------------------

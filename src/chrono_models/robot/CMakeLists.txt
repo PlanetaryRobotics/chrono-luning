@@ -40,6 +40,16 @@ source_group("viper" FILES ${CRM_VIPER_FILES})
 
 #-----------------------------------------------------------------------------
 
+set(CRM_IRIS_FILES
+    iris/Iris.cpp
+    iris/Iris.h
+)
+
+source_group("iris" FILES ${CRM_IRIS_FILES})
+
+#-----------------------------------------------------------------------------
+
+
 set(CRM_TURTLEBOT_FILES
     turtlebot/Turtlebot.cpp
     turtlebot/Turtlebot.h
@@ -87,6 +97,7 @@ add_library(ChronoModels_robot
             ${CRM_VIPER_FILES}
             ${CRM_TURTLEBOT_FILES}
             ${CRM_COPTERS_FILES}
+            ${CRM_IRIS_FILES}		
             )
 
 set_target_properties(ChronoModels_robot PROPERTIES
