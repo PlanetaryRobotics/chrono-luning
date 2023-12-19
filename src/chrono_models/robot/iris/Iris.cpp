@@ -9,31 +9,32 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Luning Bakke
+// Authors: Jason Zhou, Radu Serban
 // =============================================================================
 //
-// CMU IRIS Lunar Rover Model Class.
-// This class contains model for CMU's IRIS lunar rover for NASA's CLPS mission
+// NASA VIPER Lunar Rover Model Class.
+// This class contains model for NASA's VIPER lunar rover for NASA's 2024 Moon
 // exploration mission.
 //
-// Luning TODO:
-// 
-// User can specify wheel obj files and mass properties
-// Move wheel frame info to private member of iris class
-// Chassis mesh
-// 
 // =============================================================================
+//
+// RADU TODO:
+// - Recheck kinematics of mechanism (for negative lift angle)
+// - Forces and torques are reported relative to the part's centroidal frame.
+//   Likely confusing for a user since all bodies are ChBodyAuxRef!
+// - Consider using a torque motor instead of driveshafts
+//   (for a driver that uses torque control)
 //
 // =============================================================================
 
 #include <cmath>
 
-#include "chrono/assets/ChBoxShape.h"
+#include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/physics/ChBodyEasy.h"
-#include "chrono/assets/ChCylinderShape.h"
-#include "chrono/assets/ChSphereShape.h"
+#include "chrono/assets/ChVisualShapeCylinder.h"
+#include "chrono/assets/ChVisualShapeSphere.h"
 #include "chrono/assets/ChTexture.h"
-#include "chrono/assets/ChTriangleMeshShape.h"
+#include "chrono/assets/ChVisualShapeTriangleMesh.h"
 
 #include "chrono/motion_functions/ChFunction_Setpoint.h"
 
@@ -48,6 +49,18 @@
 
 namespace chrono {
 namespace iris {
+
+// =============================================================================
+
+const double Iris::m_max_steer_angle = CH_C_PI / 6;
+// initilize rover wheels
+const double wheel_x =  0.115;
+const double wheel_y =  0.11;
+const double wheel_z = -0.035;
+const double chassis_dim_x = 0.25;
+const double chassis_dim_y = 0.175;
+const double chassis_dim_z = 0.14;
+
 
 
 // =============================================================================
@@ -87,15 +100,16 @@ std::shared_ptr<ChMaterialSurface> DefaultContactMaterial(ChContactMethod contac
     }
 }
 
+
 // Add a rotational speed motor between two bodies at the given position and orientation
 // (expressed in and relative to the chassis frame).
 std::shared_ptr<ChLinkMotorRotationSpeed> AddMotorSpeed(std::shared_ptr<ChBody> body1,
                                                         std::shared_ptr<ChBody> body2,
                                                         std::shared_ptr<IrisChassis> chassis,
-                                                        const ChVector<>& joint_pos,
-                                                        const ChQuaternion<>& joint_rot) {
+                                                        const ChVector<>& rel_pos,
+                                                        const ChQuaternion<>& rel_rot) {
     // Express relative frame in global
-    ChFrame<> X_GC = chassis->GetBody()->GetFrame_REF_to_abs() * ChFrame<>(joint_pos, joint_rot);
+    ChFrame<> X_GC = chassis->GetBody()->GetFrame_REF_to_abs() * ChFrame<>(rel_pos, rel_rot);
 
     // Create motor (actuated DOF about Z axis of X_GC frame)
     auto motor = chrono_types::make_shared<ChLinkMotorRotationSpeed>();
@@ -140,9 +154,8 @@ std::shared_ptr<ChLinkMotorRotationTorque> AddMotorTorque(std::shared_ptr<ChBody
 
     return motor;
 }
-// =============================================================================
 
-// Base class for all Iris Part, position relative to the chassis frame
+// Base class for all Iris Part
 IrisPart::IrisPart(const std::string& name,
                      const ChFrame<>& rel_pos,
                      std::shared_ptr<ChMaterialSurface> mat,
@@ -150,36 +163,44 @@ IrisPart::IrisPart(const std::string& name,
     : m_name(name), m_pos(rel_pos), m_mat(mat), m_collide(collide), m_visualize(true) {}
 
 void IrisPart::Construct(ChSystem* system) {
-    m_body = std::shared_ptr<ChBodyAuxRef>(system->NewBodyAuxRef());
+    m_body = chrono_types::make_shared<ChBodyAuxRef>();
     m_body->SetNameString(m_name + "_body");
     m_body->SetMass(m_mass);
     m_body->SetInertiaXX(m_inertia);
     m_body->SetFrame_COG_to_REF(m_cog);
 
+    double scale = 1e-3;  // convert from mm to m
+
     // Add visualization shape
     if (m_visualize) {
         auto vis_mesh_file = GetChronoDataFile("robot/iris/obj/" + m_mesh_name + ".obj");
         auto trimesh_vis = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vis_mesh_file, true, true);
+        trimesh_vis->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(scale));  // scale to a different size
+
+            // scale mesh
         trimesh_vis->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetA());  // translate/rotate/scale mesh
         trimesh_vis->RepairDuplicateVertexes(1e-9);                          // if meshes are not watertight
 
-        auto trimesh_shape = chrono_types::make_shared<ChTriangleMeshShape>();
+        auto trimesh_shape = chrono_types::make_shared<ChVisualShapeTriangleMesh>();
         trimesh_shape->SetMesh(trimesh_vis);
         trimesh_shape->SetName(m_mesh_name);
         trimesh_shape->SetMutable(false);
+        trimesh_shape->SetColor(m_color);
         m_body->AddVisualShape(trimesh_shape);
     }
 
     // Add collision shape
     if (m_collide) {
-        auto col_mesh_file = GetChronoDataFile("robot/iris/" + m_mesh_name + ".obj");
+        auto col_mesh_file = GetChronoDataFile("robot/iris/col/" + m_mesh_name + ".obj");
+
         auto trimesh_col = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(col_mesh_file, false, false);
+        trimesh_col->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(scale));  // scale to a different size
+
         trimesh_col->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetA());  // translate/rotate/scale mesh
         trimesh_col->RepairDuplicateVertexes(1e-9);                          // if meshes are not watertight
 
-        m_body->GetCollisionModel()->ClearModel();
-        m_body->GetCollisionModel()->AddTriangleMesh(m_mat, trimesh_col, false, false, VNULL, ChMatrix33<>(1), 0.005);
-        m_body->GetCollisionModel()->BuildModel();
+        auto shape = chrono_types::make_shared<ChCollisionShapeTriangleMesh>(m_mat, trimesh_col, false, false, 0.005);
+        m_body->AddCollisionShape(shape);
         m_body->SetCollide(m_collide);
     }
 
@@ -218,7 +239,12 @@ IrisChassis::IrisChassis(const std::string& name, std::shared_ptr<ChMaterialSurf
     : IrisPart(name, ChFrame<>(VNULL, QUNIT), mat, false) {
     m_mesh_name = "iris_chassis";
     m_color = ChColor(1.0f, 1.0f, 1.0f);
-    CalcMassProperties(165);
+    
+    m_mass = 2.186; // weight of the chassis
+    m_inertia = ChVector<>(1e-3, 0.0014, 0.0015); // TODO: ask heather what to put for inertia?
+
+    m_visualize = false;
+    m_collide = false;
 }
 
 void IrisChassis::Initialize(ChSystem* system, const ChFrame<>& pos) {
@@ -232,56 +258,77 @@ void IrisChassis::Initialize(ChSystem* system, const ChFrame<>& pos) {
 // Iris Wheel
 IrisWheel::IrisWheel(const std::string& name,
                        const ChFrame<>& rel_pos,
-                       std::shared_ptr<ChMaterialSurface> mat
-                       )
+                       std::shared_ptr<ChMaterialSurface> mat,
+                       IrisWheelType wheel_type)
     : IrisPart(name, rel_pos, mat, true) {
+    switch (wheel_type) {
+        case IrisWheelType::RealWheel:
+            m_mesh_name = "iris_wheel";
+            break;
+        case IrisWheelType::SimpleWheel:
+            m_mesh_name = "iris_wheel";
+            break;
+        case IrisWheelType::CylWheel:
+            m_mesh_name = "iris_wheel";
+            break;
+    }
 
     m_color = ChColor(0.4f, 0.7f, 0.4f);
-    CalcMassProperties(800);
+    m_mass = 0.02844; // weight of the wheel
+    m_inertia = ChVector<double>(8.74e-4, 8.77e-4, 16.81e-4);  // principal inertia 
+
+    ChMatrix33<> A;
+    A.setZero();
+    A(0, 0) = -0.243;
+    A(2, 0) = 0.97;
+    A(0, 1) = 0.97;
+    A(2, 1) = 0.243;
+    A(1, 2) = 1;
+
+    m_cog = ChFrame<>(ChVector<>(0, 0.0426, 0), A.Get_A_quaternion());
+
 }
-
-
-// =============================================================================
 
 // =============================================================================
 
 // Rover model
-Iris::Iris(ChSystem* system) : m_system(system), m_chassis_fixed(false) {
+Iris::Iris(ChSystem* system, IrisWheelType wheel_type) : m_system(system), m_chassis_fixed(false) {
     // Set default collision model envelope commensurate with model dimensions.
     // Note that an SMC system automatically sets envelope to 0.
     auto contact_method = m_system->GetContactMethod();
     if (contact_method == ChContactMethod::NSC) {
-        collision::ChCollisionModel::SetDefaultSuggestedEnvelope(0.01);
-        collision::ChCollisionModel::SetDefaultSuggestedMargin(0.005);
+        ChCollisionModel::SetDefaultSuggestedEnvelope(0.01);
+        ChCollisionModel::SetDefaultSuggestedMargin(0.005);
     }
 
     // Create the contact materials
     m_default_material = DefaultContactMaterial(contact_method);
     m_wheel_material = DefaultContactMaterial(contact_method);
 
-    Create();
+    Create(wheel_type);
 }
 
-void Iris::Create() {
+void Iris::Create(IrisWheelType wheel_type) {
     // create rover chassis
     m_chassis = chrono_types::make_shared<IrisChassis>("chassis", m_default_material);
 
-    // initilize rover wheels
-    double wx = 0.5618 + 0.08;
-    double wy = 0.2067 + 0.32 + 0.0831;
-    double wz = 0.0;
 
-    m_wheels[LF] = chrono_types::make_shared<IrisWheel>("wheel_LF", ChFrame<>(ChVector<>(+wx, +wy, wz), QUNIT),
-                                                           m_wheel_material);
-    m_wheels[RF] = chrono_types::make_shared<IrisWheel>("wheel_RF", ChFrame<>(ChVector<>(+wx, -wy, wz), QUNIT),
-                                                           m_wheel_material);
-    m_wheels[LB] = chrono_types::make_shared<IrisWheel>("wheel_LB", ChFrame<>(ChVector<>(-wx, +wy, wz), QUNIT),
-                                                           m_wheel_material);
-    m_wheels[RB] = chrono_types::make_shared<IrisWheel>("wheel_RB", ChFrame<>(ChVector<>(-wx, -wy, wz), QUNIT),
-                                                           m_wheel_material);
+    m_wheels[LF] = chrono_types::make_shared<IrisWheel>("wheel_LF", ChFrame<>(ChVector<>(+wheel_x, +wheel_y, wheel_z), QUNIT),
+                                                           m_wheel_material, wheel_type);
+    m_wheels[RF] = chrono_types::make_shared<IrisWheel>(
+        "wheel_RF", ChFrame<>(ChVector<>(+wheel_x, -wheel_y, wheel_z), QUNIT),
+                                                           m_wheel_material, wheel_type);
+    m_wheels[LB] = chrono_types::make_shared<IrisWheel>(
+        "wheel_LB", ChFrame<>(ChVector<>(-wheel_x, +wheel_y, wheel_z), QUNIT),
+                                                           m_wheel_material, wheel_type);
+    m_wheels[RB] = chrono_types::make_shared<IrisWheel>(
+        "wheel_RB", ChFrame<>(ChVector<>(-wheel_x, -wheel_y, wheel_z), QUNIT),
+                                                           m_wheel_material, wheel_type);
 
-    m_wheels[LF]->m_mesh_xform = ChFrame<>(VNULL, Q_from_AngZ(CH_C_PI));
-    m_wheels[LB]->m_mesh_xform = ChFrame<>(VNULL, Q_from_AngZ(CH_C_PI));
+    m_wheels[RF]->m_mesh_xform = ChFrame<>(VNULL, Q_from_AngZ(CH_C_PI));
+    m_wheels[RB]->m_mesh_xform = ChFrame<>(VNULL, Q_from_AngZ(CH_C_PI));
+
+
 
 
 }
@@ -296,25 +343,12 @@ void Iris::Initialize(const ChFrame<>& pos) {
         m_wheels[i]->Initialize(m_chassis->GetBody());
     }
 
-    // wheel relative position w.r.t chassis COM
-    double w_lx =  11.5;
-    double w_ly =  11;
-    double w_lz = -3.5;
 
     ChVector<> wheel_rel_pos[] = {
-        ChVector<>(+w_lx, +w_ly, w_lz),  // LF
-        ChVector<>(+w_lx, -w_ly, w_lz),  // RF
-        ChVector<>(-w_lx, +w_ly, w_lz),  // LB
-        ChVector<>(-w_lx, -w_ly, w_lz)   // RB
-    };
-
-    // Orientation of driving motors.
-    // TODO: Flip coordinate system so positive speed is forward.
-    ChQuaternion<> driving_rot[] = {
-        QUNIT,                 // LF
-        QUNIT,                 // RF
-        Q_from_AngX(CH_C_PI),  // LB
-        Q_from_AngX(CH_C_PI)   // RB
+        ChVector<>(+wheel_x, +wheel_y, wheel_z),  // LF
+        ChVector<>(+wheel_x, -wheel_y, wheel_z),  // RF
+        ChVector<>(-wheel_x, +wheel_y, wheel_z),  // LB
+        ChVector<>(-wheel_x, -wheel_y, wheel_z)   // RB
     };
 
 
@@ -322,28 +356,16 @@ void Iris::Initialize(const ChFrame<>& pos) {
 
     for (int i = 0; i < 4; i++) {
 
-
-        auto steer_rod = chrono_types::make_shared<ChBodyEasyBox>(0.1, 0.1, 0.1, 1000, true, false);
-        steer_rod->SetPos(m_wheels[i]->GetPos());
-        steer_rod->SetBodyFixed(false);
-        m_system->Add(steer_rod);
-
         ChQuaternion<> z2y;
         z2y.Q_from_AngAxis(CH_C_PI / 2, ChVector<>(1, 0, 0));
 
-        m_drive_motor_funcs[i] = chrono_types::make_shared<ChFunction_Const>();
+        m_drive_motor_funcs[i] = chrono_types::make_shared<ChFunction_Setpoint>();
         m_drive_motors[i] =
-        AddMotorSpeed(m_chassis->GetBody(), m_wheels[i]->GetBody(), m_chassis, wheel_rel_pos[i], z2y);
+            AddMotorSpeed(m_chassis->GetBody(), m_wheels[i]->GetBody(), m_chassis, wheel_rel_pos[i], z2y);
         m_drive_motors[i]->SetMotorFunction(m_drive_motor_funcs[i]);
-
 
     }
 
-}
-
-void Iris::SetDriver(std::shared_ptr<IrisDriver> driver) {
-    m_driver = driver;
-    m_driver->iris = this;
 }
 
 void Iris::SetWheelContactMaterial(std::shared_ptr<ChMaterialSurface> mat) {
@@ -381,9 +403,6 @@ ChVector<> Iris::GetWheelAppliedTorque(IrisWheelID id) const {
 }
 
 double Iris::GetWheelTracTorque(IrisWheelID id) const {
-    if (m_driver->GetDriveMotorType() == IrisDriver::DriveMotorType::TORQUE)
-        return 0;
-
     return m_drive_motors[id]->GetMotorTorque();
 }
 
@@ -407,16 +426,10 @@ void Iris::Update() {
         // Extract driver inputs
         double driving = m_driver->drive_speeds[i];
 
-
-        // Set motor functions
         m_drive_motor_funcs[i]->SetSetpoint(driving, time);
     }
 }
-
 // =============================================================================
-
-IrisDriver::IrisDriver()
-    : drive_speeds({0, 0, 0, 0}), iris(nullptr) {}
 
 
 IrisSpeedDriver::IrisSpeedDriver(double time_ramp, double speed) : m_ramp(time_ramp), m_speed(speed) {}

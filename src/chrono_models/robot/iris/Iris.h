@@ -9,11 +9,11 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Luning Bakke
+// Authors: Jason Zhou, Radu Serban
 // =============================================================================
 //
-// NASA IRIS Lunar Rover Model Class.
-// This class contains model for NASA's IRIS lunar rover for NASA's 2024 Moon
+// NASA VIPER Lunar Rover Model Class.
+// This class contains model for NASA's VIPER lunar rover for NASA's 2024 Moon
 // exploration mission.
 //
 // =============================================================================
@@ -47,10 +47,17 @@ enum IrisWheelID {
     RB = 3   ///< right back
 };
 
+/// Iris wheel type.
+enum class IrisWheelType {
+    RealWheel,    ///< actual geometry of the iris wheel
+    SimpleWheel,  ///< simplified wheel geometry
+    CylWheel      ///< cylindrical wheel geometry
+};
+
 // -----------------------------------------------------------------------------
 
-/// Base class definition for all Iris parts.
-/// Iris Rover Parts include Chassis, Steering, Upper Suspension Arm, Bottom Suspension Arm and Wheel.
+/// Base class definition for all iris parts.
+/// iris Rover Parts include Chassis, Steering, Upper Suspension Arm, Bottom Suspension Arm and Wheel.
 class CH_MODELS_API IrisPart {
   public:
     IrisPart(const std::string& name,                 ///< part name
@@ -143,7 +150,8 @@ class CH_MODELS_API IrisWheel : public IrisPart {
   public:
     IrisWheel(const std::string& name,                 ///< part name
                const ChFrame<>& rel_pos,                ///< position relative to chassis frame
-               std::shared_ptr<ChMaterialSurface> mat  ///< contact material
+               std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
+               IrisWheelType wheel_type                ///< wheel type
     );
     ~IrisWheel() {}
 
@@ -152,23 +160,34 @@ class CH_MODELS_API IrisWheel : public IrisPart {
 
 
 // -----------------------------------------------------------------------------
+class CH_MODELS_API IrisSpeedDriver {
+  public:
+    IrisSpeedDriver(double time_ramp, double speed);
+    ~IrisSpeedDriver() {}
 
-class IrisDriver;
+    void Update(double time);
+
+    double m_ramp;
+    double m_speed;
+
+    Iris* iris;  ///< associated Iris rover
+
+    std::array<double, 4> drive_speeds;  ///< angular speeds for drive motors
+
+    friend class Iris;
+};
 
 /// Iris rover class.
 /// This class encapsulates the location and rotation information of all Iris parts wrt the chassis.
 /// This class should be the entry point to create a complete rover.
 class CH_MODELS_API Iris {
   public:
-    Iris(ChSystem* system);
+    Iris(ChSystem* system, IrisWheelType wheel_type = IrisWheelType::RealWheel);
 
     ~Iris() {}
 
     /// Get the containing system.
     ChSystem* GetSystem() const { return m_system; }
-
-    /// Attach a driver system.
-    void SetDriver(std::shared_ptr<IrisDriver> driver);
 
     /// Set wheel contact material.
     void SetWheelContactMaterial(std::shared_ptr<ChMaterialSurface> mat);
@@ -182,8 +201,10 @@ class CH_MODELS_API Iris {
     /// Enable/disable visualization of rover wheels (default: true).
     void SetWheelVisualization(bool state);
 
-    /// Enable/disable visualization of rover suspensions (default: true).
-    void SetSuspensionVisualization(bool state);
+    void SetSpeedDriver(std::shared_ptr<IrisSpeedDriver> driver) {
+        m_driver = driver;
+        m_driver->iris = this;
+    }
 
     /// Initialize the Iris rover at the specified position.
     void Initialize(const ChFrame<>& pos);
@@ -196,6 +217,7 @@ class CH_MODELS_API Iris {
 
     /// Get the specified rover wheel.
     std::shared_ptr<IrisWheel> GetWheel(IrisWheelID id) const { return m_wheels[id]; }
+
 
     /// Get chassis position.
     ChVector<> GetChassisPos() const { return m_chassis->GetPos(); }
@@ -238,10 +260,11 @@ class CH_MODELS_API Iris {
 
     /// Get drive motor function.
     /// This will return an empty pointer if the associated driver uses torque control.
-    std::shared_ptr<ChFunction_Const> GetDriveMotorFunc(IrisWheelID id) const { return m_drive_motor_funcs[id]; }
+    std::shared_ptr<ChFunction_Setpoint> GetDriveMotorFunc(IrisWheelID id) const { return m_drive_motor_funcs[id]; }
 
 
     /// Get drive motor.
+    /// This will return an empty pointer if the associated driver uses torque control.
     std::shared_ptr<ChLinkMotorRotation> GetDriveMotor(IrisWheelID id) const { return m_drive_motors[id]; }
 
 
@@ -251,7 +274,7 @@ class CH_MODELS_API Iris {
 
   private:
     /// Create the rover parts.
-    void Create();
+    void Create(IrisWheelType wheel_type);
 
     ChSystem* m_system;  ///< pointer to the Chrono system
 
@@ -260,79 +283,27 @@ class CH_MODELS_API Iris {
     std::shared_ptr<IrisChassis> m_chassis;                     ///< rover chassis
     std::array<std::shared_ptr<IrisWheel>, 4> m_wheels;         ///< rover wheels (LF, RF, LR, RB)
 
-
     std::array<std::shared_ptr<ChLinkMotorRotation>, 4> m_drive_motors;  ///< drive motors
 
-    std::array<std::shared_ptr<ChFunction_Const>, 4> m_drive_motor_funcs;     ///< drive motor functions
+    std::array<std::shared_ptr<ChFunction_Setpoint>, 4> m_drive_motor_funcs;  ///< drive motor functions
 
-    std::shared_ptr<IrisDriver> m_driver;  ///< rover driver system
+
+    std::shared_ptr<IrisSpeedDriver> m_driver;  ///< rover driver system
 
     std::shared_ptr<ChMaterialSurface> m_default_material;  ///< common contact material for all non-wheel parts
     std::shared_ptr<ChMaterialSurface> m_wheel_material;    ///< wheel contact material (shared across limbs)
 
     static const double m_max_steer_angle;  ///< maximum steering angle
 
-    friend class IrisDCMotorControl;
 };
 
 // -----------------------------------------------------------------------------
 
-/// Base class definition for a Iris driver.
-/// A derived class must implement the Update function to set the various motor controls at the current time.
-/// Alternatively, a derived class may directly access the associate Iris rover and control it through different means
-/// (such as applying torques to the wheel driveshafts).
-class CH_MODELS_API IrisDriver {
-  public:
-    /// Type of drive motor control.
-    enum class DriveMotorType {
-        SPEED,  ///< angular speed
-        TORQUE  ///< torque
-    };
-    virtual ~IrisDriver() {}
 
-    /// Indicate the control type for the drive motors.
-    virtual DriveMotorType GetDriveMotorType() const = 0;
-
-    /// Set current steering input (angle: negative for left, positive for right).
-    void SetSteering(double angle);
-
-    /// Set current steering input (angle: negative for left turn, positive for right turn).
-    /// This function sets the steering angle for the specified wheel.
-    void SetSteering(double angle, IrisWheelID id);
-
-    /// Set current lift input angle.
-    void SetLifting(double angle);
-
-  protected:
-    IrisDriver();
-
-    /// Set the current rover driver inputs.
-    /// This function is called by the associated Iris at each rover Update. A derived class must update the values for
-    /// the angular speeds for the drive motors, as well as the angles for the steering motors and the lift motors at
-    /// the specified time. A positive steering input corresponds to a left turn and a negative value to a right turn.
-    virtual void Update(double time) = 0;
-
-    Iris* iris;  ///< associated Iris rover
-
-    std::array<double, 4> drive_speeds;  ///< angular speeds for drive motors
-
-    friend class Iris;
-};
 
 /// Concrete Iris speed driver.
 /// This driver applies the same angular speed (ramped from 0 to a prescribed value) to all wheels.
-class CH_MODELS_API IrisSpeedDriver : public IrisDriver {
-  public:
-    IrisSpeedDriver(double time_ramp, double speed);
-    ~IrisSpeedDriver() {}
 
-  private:
-    virtual DriveMotorType GetDriveMotorType() const override { return DriveMotorType::SPEED; }
-    virtual void Update(double time) override;
-
-    double m_ramp;
-    double m_speed;
-};
 
 /// @} robot_models_iris
 
