@@ -169,13 +169,10 @@ void IrisPart::Construct(ChSystem* system) {
     m_body->SetInertiaXX(m_inertia);
     m_body->SetFrame_COG_to_REF(m_cog);
 
-    double scale = 1e-3;  // convert from mm to m
-
     // Add visualization shape
     if (m_visualize) {
         auto vis_mesh_file = GetChronoDataFile("robot/iris/obj/" + m_mesh_name + ".obj");
         auto trimesh_vis = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vis_mesh_file, true, true);
-        trimesh_vis->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(scale));  // scale to a different size
 
             // scale mesh
         trimesh_vis->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetA());  // translate/rotate/scale mesh
@@ -194,7 +191,6 @@ void IrisPart::Construct(ChSystem* system) {
         auto col_mesh_file = GetChronoDataFile("robot/iris/col/" + m_mesh_name + ".obj");
 
         auto trimesh_col = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(col_mesh_file, false, false);
-        trimesh_col->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(scale));  // scale to a different size
 
         trimesh_col->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetA());  // translate/rotate/scale mesh
         trimesh_col->RepairDuplicateVertexes(1e-9);                          // if meshes are not watertight
