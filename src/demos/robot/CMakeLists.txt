@@ -16,6 +16,9 @@ set(DEMOS
     demo_ROBOT_Turtlebot_Rigid
     demo_ROBOT_Viper_Rigid
     demo_ROBOT_Viper_SCM
+    demo_ROBOT_Cobra_Rigid
+    demo_ROBOT_Rassor_Rigid
+    demo_ROBOT_Rassor_SCM
 )
 
 if(ENABLE_MODULE_IRRLICHT)
@@ -23,6 +26,13 @@ if(ENABLE_MODULE_IRRLICHT)
       demo_ROBOT_LittleHexy
   )
 endif()
+
+if(ENABLE_MODULE_PARSERS)
+  set(DEMOS ${DEMOS}
+      demo_ROBOT_UnitreeGo1_Rigid
+  )
+endif()
+
 
 if(ENABLE_MODULE_SENSOR AND ENABLE_MODULE_IRRLICHT)
   set(DEMOS ${DEMOS}
@@ -34,6 +44,7 @@ endif()
 if(ENABLE_MODULE_FSI)
   set(DEMOS ${DEMOS}
       demo_ROBOT_Viper_SPH
+      demo_ROBOT_Rassor_SPH
   )
 endif()
 

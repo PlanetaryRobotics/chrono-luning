@@ -70,6 +70,9 @@
 #include "chrono_models/robot/turtlebot/Turtlebot.h"
 #include "chrono_models/robot/copters/Copter.h"
 #include "chrono_models/robot/copters/Little_Hexy.h"
+#include "chrono_models/robot/cobra/Cobra.h"
+#include "chrono_models/robot/unitree_go1/Unitree_Go1.h"
+#include "chrono_models/robot/rassor/Rassor.h"
 
 using namespace chrono;
 using namespace chrono::robosimian;
@@ -77,6 +80,9 @@ using namespace chrono::viper;
 using namespace chrono::curiosity;
 using namespace chrono::turtlebot;
 using namespace chrono::copter;
+using namespace chrono::cobra;
+using namespace chrono::unitree_go1;
+using namespace chrono::rassor;
 
 %}
 
@@ -174,6 +180,23 @@ using namespace chrono::copter;
 %shared_ptr(chrono::turtlebot::Turtlebot_TopPlate)
 %shared_ptr(chrono::turtlebot::Turtlebot_Rod_Long)
 
+%shared_ptr(chrono::cobra::CobraPart)
+%shared_ptr(chrono::cobra::CobraChassis)
+%shared_ptr(chrono::cobra::CobraSteerHub)
+%shared_ptr(chrono::cobra::CobraSteerStruct)
+%shared_ptr(chrono::cobra::CobraWheel)
+%shared_ptr(chrono::cobra::CobraDriver)
+%shared_ptr(chrono::cobra::CobraSpeedDriver)
+
+%shared_ptr(chrono::rassor::RassorPart)
+%shared_ptr(chrono::rassor::RassorChassis)
+%shared_ptr(chrono::rassor::RassorWheel)
+%shared_ptr(chrono::rassor::RassorRazor)
+%shared_ptr(chrono::rassor::RassorArm)
+%shared_ptr(chrono::rassor::RassorDriver)
+%shared_ptr(chrono::rassor::RassorSpeedDriver)
+
+
 //
 // B- INCLUDE HEADERS
 //
@@ -218,6 +241,8 @@ using namespace chrono::copter;
 %import(module = "pychrono.core") "../chrono/fea/ChContinuumMaterial.h"
 %import(module = "pychrono.core") "../chrono/physics/ChPhysicsItem.h"
 
+%import(module = "pychrono.core") "../chrono_parsers/ChParserURDF.h"
+
 %import(module = "pychrono.core") "../chrono/physics/ChBodyFrame.h"
 %import(module = "pychrono.core") "../chrono/physics/ChLinkBase.h"
 %import(module = "pychrono.core") "../chrono/assets/ChVisualShapeTriangleMesh.h"
@@ -236,11 +261,15 @@ using namespace chrono::copter;
 %include "../../../chrono_models/robot/viper/Viper.h"
 %include "../../../chrono_models/robot/curiosity/Curiosity.h"
 %include "../../../chrono_models/robot/turtlebot/Turtlebot.h"
+%include "../../../chrono_models/robot/cobra/Cobra.h"
+
 
 %include "../../../chrono_models/robot/copters/Copter.h"
 %template(ChCopter6) chrono::copter::Copter<6>;
 %template(ChCopter4) chrono::copter::Copter<4>;
 %include "../../../chrono_models/robot/copters/Little_Hexy.h"
+%include "../../../chrono_models/robot/unitree_go1/Unitree_Go1.h"
+%include "../../../chrono_models/robot/rassor/Rassor.h"
 
 
 
@@ -297,6 +326,15 @@ using namespace chrono::copter;
                const chrono::ChQuaternion<double>& robot_rot){
 			   
 			   auto selfpoint = std::make_shared<chrono::turtlebot::TurtleBot>(system, robot_pos, robot_rot, nullptr);
+			   return selfpoint.get();
+			   }
+		};
+
+%extend chrono::cobra::Cobra{
+		public:
+			Cobra(chrono::ChSystem* system){
+			   
+			   auto selfpoint = std::make_shared<chrono::cobra::Cobra>(system, CobraWheelType::SimpleWheel);
 			   return selfpoint.get();
 			   }
 		};

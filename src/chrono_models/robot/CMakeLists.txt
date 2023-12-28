@@ -40,6 +40,15 @@ source_group("viper" FILES ${CRM_VIPER_FILES})
 
 #-----------------------------------------------------------------------------
 
+set(CRM_COBRA_FILES
+    cobra/Cobra.cpp
+    cobra/Cobra.h
+)
+
+source_group("cobra" FILES ${CRM_COBRA_FILES})
+
+#-----------------------------------------------------------------------------
+
 set(CRM_TURTLEBOT_FILES
     turtlebot/Turtlebot.cpp
     turtlebot/Turtlebot.h
@@ -56,6 +65,24 @@ set(CRM_CURIOSITY_FILES
 
 source_group("curiosity" FILES ${CRM_CURIOSITY_FILES})
 
+#-----------------------------------------------------------------------------
+
+set(CRM_RASSOR_FILES
+    rassor/Rassor.cpp    
+    rassor/Rassor.h
+)
+
+source_group("rassor" FILES ${CRM_RASSOR_FILES})
+
+
+#-----------------------------------------------------------------------------
+if(ENABLE_MODULE_PARSERS)
+    set(CRM_UNITREEGO1_FILES
+        unitree_go1/Unitree_Go1.cpp
+        unitree_go1/Unitree_Go1.h
+    )
+    source_group("unitree_go1" FILES ${CRM_UNITREEGO1_FILES})
+endif()
 
 #-----------------------------------------------------------------------------
 
@@ -78,6 +105,12 @@ if(ENABLE_MODULE_IRRLICHT)
     include_directories(${CH_IRRLICHT_INCLUDES})
 endif()
 
+if(ENABLE_MODULE_PARSERS)
+    set(CXX_FLAGS "${CXX_FLAGS} ${CH_PARSERS_CXX_FLAGS}")
+    list(APPEND LIBRARIES ChronoEngine_parsers)
+    include_directories(${CH_PARSERS_INCLUDES})
+endif()
+
 #-----------------------------------------------------------------------------
 
 add_library(ChronoModels_robot 
@@ -85,8 +118,11 @@ add_library(ChronoModels_robot
             ${CRM_ROBOSIMIAN_FILES}
             ${CRM_CURIOSITY_FILES}
             ${CRM_VIPER_FILES}
+            ${CRM_COBRA_FILES}
             ${CRM_TURTLEBOT_FILES}
             ${CRM_COPTERS_FILES}
+            ${CRM_UNITREEGO1_FILES}
+            ${CRM_RASSOR_FILES}
             )
 
 set_target_properties(ChronoModels_robot PROPERTIES
