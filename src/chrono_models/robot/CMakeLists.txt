@@ -119,11 +119,7 @@ add_library(ChronoModels_robot
             ${CRM_ROBOSIMIAN_FILES}
             ${CRM_CURIOSITY_FILES}
             ${CRM_VIPER_FILES}
-<<<<<<< HEAD
-            ${CRM_COBRA_FILES}
-=======
             ${CRM_RASSOR_FILES}
->>>>>>> 026aa4b2f93291785e429420275ab833b254e300
             ${CRM_TURTLEBOT_FILES}
             ${CRM_COPTERS_FILES}
             ${CRM_UNITREEGO1_FILES}

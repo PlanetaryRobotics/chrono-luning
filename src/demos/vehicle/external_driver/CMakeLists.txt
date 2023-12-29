@@ -11,7 +11,7 @@ endif()
 # List all demos
 
 set(DEMOS
-	demo_VEH_Controller_ExternalDriver
+#	demo_VEH_Controller_ExternalDriver
 )
 
 #--------------------------------------------------------------

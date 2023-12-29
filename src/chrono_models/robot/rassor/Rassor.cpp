@@ -238,8 +238,8 @@ RassorWheel::RassorWheel(const std::string& name,
 
 // =============================================================================
 
-// Rassor Razor
-RassorRazor::RassorRazor(const std::string& name, const ChFrame<>& rel_pos, std::shared_ptr<ChMaterialSurface> mat)
+// Rassor Drum
+RassorDrum::RassorDrum(const std::string& name, const ChFrame<>& rel_pos, std::shared_ptr<ChMaterialSurface> mat)
     : RassorPart(name, rel_pos, mat, true) {
     m_mesh_name = "rassor_razor";
     m_color = ChColor(0.1f, 0.6f, 0.8f);
@@ -299,10 +299,10 @@ void Rassor::Create(RassorWheelType wheel_type) {
     z2z180.Q_from_AngAxis(CH_C_PI, ChVector<>(0, 0, 1));
 
     m_razors[0] =
-        chrono_types::make_shared<RassorRazor>("razor_F", ChFrame<>(ChVector<>(+rx, ry, rz), QUNIT), m_wheel_material);
+        chrono_types::make_shared<RassorDrum>("razor_F", ChFrame<>(ChVector<>(+rx, ry, rz), QUNIT), m_wheel_material);
 
     m_razors[1] =
-        chrono_types::make_shared<RassorRazor>("razor_B", ChFrame<>(ChVector<>(-rx, ry, rz), z2z180), m_wheel_material);
+        chrono_types::make_shared<RassorDrum>("razor_B", ChFrame<>(ChVector<>(-rx, ry, rz), z2z180), m_wheel_material);
 
     // initialize rover arms
 
@@ -421,6 +421,12 @@ double Rassor::GetRoverMass() const {
     for (int i = 0; i < 4; i++) {
         tot_mass += m_wheels[i]->GetBody()->GetMass();
     }
+
+    tot_mass += m_arms[0]->GetBody()->GetMass();
+    tot_mass += m_arms[1]->GetBody()->GetMass();
+
+    tot_mass += m_razors[0]->GetBody()->GetMass();
+    tot_mass += m_razors[1]->GetBody()->GetMass();
     return tot_mass;
 }
 

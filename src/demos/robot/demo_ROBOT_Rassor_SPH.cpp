@@ -70,7 +70,7 @@ double dT = 2.0e-4;
 
 // Save data as csv files to see the results off-line using Paraview
 bool output = true;
-int out_fps = 20;
+int out_fps = 10;
 
 // Enable/disable run-time visualization (if Chrono::OpenGL is available)
 bool render = true;
@@ -87,6 +87,13 @@ RassorWheelType wheel_type = RassorWheelType::RealWheel;
 std::string wheel_obj = "robot/rassor/obj/rassor_wheel.obj";
 std::string arm_obj = "robot/rassor/obj/rassor_arm.obj";
 std::string razor_obj = "robot/rassor/obj/rassor_razor.obj";
+
+double wheel_velocity = 0.3; 
+double bucket_omega = 4.17; 
+double wheel_driver_speed = 1.35;
+double bucket_driver_speed = 4.17;
+
+
 
 std::shared_ptr<ChMaterialSurface> CustomWheelMaterial(ChContactMethod contact_method) {
     float mu = 0.4f;   // coefficient of friction
@@ -288,58 +295,37 @@ int main(int argc, char* argv[]) {
 
     ChTimer timer;
     while (time < total_time) {
-        std::cout << current_step << "  time: " << time << "  sim. time: " << timer() << std::endl;
 
-        if (time <= 2.0) {
-            for (int i = 0; i < 4; i++) {
-                driver->SetDriveMotorSpeed((RassorWheelID)i, 2.0);
-            }
+        for (int i = 0; i < 4; i++) {
+            driver->SetDriveMotorSpeed((RassorWheelID)i, wheel_driver_speed);
+        }
 
-            driver->SetRazorMotorSpeed((RassorDirID)0, 2.0);
-            driver->SetRazorMotorSpeed((RassorDirID)1, 2.0);
-            driver->SetArmMotorSpeed((RassorDirID)0, 0.0);
-            driver->SetArmMotorSpeed((RassorDirID)1, 0.0);
-        } else if (time > 2.0 && time <= 5.0) {
-            for (int i = 0; i < 4; i++) {
-                driver->SetDriveMotorSpeed((RassorWheelID)i, 0.0);
-            }
 
-            driver->SetRazorMotorSpeed((RassorDirID)0, 3.14);
-            driver->SetRazorMotorSpeed((RassorDirID)1, -3.14);
+        if (time <= 0.5) {
             driver->SetArmMotorSpeed((RassorDirID)0, 0.05);
             driver->SetArmMotorSpeed((RassorDirID)1, -0.05);
-        } else if (time > 5.0 && time <= 7.0) {
-            for (int i = 0; i < 4; i++) {
-                driver->SetDriveMotorSpeed((RassorWheelID)i, 0.0);
-            }
-
-            driver->SetRazorMotorSpeed((RassorDirID)0, 0.0);
-            driver->SetRazorMotorSpeed((RassorDirID)1, 0.0);
-            driver->SetArmMotorSpeed((RassorDirID)0, -0.55);
-            driver->SetArmMotorSpeed((RassorDirID)1, 0.55);
-        } else if (time > 7.0 && time <= 10.0) {
-            for (int i = 0; i < 4; i++) {
-                driver->SetDriveMotorSpeed((RassorWheelID)i, 0.0);
-            }
-
-            driver->SetRazorMotorSpeed((RassorDirID)0, -2.0);
-            driver->SetRazorMotorSpeed((RassorDirID)1, 2.0);
+        } else {
+        
             driver->SetArmMotorSpeed((RassorDirID)0, 0.0);
-            driver->SetArmMotorSpeed((RassorDirID)1, 0.0);
+            driver->SetArmMotorSpeed((RassorDirID)1, 0.0);        
+        
         }
+            
+        driver->SetRazorMotorSpeed((RassorDirID)0,  bucket_driver_speed);
+        driver->SetRazorMotorSpeed((RassorDirID)1, -bucket_driver_speed);
 
         rover->Update();
 
-        std::cout << "  pos: " << body->GetPos() << std::endl;
-        std::cout << "  vel: " << body->GetPos_dt() << std::endl;
-        if (output) {
-            ofile << time << "  " << body->GetPos() << "    " << body->GetPos_dt() << std::endl;
-            if (current_step % output_steps == 0) {
+
+            if (output && current_step % output_steps == 0) {
+                std::cout << current_step << "  time: " << time << "  sim. time: " << timer() << std::endl;
+                std::cout << "  pos: " << body->GetPos() << std::endl;
+                std::cout << "  vel: " << body->GetPos_dt() << std::endl;
+
                 sysFSI.PrintParticleToFile(out_dir + "/particles");
                 sysFSI.PrintFsiInfoToFile(out_dir + "/fsi", time);
                 SaveParaViewFiles(sysFSI, sysMBS, time);
             }
-        }
 
         // Render system
         if (render && current_step % render_steps == 0) {
@@ -735,7 +721,6 @@ std::vector<ChVector<>> LoadSolidPhaseBCE(std::string filename) {
         pt_vec.z() = point[2];
 
         points.push_back(pt_vec);
-        std::cout << pt_vec << std::endl;
     }
 
     return points;

@@ -9,8 +9,8 @@ set(DEMOS ${DEMOS}
    demo_FSI_SingleWheelTest
    demo_FSI_BCE
    demo_FSI_CylinderDrop
-   single_wheel_FSI_rassor
-   demo_FSI_RASSOR
+#   single_wheel_FSI_rassor
+#   demo_FSI_RASSOR
 )
 
 if(ENABLE_MODULE_PARDISO_MKL)
