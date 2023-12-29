@@ -77,53 +77,6 @@ std::shared_ptr<ChMaterialSurface> DefaultContactMaterial(ChContactMethod contac
     }
 }
 
-// Add a revolute joint between body_1 and body_2
-// rel_joint_pos and rel_joint_rot are the position and the rotation of the revolute point
-void AddLockJoint(std::shared_ptr<ChBodyAuxRef> body_1,
-                  std::shared_ptr<ChBodyAuxRef> body_2,
-                  std::shared_ptr<RassorChassis> chassis,
-                  const ChVector<>& rel_joint_pos,
-                  const ChQuaternion<>& rel_joint_rot) {
-    // Express relative frame in global
-    ChFrame<> X_GC = chassis->GetBody()->GetFrame_REF_to_abs() * ChFrame<>(rel_joint_pos, rel_joint_rot);
-
-    // auto revo = chrono_types::make_shared<ChLinkLockRevolute>();
-    auto revo = chrono_types::make_shared<ChLinkLockLock>();
-    revo->Initialize(body_1, body_2, ChCoordsys<>(X_GC.GetCoord().pos, X_GC.GetCoord().rot));
-    chassis->GetBody()->GetSystem()->AddLink(revo);
-}
-
-// Add a revolute joint between two bodies at the given position and orientation
-// (expressed in and relative to the chassis frame).
-void AddRevoluteJoint(std::shared_ptr<ChBody> body1,
-                      std::shared_ptr<ChBody> body2,
-                      std::shared_ptr<RassorChassis> chassis,
-                      const ChVector<>& rel_pos,
-                      const ChQuaternion<>& rel_rot) {
-    // Express relative frame in global
-    ChFrame<> X_GC = chassis->GetBody()->GetFrame_REF_to_abs() * ChFrame<>(rel_pos, rel_rot);
-
-    // Create joint (DOF about Z axis of X_GC frame)
-    auto joint = chrono_types::make_shared<ChLinkLockRevolute>();
-    joint->Initialize(body1, body2, ChCoordsys<>(X_GC.GetPos(), X_GC.GetRot()));
-    chassis->GetBody()->GetSystem()->AddLink(joint);
-}
-
-// Add a universal joint between two bodies at the given position and orientation
-// (expressed in and relative to the chassis frame).
-void AddUniversalJoint(std::shared_ptr<ChBody> body1,
-                       std::shared_ptr<ChBody> body2,
-                       std::shared_ptr<RassorChassis> chassis,
-                       const ChVector<>& rel_pos,
-                       const ChQuaternion<>& rel_rot) {
-    // Express relative frame in global
-    ChFrame<> X_GC = chassis->GetBody()->GetFrame_REF_to_abs() * ChFrame<>(rel_pos, rel_rot);
-
-    // Create joint (DOFs about X and Y axes of X_GC frame)
-    auto joint = chrono_types::make_shared<ChLinkUniversal>();
-    joint->Initialize(body1, body2, X_GC);
-    chassis->GetBody()->GetSystem()->AddLink(joint);
-}
 
 // Add a rotational speed motor between two bodies at the given position and orientation
 // (expressed in and relative to the chassis frame).
@@ -294,7 +247,7 @@ RassorRazor::RassorRazor(const std::string& name, const ChFrame<>& rel_pos, std:
 }
 // =============================================================================
 
-// Rassor Arm
+// Rassor Razor
 RassorArm::RassorArm(const std::string& name, const ChFrame<>& rel_pos, std::shared_ptr<ChMaterialSurface> mat)
     : RassorPart(name, rel_pos, mat, false) {
     m_mesh_name = "rassor_arm";

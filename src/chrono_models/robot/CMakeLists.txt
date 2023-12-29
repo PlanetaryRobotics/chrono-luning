@@ -40,14 +40,15 @@ source_group("viper" FILES ${CRM_VIPER_FILES})
 
 #-----------------------------------------------------------------------------
 
-set(CRM_COBRA_FILES
-    cobra/Cobra.cpp
-    cobra/Cobra.h
+set(CRM_RASSOR_FILES
+    rassor/Rassor.cpp
+    rassor/Rassor.h
 )
 
-source_group("cobra" FILES ${CRM_COBRA_FILES})
+source_group("rassor" FILES ${CRM_RASSOR_FILES})
 
 #-----------------------------------------------------------------------------
+
 
 set(CRM_TURTLEBOT_FILES
     turtlebot/Turtlebot.cpp
@@ -118,7 +119,11 @@ add_library(ChronoModels_robot
             ${CRM_ROBOSIMIAN_FILES}
             ${CRM_CURIOSITY_FILES}
             ${CRM_VIPER_FILES}
+<<<<<<< HEAD
             ${CRM_COBRA_FILES}
+=======
+            ${CRM_RASSOR_FILES}
+>>>>>>> 026aa4b2f93291785e429420275ab833b254e300
             ${CRM_TURTLEBOT_FILES}
             ${CRM_COPTERS_FILES}
             ${CRM_UNITREEGO1_FILES}

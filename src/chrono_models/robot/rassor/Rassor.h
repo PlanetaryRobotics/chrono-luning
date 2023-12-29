@@ -9,12 +9,11 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Json Zhou
+// Authors: Jason Zhou
 // =============================================================================
 //
 // NASA RASSOR Mining Experimental Rover Model Class.
 // This class contains model for an experimental rover Rassor
-// Reference page: https://technology.nasa.gov/patent/KSC-TOPS-7
 //
 // =============================================================================
 
@@ -149,7 +148,7 @@ class CH_MODELS_API RassorChassis : public RassorPart {
     void Initialize(ChSystem* system, const ChFrame<>& pos);
 };
 
-/// Rassor rover Wheel.
+/// Rassor rover wheel.
 class CH_MODELS_API RassorWheel : public RassorPart {
   public:
     RassorWheel(const std::string& name,                 ///< part name
@@ -165,19 +164,19 @@ class CH_MODELS_API RassorWheel : public RassorPart {
     RassorWheelType m_wheel_type;  ///< wheel type
 };
 
-/// Rassor rover Razo.
-class CH_MODELS_API RassorRazor : public RassorPart {
+/// Rassor rover drum.
+class CH_MODELS_API RassorDrum : public RassorPart {
   public:
-    RassorRazor(const std::string& name,                ///< part name
+    RassorDrum(const std::string& name,                ///< part name
                 const ChFrame<>& rel_pos,               ///< position relative to chassis frame
                 std::shared_ptr<ChMaterialSurface> mat  ///< contact material
     );
-    ~RassorRazor() {}
+    ~RassorDrum() {}
 
     friend class Rassor;
 };
 
-/// Rassor rover Arm.
+/// Rassor rover arm.
 class CH_MODELS_API RassorArm : public RassorPart {
   public:
     RassorArm(const std::string& name,                ///< part name
