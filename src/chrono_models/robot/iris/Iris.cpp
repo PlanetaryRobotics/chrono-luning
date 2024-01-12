@@ -237,7 +237,7 @@ IrisChassis::IrisChassis(const std::string& name, std::shared_ptr<ChMaterialSurf
     m_color = ChColor(1.0f, 1.0f, 1.0f);
     
     m_mass = 2.186; // weight of the chassis
-    m_inertia = ChVector<>(1e-3, 0.0014, 0.0015); // TODO: ask heather what to put for inertia?
+    m_inertia = ChVector<>(1e-2, 0.014, 0.015); // TODO: ask heather what to put for inertia?
 
     m_visualize = false;
     m_collide = false;
@@ -281,7 +281,7 @@ IrisWheel::IrisWheel(const std::string& name,
     A(2, 1) = 0.243;
     A(1, 2) = 1;
 
-    m_cog = ChFrame<>(ChVector<>(0, 0.0426, 0), A.Get_A_quaternion());
+    m_cog = ChFrame<>(ChVector<>(0, 0.00426, 0), A.Get_A_quaternion());
 
 }
 
