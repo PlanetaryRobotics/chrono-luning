@@ -9,12 +9,10 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Jason Zhou, Radu Serban
+// Authors: Jason Zhou, Radu Serban, Luning Bakke
 // =============================================================================
 //
-// NASA VIPER Lunar Rover Model Class.
-// This class contains model for NASA's VIPER lunar rover for NASA's 2024 Moon
-// exploration mission.
+// Iris Lunar Rover Model Class.
 //
 // =============================================================================
 
@@ -158,6 +156,7 @@ class CH_MODELS_API IrisWheel : public IrisPart {
     friend class Iris;
 };
 
+class Iris;
 
 // -----------------------------------------------------------------------------
 class CH_MODELS_API IrisSpeedDriver {
