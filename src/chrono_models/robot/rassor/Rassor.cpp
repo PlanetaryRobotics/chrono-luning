@@ -25,6 +25,7 @@
 #include "chrono/assets/ChVisualShapeSphere.h"
 #include "chrono/assets/ChTexture.h"
 #include "chrono/assets/ChVisualShapeTriangleMesh.h"
+#include "chrono/geometry/ChTriangleMeshConnected.h"
 
 #include "chrono/motion_functions/ChFunction_Setpoint.h"
 
@@ -453,6 +454,44 @@ void Rassor::Update() {
         m_arm_2_motor_funcs[i]->Set_yconst(razor_speed);
     }
 }
+
+void Rassor::writeMeshFile(const std::string& out_dir, int frame_number,  bool save_obj) {
+	
+    // a list of body pointers
+    std::vector<std::shared_ptr<RassorPart>> body_mesh_list;
+    body_mesh_list.push_back(m_chassis);
+    for (int i = 0; i < 4; i++) {
+		body_mesh_list.push_back(m_wheels[i]);
+	}
+
+    for (int i = 0; i < 2; i++) {
+        body_mesh_list.push_back(m_arms[i]);
+        body_mesh_list.push_back(m_razors[i]);
+    }
+
+    for (int i = 0; i < body_mesh_list.size(); i++) {
+
+        auto part = body_mesh_list[i];
+        // get body position and orientation
+        auto body = part->GetBody();
+        ChFrame<> body_ref_frame = body->GetFrame_REF_to_abs();
+        ChVector<> body_pos = body_ref_frame.GetPos();
+        ChQuaternion<> body_rot = body_ref_frame.GetRot();
+
+        auto trimesh = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(part->GetMeshName(), false, false);
+
+        // Transform mesh itself
+        trimesh->Transform(m_chassis->GetMeshTransform().GetPos(),
+                           m_chassis->GetMeshTransform().GetA());  // translate/rotate/scale mesh
+
+        // Transform mesh based on body position and pose
+        trimesh->Transform(body_pos, ChMatrix33<>(body_rot));  // rotate the mesh based on the orientation of body
+
+        std::string filename = out_dir + "/" + part->GetName() + "_" + std::to_string(frame_number) + ".obj";
+        geometry::ChTriangleMeshConnected::WriteWavefront(filename, {*trimesh});
+    }
+}
+
 
 // =============================================================================
 

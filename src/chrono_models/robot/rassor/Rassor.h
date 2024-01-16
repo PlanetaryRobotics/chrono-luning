@@ -112,6 +112,13 @@ class CH_MODELS_API RassorPart {
     /// This is the absolute angular acceleratin of the part reference frame.
     const ChVector<> GetAngAcc() const { return m_body->GetFrame_REF_to_abs().GetWacc_par(); }
 
+
+    /// Return mesh name for visualization
+    std::string GetMeshName() const { return GetChronoDataFile("robot/rassor/obj/" + m_mesh_name + ".obj");
+    }
+
+
+    ChFrame<> GetMeshTransform() const { return m_mesh_xform; }
   protected:
     /// Utility function for calculating mass properties using the part's collision mesh.
     void CalcMassProperties(double density);
@@ -291,6 +298,8 @@ class CH_MODELS_API Rassor {
     /// Rassor update function.
     /// This function must be called before each integration step.
     void Update();
+
+    void writeMeshFile(const std::string& filename, int frame_num, bool obj);
 
   private:
     /// Create the rover parts.
