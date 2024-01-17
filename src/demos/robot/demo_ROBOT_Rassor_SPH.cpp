@@ -9,9 +9,11 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Author: Json Zhou
+// Author: Json Zhou, Luning Bakke
 // Chrono::FSI demo to show usage of Rassor rover models on CRM granular terrain
 // This demo uses a plug-in Rassor rover model from chrono::models
+// TODO: 
+// rover initialization and driver should be independent from create solid phase
 // =============================================================================
 
 #include "chrono_models/robot/rassor/Rassor.h"
@@ -28,9 +30,6 @@
 #include "chrono_fsi/ChSystemFsi.h"
 #include "chrono_fsi/visualization/ChFsiVisualization.h"
 #include "chrono/assets/ChVisualSystem.h"
-#ifdef CHRONO_OPENGL
-    #include "chrono_fsi/visualization/ChFsiVisualizationGL.h"
-#endif
 #ifdef CHRONO_VSG
     #include "chrono_fsi/visualization/ChFsiVisualizationVSG.h"
 #endif
@@ -41,9 +40,6 @@ using namespace chrono;
 using namespace chrono::fsi;
 using namespace chrono::geometry;
 using namespace chrono::rassor;
-
-// Run-time visualization system (OpenGL or VSG)
-ChVisualSystem::Type vis_type = ChVisualSystem::Type::VSG;
 
 // Output directories and settings
 const std::string out_dir = GetChronoOutputPath() + "FSI_new_api/";
@@ -76,7 +72,7 @@ int out_fps = 10;
 bool render = true;
 float render_fps = 100;
 
-// Pointer to store the VIPER instance
+// Pointer to store the Rassor instance
 std::shared_ptr<Rassor> rover;
 std::shared_ptr<RassorSpeedDriver> driver;
 
@@ -85,14 +81,12 @@ RassorWheelType wheel_type = RassorWheelType::RealWheel;
 
 // Use below mesh file if the wheel type is real VIPER wheel
 std::string wheel_obj = "robot/rassor/obj/rassor_wheel.obj";
-std::string arm_obj = "robot/rassor/obj/rassor_arm.obj";
-std::string razor_obj = "robot/rassor/obj/rassor_razor.obj";
+
 
 double wheel_velocity = 0.3; 
 double bucket_omega = 4.17; 
 double wheel_driver_speed = 1.35;
 double bucket_driver_speed = 4.17;
-
 
 
 std::shared_ptr<ChMaterialSurface> CustomWheelMaterial(ChContactMethod contact_method) {
@@ -233,42 +227,21 @@ int main(int argc, char* argv[]) {
 
     // Get the body from the FSI system for visualization
     std::vector<std::shared_ptr<ChBody>>& FSI_Bodies = sysFSI.GetFsiBodies();
-    auto Rassor = FSI_Bodies[0];
 
     // Write position and velocity to file
     std::ofstream ofile;
     if (output)
         ofile.open(out_dir + "./body_position.txt");
 
-        // Create run-time visualization
-#ifndef CHRONO_OPENGL
-    if (vis_type == ChVisualSystem::Type::OpenGL)
-        vis_type = ChVisualSystem::Type::VSG;
-#endif
-#ifndef CHRONO_VSG
-    if (vis_type == ChVisualSystem::Type::VSG)
-        vis_type = ChVisualSystem::Type::OpenGL;
-#endif
-
-#if !defined(CHRONO_OPENGL) && !defined(CHRONO_VSG)
+#if !defined(CHRONO_VSG)
     render = false;
 #endif
 
     std::shared_ptr<ChFsiVisualization> visFSI;
     if (render) {
-        switch (vis_type) {
-            case ChVisualSystem::Type::OpenGL:
-#ifdef CHRONO_OPENGL
-                visFSI = chrono_types::make_shared<ChFsiVisualizationGL>(&sysFSI);
-#endif
-                break;
-            case ChVisualSystem::Type::VSG: {
-#ifdef CHRONO_VSG
+        #ifdef CHRONO_VSG
                 visFSI = chrono_types::make_shared<ChFsiVisualizationVSG>(&sysFSI);
-#endif
-                break;
-            }
-        }
+        #endif
 
         visFSI->SetTitle("Rassor on CRM terrain");
         visFSI->SetSize(1280, 720);
@@ -372,15 +345,10 @@ void CreateSolidPhase(ChSystemNSC& sysMBS, ChSystemFsi& sysFSI) {
     rover->SetWheelContactMaterial(CustomWheelMaterial(ChContactMethod::NSC));
     rover->Initialize(ChFrame<>(init_loc, QUNIT));
 
-    // Create the wheel's BCE particles
-    auto trimesh = chrono_types::make_shared<ChTriangleMeshConnected>();
-    double scale_ratio = 1.0;
-    trimesh->LoadWavefrontMesh(GetChronoDataFile(wheel_obj), false, true);
-    trimesh->Transform(ChVector<>(0, 0, 0), ChMatrix33<>(scale_ratio));  // scale to a different size
-    trimesh->RepairDuplicateVertexes(1e-9);                              // if meshes are not watertight
 
     std::vector<ChVector<>> BCE_wheel;
-    sysFSI.CreateMeshPoints(*trimesh, initSpace0, BCE_wheel);
+    BCE_wheel = LoadSolidPhaseBCE(GetChronoDataFile("robot/rassor/bce/rassor_wheel.csv"));
+    std::cout << "BCE wheel len:" << BCE_wheel.size() << std::endl;
 
     // Add BCE particles and mesh of wheels to the system
     for (int i = 0; i < 4; i++) {
