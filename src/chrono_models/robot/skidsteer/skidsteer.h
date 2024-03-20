@@ -13,8 +13,7 @@
 // =============================================================================
 //
 
-#ifndef IRIS_H
-#define IRIS_H
+#pragma once
 
 #include <string>
 #include <array>
@@ -29,12 +28,14 @@
 #include "chrono/serialization/ChArchive.h"
 #include "chrono/serialization/ChArchiveJSON.h"
 
+#include "chrono_models/robot/skidsteer/SkidSteerParameters.h"
+
 namespace chrono {
 
 /// Namespace with classes for the SkidSteer model.
-namespace skidsteer {
+namespace SkidSteer {
 
-/// @addtogroup robot_models_skidsteer
+/// @addtogroup robot_models_SkidSteer
 /// @{
 
 /// SkidSteer wheel/suspension identifiers.
@@ -47,135 +48,13 @@ enum SkidSteerWheelID {
 
 /// SkidSteer wheel type.
 enum class SkidSteerWheelType {
-    RealWheel,    ///< actual geometry of the skidsteer wheel
+    RealWheel,    ///< actual geometry of the SkidSteer wheel
     SimpleWheel,  ///< simplified wheel geometry
     CylWheel      ///< cylindrical wheel geometry
 };
-
 // -----------------------------------------------------------------------------
-/// SkidSteer rover parameters structure.
-class SkidSteerParameters {
-  public:
-    // Geometry
-    double wheel_x;
-    double wheel_y;
-    double wheel_z;
-    double chassis_dim_x;
-    double chassis_dim_y;
-    double chassis_dim_z;
-    // Contact material
-    float mu;
-    float cr;
-    float Y;
-    float nu;
-    float kn;
-    float gn;
-    float kt;
-    float gt;
-    // Mesh
-    std::string chassis_mesh;
-    std::string wheel_mesh;
-    // Inertia
-    double m_chassis;
-    double i_chassis;
-    double m_wheel;
-    double i_wheel;
-
-    SkidSteerParameters() {}
-    SkidSteerParameters(double wheel_x,
-                        double wheel_y,
-                        double wheel_z,
-                        double chassis_dim_x,
-                        double chassis_dim_y,
-                        double chassis_dim_z,
-                        float mu,
-                        float cr,
-                        float Y,
-                        float nu,
-                        float kn,
-                        float gn,
-                        float kt,
-                        float gt,
-                        std::string chassis_mesh,
-                        std::string wheel_mesh,
-                        double m_chassis,
-                        double i_chassis,
-                        double m_wheel,
-                        double i_wheel)
-        : wheel_x(wheel_x),
-          wheel_y(wheel_y),
-          wheel_z(wheel_z),
-          chassis_dim_x(chassis_dim_x),
-          chassis_dim_y(chassis_dim_y),
-          chassis_dim_z(chassis_dim_z),
-          mu(mu),
-          cr(cr),
-          Y(Y),
-          nu(nu),
-          kn(kn),
-          gn(gn),
-          kt(kt),
-          gt(gt),
-          chassis_mesh(chassis_mesh),
-          wheel_mesh(wheel_mesh),
-          m_chassis(m_chassis),
-          i_chassis(i_chassis),
-          m_wheel(m_wheel),
-          i_wheel(i_wheel) {}
-
-    virtual ~SkidSteerParameters() {}
-
-    virtual void ArchiveOut(ChArchiveOut& marchive) {
-        marchive << CHNVP(wheel_x);
-        marchive << CHNVP(wheel_y);
-        marchive << CHNVP(wheel_z);
-        marchive << CHNVP(chassis_dim_x);
-        marchive << CHNVP(chassis_dim_y);
-        marchive << CHNVP(chassis_dim_z);
-        marchive << CHNVP(mu);
-        marchive << CHNVP(cr);
-        marchive << CHNVP(Y);
-        marchive << CHNVP(nu);
-        marchive << CHNVP(kn);
-        marchive << CHNVP(gn);
-        marchive << CHNVP(kt);
-        marchive << CHNVP(gt);
-        marchive << CHNVP(chassis_mesh);
-        marchive << CHNVP(wheel_mesh);
-        marchive << CHNVP(m_chassis);
-        marchive << CHNVP(i_chassis);
-        marchive << CHNVP(m_wheel);
-        marchive << CHNVP(i_wheel);
-    }
-
-    virtual void ArchiveIn(ChArchiveIn& marchive) {
-        marchive >> CHNVP(wheel_x);
-        marchive >> CHNVP(wheel_y);
-        marchive >> CHNVP(wheel_z);
-        marchive >> CHNVP(chassis_dim_x);
-        marchive >> CHNVP(chassis_dim_y);
-        marchive >> CHNVP(chassis_dim_z);
-        marchive >> CHNVP(mu);
-        marchive >> CHNVP(cr);
-        marchive >> CHNVP(Y);
-        marchive >> CHNVP(nu);
-        marchive >> CHNVP(kn);
-        marchive >> CHNVP(gn);
-        marchive >> CHNVP(kt);
-        marchive >> CHNVP(gt);
-        marchive >> CHNVP(chassis_mesh);
-        marchive >> CHNVP(wheel_mesh);
-        marchive >> CHNVP(m_chassis);
-        marchive >> CHNVP(i_chassis);
-        marchive >> CHNVP(m_wheel);
-        marchive >> CHNVP(i_wheel);
-    }
-};
-
-static SkidSteerParameters skidsteer_params;
-// -----------------------------------------------------------------------------
-/// Base class definition for all skidsteer parts.
-/// skidsteer Rover Parts include Chassis, Steering, Upper Suspension Arm, Bottom Suspension Arm and Wheel.
+/// Base class definition for all SkidSteer parts.
+/// SkidSteer Rover Parts include Chassis, Steering, Upper Suspension Arm, Bottom Suspension Arm and Wheel.
 class CH_MODELS_API SkidSteerPart {
   public:
     SkidSteerPart(const std::string& name,                 ///< part name
@@ -289,7 +168,7 @@ class CH_MODELS_API SkidSteerSpeedDriver {
     double m_ramp;
     double m_speed;
 
-    SkidSteer* skidsteer;  ///< associated SkidSteer rover
+    SkidSteer* SkidSteer;  ///< associated SkidSteer rover
 
     std::array<double, 4> drive_speeds;  ///< angular speeds for drive motors
 
@@ -301,7 +180,9 @@ class CH_MODELS_API SkidSteerSpeedDriver {
 /// This class should be the entry point to create a complete rover.
 class CH_MODELS_API SkidSteer {
   public:
-    SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type = SkidSteerWheelType::RealWheel);
+    SkidSteer(ChSystem* system,
+              SkidSteerWheelType wheel_type = SkidSteerWheelType::RealWheel,
+              SkidSteerParameters params = SkidSteerParameters());
 
     ~SkidSteer() {}
 
@@ -322,7 +203,7 @@ class CH_MODELS_API SkidSteer {
 
     void SetSpeedDriver(std::shared_ptr<SkidSteerSpeedDriver> driver) {
         m_driver = driver;
-        m_driver->skidsteer = this;
+        m_driver->SkidSteer = this;
     }
 
     /// Initialize the SkidSteer rover at the specified position.
@@ -390,6 +271,12 @@ class CH_MODELS_API SkidSteer {
     /// This function must be called before each integration step.
     void Update();
 
+    /// Update the rover parameters.
+    void UpdateParameters(const SkidSteerParameters& params);
+
+    /// Get the rover parameters.
+    const SkidSteerParameters& GetParameters() const { return m_params; }
+
   private:
     /// Create the rover parts.
     void Create(SkidSteerWheelType wheel_type);
@@ -397,6 +284,8 @@ class CH_MODELS_API SkidSteer {
     ChSystem* m_system;  ///< pointer to the Chrono system
 
     bool m_chassis_fixed;  ///< fix chassis to ground
+
+    SkidSteerParameters m_params;  ///< rover parameters
 
     std::shared_ptr<SkidSteerChassis> m_chassis;              ///< rover chassis
     std::array<std::shared_ptr<SkidSteerWheel>, 4> m_wheels;  ///< rover wheels (LF, RF, LR, RB)
@@ -418,9 +307,7 @@ class CH_MODELS_API SkidSteer {
 /// Concrete SkidSteer speed driver.
 /// This driver applies the same angular speed (ramped from 0 to a prescribed value) to all wheels.
 
-/// @} robot_models_skidsteer
+/// @} robot_models_SkidSteer
 
-}  // namespace skidsteer
+}  // namespace SkidSteer
 }  // namespace chrono
-
-#endif

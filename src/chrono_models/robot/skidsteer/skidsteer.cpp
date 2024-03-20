@@ -48,30 +48,30 @@
 #include "chrono_models/robot/skidsteer/skidsteer.h"
 
 namespace chrono {
-namespace skidsteer {
+namespace SkidSteer {
 
 // =============================================================================
 const double SkidSteer::m_max_steer_angle = CH_C_PI / 6;
 // initilize rover wheels
-const double wheel_x = skidsteer_params.wheel_x;
-const double wheel_y = skidsteer_params.wheel_y;
-const double wheel_z = skidsteer_params.wheel_z;
-const double chassis_dim_x = skidsteer_params.chassis_dim_x;
-const double chassis_dim_y = skidsteer_params.chassis_dim_y;
-const double chassis_dim_z = skidsteer_params.chassis_dim_z;
+const double wheel_x = m_params.wheel_x;
+const double wheel_y = m_params.wheel_y;
+const double wheel_z = m_params.wheel_z;
+const double chassis_dim_x = m_params.chassis_dim_x;
+const double chassis_dim_y = m_params.chassis_dim_y;
+const double chassis_dim_z = m_params.chassis_dim_z;
 
 // =============================================================================
 
 // Default contact material for rover parts
 std::shared_ptr<ChMaterialSurface> DefaultContactMaterial(ChContactMethod contact_method) {
-    float mu = skidsteer_params.mu;  // coefficient of friction
-    float cr = skidsteer_params.cr;  // coefficient of restitution
-    float Y = skidsteer_params.Y;    // Young's modulus
-    float nu = skidsteer_params.nu;  // Poisson ratio
-    float kn = skidsteer_params.kn;  // normal stiffness
-    float gn = skidsteer_params.gn;  // normal viscous damping
-    float kt = skidsteer_params.kt;  // tangential stiffness
-    float gt = skidsteer_params.gt;  // tangential viscous damping
+    float mu = m_params.mu;  // coefficient of friction
+    float cr = m_params.cr;  // coefficient of restitution
+    float Y = m_params.Y;    // Young's modulus
+    float nu = m_params.nu;  // Poisson ratio
+    float kn = m_params.kn;  // normal stiffness
+    float gn = m_params.gn;  // normal viscous damping
+    float kt = m_params.kt;  // tangential stiffness
+    float gt = m_params.gt;  // tangential viscous damping
 
     switch (contact_method) {
         case ChContactMethod::NSC: {
@@ -229,10 +229,10 @@ void SkidSteerPart::Initialize(std::shared_ptr<ChBodyAuxRef> chassis) {
 // Rover Chassis
 SkidSteerChassis::SkidSteerChassis(const std::string& name, std::shared_ptr<ChMaterialSurface> mat)
     : SkidSteerPart(name, ChFrame<>(VNULL, QUNIT), mat, false) {
-    m_mesh_name = skidsteer_params.chassis_mesh_file;
+    m_mesh_name = m_params.chassis_mesh_file;
     m_color = ChColor(1.0f, 1.0f, 1.0f);
 
-    m_mass = skidsteer_params.m_chassis;         // weight of the chassis
+    m_mass = m_params.m_chassis;                 // weight of the chassis
     m_inertia = ChVector<>(1e-2, 0.014, 0.015);  // TODO: ask heather what to put for inertia?
 
     m_visualize = false;
@@ -255,18 +255,18 @@ SkidSteerWheel::SkidSteerWheel(const std::string& name,
     : SkidSteerPart(name, rel_pos, mat, true) {
     switch (wheel_type) {
         case SkidSteerWheelType::RealWheel:
-            m_mesh_name = "iris_wheel";
+            m_mesh_name = m_param.wheel_mesh_name;
             break;
         case SkidSteerWheelType::SimpleWheel:
-            m_mesh_name = "iris_wheel";
+            m_mesh_name = m_param.wheel_mesh_name;
             break;
         case SkidSteerWheelType::CylWheel:
-            m_mesh_name = "iris_wheel";
+            m_mesh_name = m_param.wheel_mesh_name;
             break;
     }
 
     m_color = ChColor(0.4f, 0.7f, 0.4f);
-    m_mass = skidsteer_params.m_wheel;                         // weight of the wheel
+    m_mass = m_params.m_wheel;                                 // weight of the wheel
     m_inertia = ChVector<double>(8.74e-4, 8.77e-4, 16.81e-4);  // principal inertia
 
     ChMatrix33<> A;
@@ -283,7 +283,8 @@ SkidSteerWheel::SkidSteerWheel(const std::string& name,
 // =============================================================================
 
 // Rover model
-SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type) : m_system(system), m_chassis_fixed(false) {
+SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, SkidSteerParameters params)
+    : m_system(system), m_chassis_fixed(false) {
     // Set default collision model envelope commensurate with model dimensions.
     // Note that an SMC system automatically sets envelope to 0.
     auto contact_method = m_system->GetContactMethod();
@@ -295,6 +296,9 @@ SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type) : m_system
     // Create the contact materials
     m_default_material = DefaultContactMaterial(contact_method);
     m_wheel_material = DefaultContactMaterial(contact_method);
+
+    // Parameters
+    UpdateParams(params);
 
     Create(wheel_type);
 }
@@ -418,5 +422,5 @@ void SkidSteerSpeedDriver::Update(double time) {
     drive_speeds = {speed, speed, speed, speed};
 }
 
-}  // namespace skidsteer
+}  // namespace SkidSteer
 }  // namespace chrono
