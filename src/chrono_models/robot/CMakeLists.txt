@@ -49,6 +49,15 @@ source_group("iris" FILES ${CRM_IRIS_FILES})
 
 #-----------------------------------------------------------------------------
 
+set(CRM_MR_FILES
+    moonranger/Moonranger.cpp
+    moonranger/Moonranger.h
+)
+
+source_group("moonranger" FILES ${CRM_MR_FILES})
+
+#-----------------------------------------------------------------------------
+
 
 set(CRM_TURTLEBOT_FILES
     turtlebot/Turtlebot.cpp
@@ -98,6 +107,7 @@ add_library(ChronoModels_robot
             ${CRM_TURTLEBOT_FILES}
             ${CRM_COPTERS_FILES}
             ${CRM_IRIS_FILES}		
+            ${CRM_MR_FILES}
             )
 
 set_target_properties(ChronoModels_robot PROPERTIES
