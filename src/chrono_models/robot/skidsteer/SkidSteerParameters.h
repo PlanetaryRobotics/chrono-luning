@@ -39,6 +39,7 @@ class SkidSteerParameters {
 
     // Model
     std::string wheel_mesh_name;
+    std::string chassis_mesh_name;
 
     SkidSteerParameters(){};
 
