@@ -48,6 +48,23 @@ set(CRM_IRIS_FILES
 source_group("iris" FILES ${CRM_IRIS_FILES})
 
 #-----------------------------------------------------------------------------
+set(CRM_IRIS_FILES
+    moonranger/Moonranger.h
+    moonranger/Moonranger.h
+)
+
+source_group("moonranger" FILES ${CRM_MR_FILES})
+
+#-----------------------------------------------------------------------------
+
+set(CRM_IRIS_FILES
+    skidsteer/skidsteer.cpp
+    skidsteer/skidsteer.h
+)
+
+source_group("moonranger" FILES ${CRM_MR_FILES})
+
+#-----------------------------------------------------------------------------
 
 
 set(CRM_TURTLEBOT_FILES

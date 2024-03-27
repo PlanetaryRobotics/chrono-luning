@@ -48,23 +48,23 @@
 #include "chrono_models/robot/skidsteer/skidsteer.h"
 
 namespace chrono {
-namespace SkidSteer {
+namespace skidsteer {
 
 // =============================================================================
-const double SkidSteer::m_max_steer_angle = CH_C_PI / 6;
+
 // initilize rover wheels
-const double wheel_x = m_params.wheel_x;
-const double wheel_y = m_params.wheel_y;
-const double wheel_z = m_params.wheel_z;
-const double chassis_dim_x = m_params.chassis_dim_x;
-const double chassis_dim_y = m_params.chassis_dim_y;
-const double chassis_dim_z = m_params.chassis_dim_z;
+// const double wheel_x = m_params.wheel_x;
+// const double wheel_y = m_params.wheel_y;
+// const double wheel_z = m_params.wheel_z;
+// const double chassis_dim_x = m_params.chassis_dim_x;
+// const double chassis_dim_y = m_params.chassis_dim_y;
+// const double chassis_dim_z = m_params.chassis_dim_z;
 
 // =============================================================================
 
 // Default contact material for rover parts
-std::shared_ptr<ChMaterialSurface> DefaultContactMaterial(ChContactMethod contact_method) {
-    float mu = m_params.mu;  // coefficient of friction
+std::shared_ptr<ChMaterialSurface> DefaultContactMaterial(ChContactMethod contact_method, SkidSteerParameters m_params) {
+    float mu = m_params.wheel_mu;  // coefficient of friction
     float cr = m_params.cr;  // coefficient of restitution
     float Y = m_params.Y;    // Young's modulus
     float nu = m_params.nu;  // Poisson ratio
@@ -167,7 +167,8 @@ void SkidSteerPart::Construct(ChSystem* system) {
 
     // Add visualization shape
     if (m_visualize) {
-        auto vis_mesh_file = GetChronoDataFile("robot/skidsteer/obj/" + m_mesh_name + ".obj");
+        //TODO: Fully parametrize
+        auto vis_mesh_file = m_mesh_name;
         auto trimesh_vis = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vis_mesh_file, true, true);
 
         // scale mesh
@@ -180,11 +181,11 @@ void SkidSteerPart::Construct(ChSystem* system) {
         trimesh_shape->SetMutable(false);
         trimesh_shape->SetColor(m_color);
         m_body->AddVisualShape(trimesh_shape);
-    }
 
+    }
     // Add collision shape
     if (m_collide) {
-        auto col_mesh_file = GetChronoDataFile("robot/skidsteer/col/" + m_mesh_name + ".obj");
+        auto col_mesh_file = m_mesh_name;
 
         auto trimesh_col = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(col_mesh_file, false, false);
 
@@ -200,7 +201,7 @@ void SkidSteerPart::Construct(ChSystem* system) {
 }
 
 void SkidSteerPart::CalcMassProperties(double density) {
-    auto mesh_filename = GetChronoDataFile("robot/skidsteer/col/" + m_mesh_name + ".obj");
+    auto mesh_filename = m_mesh_name;
     auto trimesh_col = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(mesh_filename, false, false);
     trimesh_col->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetA());  // translate/rotate/scale mesh
     trimesh_col->RepairDuplicateVertexes(1e-9);                          // if meshes are not watertight
@@ -227,12 +228,14 @@ void SkidSteerPart::Initialize(std::shared_ptr<ChBodyAuxRef> chassis) {
 // =============================================================================
 
 // Rover Chassis
-SkidSteerChassis::SkidSteerChassis(const std::string& name, std::shared_ptr<ChMaterialSurface> mat)
+SkidSteerChassis::SkidSteerChassis(const std::string& name, 
+                                    std::shared_ptr<ChMaterialSurface> mat, 
+                                    std::string m_mesh_name, double m_mass)
     : SkidSteerPart(name, ChFrame<>(VNULL, QUNIT), mat, false) {
-    m_mesh_name = m_params.chassis_mesh_file;
+    m_mesh_name = m_mesh_name;
+    m_mass = m_mass;
     m_color = ChColor(1.0f, 1.0f, 1.0f);
 
-    m_mass = m_params.m_chassis;                 // weight of the chassis
     m_inertia = ChVector<>(1e-2, 0.014, 0.015);  // TODO: ask heather what to put for inertia?
 
     m_visualize = false;
@@ -251,22 +254,25 @@ void SkidSteerChassis::Initialize(ChSystem* system, const ChFrame<>& pos) {
 SkidSteerWheel::SkidSteerWheel(const std::string& name,
                                const ChFrame<>& rel_pos,
                                std::shared_ptr<ChMaterialSurface> mat,
-                               SkidSteerWheelType wheel_type)
+                               SkidSteerWheelType wheel_type,
+                               std::string wheel_mesh_name,
+                               double m_mass
+                               )
     : SkidSteerPart(name, rel_pos, mat, true) {
     switch (wheel_type) {
         case SkidSteerWheelType::RealWheel:
-            m_mesh_name = m_param.wheel_mesh_name;
+            m_mesh_name = wheel_mesh_name;
             break;
         case SkidSteerWheelType::SimpleWheel:
-            m_mesh_name = m_param.wheel_mesh_name;
+            m_mesh_name = wheel_mesh_name;
             break;
         case SkidSteerWheelType::CylWheel:
-            m_mesh_name = m_param.wheel_mesh_name;
+            m_mesh_name = wheel_mesh_name;
             break;
     }
 
     m_color = ChColor(0.4f, 0.7f, 0.4f);
-    m_mass = m_params.m_wheel;                                 // weight of the wheel
+    m_mass = m_mass;                                 // weight of the wheel
     m_inertia = ChVector<double>(8.74e-4, 8.77e-4, 16.81e-4);  // principal inertia
 
     ChMatrix33<> A;
@@ -283,7 +289,7 @@ SkidSteerWheel::SkidSteerWheel(const std::string& name,
 // =============================================================================
 
 // Rover model
-SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, SkidSteerParameters params)
+SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, const char* fp)
     : m_system(system), m_chassis_fixed(false) {
     // Set default collision model envelope commensurate with model dimensions.
     // Note that an SMC system automatically sets envelope to 0.
@@ -294,37 +300,51 @@ SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, SkidSteerP
     }
 
     // Create the contact materials
-    m_default_material = DefaultContactMaterial(contact_method);
-    m_wheel_material = DefaultContactMaterial(contact_method);
+    m_default_material = DefaultContactMaterial(contact_method, m_params);
+    m_wheel_material = DefaultContactMaterial(contact_method, m_params);
 
-    // Parameters
-    UpdateParams(params);
+    ChStreamInAsciiFile mfilei(fp);
+    ChArchiveInJSON marchivei(mfilei);
+    SkidSteerParameters skid_steer_params;
+    marchivei >> CHNVP(skid_steer_params);
+    m_params = skid_steer_params;
 
     Create(wheel_type);
 }
 
+
 void SkidSteer::Create(SkidSteerWheelType wheel_type) {
+    // initilize rover wheels
+    const double wheel_x = m_params.wheel_x;
+    const double wheel_y = m_params.wheel_y;
+    const double wheel_z = m_params.wheel_z;
     // create rover chassis
-    m_chassis = chrono_types::make_shared<SkidSteerChassis>("chassis", m_default_material);
+    m_chassis = chrono_types::make_shared<SkidSteerChassis>("chassis", m_default_material, m_params.chassis_mesh_name, m_params.chassis_mass);
 
     m_wheels[LF] = chrono_types::make_shared<SkidSteerWheel>(
-        "wheel_LF", ChFrame<>(ChVector<>(+wheel_x, +wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type);
+        "wheel_LF", ChFrame<>(ChVector<>(+wheel_x, +wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type, m_params.wheel_mesh_name, m_params.wheel_mass);
     m_wheels[RF] = chrono_types::make_shared<SkidSteerWheel>(
-        "wheel_RF", ChFrame<>(ChVector<>(+wheel_x, -wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type);
+        "wheel_RF", ChFrame<>(ChVector<>(+wheel_x, -wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type, m_params.wheel_mesh_name, m_params.wheel_mass);
     m_wheels[LB] = chrono_types::make_shared<SkidSteerWheel>(
-        "wheel_LB", ChFrame<>(ChVector<>(-wheel_x, +wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type);
+        "wheel_LB", ChFrame<>(ChVector<>(-wheel_x, +wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type, m_params.wheel_mesh_name, m_params.wheel_mass);
     m_wheels[RB] = chrono_types::make_shared<SkidSteerWheel>(
-        "wheel_RB", ChFrame<>(ChVector<>(-wheel_x, -wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type);
+        "wheel_RB", ChFrame<>(ChVector<>(-wheel_x, -wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type, m_params.wheel_mesh_name, m_params.wheel_mass);
 
     m_wheels[RF]->m_mesh_xform = ChFrame<>(VNULL, Q_from_AngZ(CH_C_PI));
     m_wheels[RB]->m_mesh_xform = ChFrame<>(VNULL, Q_from_AngZ(CH_C_PI));
 }
 
 void SkidSteer::Initialize(const ChFrame<>& pos) {
-    assert(m_driver);
+    double wheel_x = m_params.wheel_x;
+    double wheel_y = m_params.wheel_y;
+    double wheel_z = m_params.wheel_z;
 
+    assert(m_driver);
+   
     m_chassis->Initialize(m_system, pos);
+  
     m_chassis->GetBody()->SetBodyFixed(m_chassis_fixed);
+ 
 
     for (int i = 0; i < 4; i++) {
         m_wheels[i]->Initialize(m_chassis->GetBody());

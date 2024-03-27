@@ -33,7 +33,7 @@
 namespace chrono {
 
 /// Namespace with classes for the SkidSteer model.
-namespace SkidSteer {
+namespace skidsteer {
 
 /// @addtogroup robot_models_SkidSteer
 /// @{
@@ -134,7 +134,9 @@ class CH_MODELS_API SkidSteerPart {
 class CH_MODELS_API SkidSteerChassis : public SkidSteerPart {
   public:
     SkidSteerChassis(const std::string& name,                ///< part name
-                     std::shared_ptr<ChMaterialSurface> mat  ///< contact material
+                     std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
+                     std::string m_mesh_name,          /// < Mesh name
+                     double m_mass                            /// < Mass of the chassis
     );
     ~SkidSteerChassis() {}
 
@@ -148,7 +150,9 @@ class CH_MODELS_API SkidSteerWheel : public SkidSteerPart {
     SkidSteerWheel(const std::string& name,                 ///< part name
                    const ChFrame<>& rel_pos,                ///< position relative to chassis frame
                    std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
-                   SkidSteerWheelType wheel_type            ///< wheel type
+                   SkidSteerWheelType wheel_type,           ///< wheel type
+                   std::string wheel_mesh_name,             /// < Path to wheel mesh file
+                   double m_mass                            /// < Mass of the wheel
     );
     ~SkidSteerWheel() {}
 
@@ -168,7 +172,7 @@ class CH_MODELS_API SkidSteerSpeedDriver {
     double m_ramp;
     double m_speed;
 
-    SkidSteer* SkidSteer;  ///< associated SkidSteer rover
+    SkidSteer* skidsteer;  ///< associated SkidSteer rover
 
     std::array<double, 4> drive_speeds;  ///< angular speeds for drive motors
 
@@ -181,8 +185,7 @@ class CH_MODELS_API SkidSteerSpeedDriver {
 class CH_MODELS_API SkidSteer {
   public:
     SkidSteer(ChSystem* system,
-              SkidSteerWheelType wheel_type = SkidSteerWheelType::RealWheel,
-              SkidSteerParameters params = SkidSteerParameters());
+              SkidSteerWheelType wheel_type = SkidSteerWheelType::RealWheel, const char* fp = ""); //TODO: Change order for required parameters
 
     ~SkidSteer() {}
 
@@ -203,7 +206,7 @@ class CH_MODELS_API SkidSteer {
 
     void SetSpeedDriver(std::shared_ptr<SkidSteerSpeedDriver> driver) {
         m_driver = driver;
-        m_driver->SkidSteer = this;
+        m_driver->skidsteer = this;
     }
 
     /// Initialize the SkidSteer rover at the specified position.
@@ -271,11 +274,14 @@ class CH_MODELS_API SkidSteer {
     /// This function must be called before each integration step.
     void Update();
 
-    /// Update the rover parameters.
-    void UpdateParameters(const SkidSteerParameters& params);
+    /// Update the rover parameters. DEPRECATED
+    void UpdateParameters(const SkidSteerParameters& new_params);
 
-    /// Get the rover parameters.
+    /// Get the rover parameters. DEPRECATED
     const SkidSteerParameters& GetParameters() const { return m_params; }
+
+
+    SkidSteerParameters m_params;  ///< rover parameters
 
   private:
     /// Create the rover parts.
@@ -285,7 +291,6 @@ class CH_MODELS_API SkidSteer {
 
     bool m_chassis_fixed;  ///< fix chassis to ground
 
-    SkidSteerParameters m_params;  ///< rover parameters
 
     std::shared_ptr<SkidSteerChassis> m_chassis;              ///< rover chassis
     std::array<std::shared_ptr<SkidSteerWheel>, 4> m_wheels;  ///< rover wheels (LF, RF, LR, RB)
