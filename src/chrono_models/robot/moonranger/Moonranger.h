@@ -9,11 +9,15 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Sidney Nimako
+// Authors: Jason Zhou, Radu Serban, Luning Bakke
 // =============================================================================
 //
+// Moonranger Lunar Rover Model Class.
+//
+// =============================================================================
 
-#pragma once
+#ifndef MOONRANGER_H
+#define MOONRANGER_H
 
 #include <string>
 #include <array>
@@ -25,44 +29,41 @@
 
 #include "chrono_models/ChApiModels.h"
 
-#include "chrono/serialization/ChArchive.h"
-#include "chrono/serialization/ChArchiveJSON.h"
-
-#include "chrono_models/robot/skidsteer/SkidSteerParameters.h"
-
 namespace chrono {
 
-/// Namespace with classes for the SkidSteer model.
-namespace skidsteer {
+/// Namespace with classes for the Moonranger model.
+namespace moonranger {
 
-/// @addtogroup robot_models_SkidSteer
+/// @addtogroup robot_models_moonranger
 /// @{
 
-/// SkidSteer wheel/suspension identifiers.
-enum SkidSteerWheelID {
+/// Moonranger wheel/suspension identifiers.
+enum MoonrangerWheelID {
     LF = 0,  ///< left front
     RF = 1,  ///< right front
     LB = 2,  ///< left back
     RB = 3   ///< right back
 };
 
-/// SkidSteer wheel type.
-enum class SkidSteerWheelType {
-    RealWheel,    ///< actual geometry of the SkidSteer wheel
+/// Moonranger wheel type.
+enum class MoonrangerWheelType {
+    RealWheel,    ///< actual geometry of the moonranger wheel
     SimpleWheel,  ///< simplified wheel geometry
     CylWheel      ///< cylindrical wheel geometry
 };
+
 // -----------------------------------------------------------------------------
-/// Base class definition for all SkidSteer parts.
-/// SkidSteer Rover Parts include Chassis, Steering, Upper Suspension Arm, Bottom Suspension Arm and Wheel.
-class CH_MODELS_API SkidSteerPart {
+
+/// Base class definition for all moonranger parts.
+/// moonranger Rover Parts include Chassis, Steering, Upper Suspension Arm, Bottom Suspension Arm and Wheel.
+class CH_MODELS_API MoonrangerPart {
   public:
-    SkidSteerPart(const std::string& name,                 ///< part name
-                  const ChFrame<>& rel_pos,                ///< position relative to chassis frame
-                  std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
-                  bool collide                             ///< enable collision?
+    MoonrangerPart(const std::string& name,                 ///< part name
+              const ChFrame<>& rel_pos,                ///< position relative to chassis frame
+              std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
+              bool collide                             ///< enable collision?
     );
-    virtual ~SkidSteerPart() {}
+    virtual ~MoonrangerPart() {}
 
     /// Return the name of the part.
     const std::string& GetName() const { return m_name; }
@@ -79,30 +80,30 @@ class CH_MODELS_API SkidSteerPart {
     /// Initialize the rover part by attaching it to the specified chassis body.
     void Initialize(std::shared_ptr<ChBodyAuxRef> chassis);
 
-    /// Return the ChBody of the corresponding SkidSteer part.
+    /// Return the ChBody of the corresponding Moonranger part.
     std::shared_ptr<ChBodyAuxRef> GetBody() const { return m_body; }
 
-    /// Return the position of the SkidSteer part.
+    /// Return the position of the Moonranger part.
     /// This is the absolute location of the part reference frame.
     const ChVector<>& GetPos() const { return m_body->GetFrame_REF_to_abs().GetPos(); }
 
-    /// Return the rotation of the SkidSteer part.
+    /// Return the rotation of the Moonranger part.
     /// This is the orientation wrt the global frame of the part reference frame.
     const ChQuaternion<>& GetRot() const { return m_body->GetFrame_REF_to_abs().GetRot(); }
 
-    /// Return the linear velocity of the SkidSteer part.
+    /// Return the linear velocity of the Moonranger part.
     /// This is the absolute linear velocity of the part reference frame.
     const ChVector<>& GetLinVel() const { return m_body->GetFrame_REF_to_abs().GetPos_dt(); }
 
-    /// Return the angular velocity of the SkidSteer part.
+    /// Return the angular velocity of the Moonranger part.
     /// This is the absolute angular velocity of the part reference frame.
     const ChVector<> GetAngVel() const { return m_body->GetFrame_REF_to_abs().GetWvel_par(); }
 
-    /// Return the linear acceleration of the SkidSteer part.
+    /// Return the linear acceleration of the Moonranger part.
     /// This is the absolute linear acceleration of the part reference frame.
     const ChVector<>& GetLinAcc() const { return m_body->GetFrame_REF_to_abs().GetPos_dtdt(); }
 
-    /// Return the angular acceleratino of the SkidSteer part.
+    /// Return the angular acceleratino of the Moonranger part.
     /// This is the absolute angular acceleratin of the part reference frame.
     const ChVector<> GetAngAcc() const { return m_body->GetFrame_REF_to_abs().GetWacc_par(); }
 
@@ -130,64 +131,59 @@ class CH_MODELS_API SkidSteerPart {
     bool m_collide;    ///< part collision flag
 };
 
-/// SkidSteer rover Chassis.
-class CH_MODELS_API SkidSteerChassis : public SkidSteerPart {
+/// Moonranger rover Chassis.
+class CH_MODELS_API MoonrangerChassis : public MoonrangerPart {
   public:
-    SkidSteerChassis(const std::string& name,                ///< part name
-                     std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
-                     std::string m_mesh_name,          /// < Mesh name
-                     double m_mass                            /// < Mass of the chassis
+    MoonrangerChassis(const std::string& name,                ///< part name
+                 std::shared_ptr<ChMaterialSurface> mat  ///< contact material
     );
-    ~SkidSteerChassis() {}
+    ~MoonrangerChassis() {}
 
     /// Initialize the chassis at the specified (absolute) position.
     void Initialize(ChSystem* system, const ChFrame<>& pos);
 };
 
-/// SkidSteer rover Wheel.
-class CH_MODELS_API SkidSteerWheel : public SkidSteerPart {
+/// Moonranger rover Wheel.
+class CH_MODELS_API MoonrangerWheel : public MoonrangerPart {
   public:
-    SkidSteerWheel(const std::string& name,                 ///< part name
-                   const ChFrame<>& rel_pos,                ///< position relative to chassis frame
-                   std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
-                   SkidSteerWheelType wheel_type,           ///< wheel type
-                   std::string wheel_mesh_name,             /// < Path to wheel mesh file
-                   double m_mass                            /// < Mass of the wheel
+    MoonrangerWheel(const std::string& name,                 ///< part name
+               const ChFrame<>& rel_pos,                ///< position relative to chassis frame
+               std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
+               MoonrangerWheelType wheel_type                ///< wheel type
     );
-    ~SkidSteerWheel() {}
+    ~MoonrangerWheel() {}
 
-    friend class SkidSteer;
+    friend class Moonranger;
 };
 
-class SkidSteer;
+class Moonranger;
 
 // -----------------------------------------------------------------------------
-class CH_MODELS_API SkidSteerSpeedDriver {
+class CH_MODELS_API MoonrangerSpeedDriver {
   public:
-    SkidSteerSpeedDriver(double time_ramp, double speed);
-    ~SkidSteerSpeedDriver() {}
+    MoonrangerSpeedDriver(double time_ramp, double speed);
+    ~MoonrangerSpeedDriver() {}
 
     void Update(double time);
 
     double m_ramp;
     double m_speed;
 
-    SkidSteer* skidsteer;  ///< associated SkidSteer rover
+    Moonranger* moonranger;  ///< associated Moonranger rover
 
     std::array<double, 4> drive_speeds;  ///< angular speeds for drive motors
 
-    friend class SkidSteer;
+    friend class Moonranger;
 };
 
-/// SkidSteer rover class.
-/// This class encapsulates the location and rotation information of all SkidSteer parts wrt the chassis.
+/// Moonranger rover class.
+/// This class encapsulates the location and rotation information of all Moonranger parts wrt the chassis.
 /// This class should be the entry point to create a complete rover.
-class CH_MODELS_API SkidSteer {
+class CH_MODELS_API Moonranger {
   public:
-    SkidSteer(ChSystem* system,
-              SkidSteerWheelType wheel_type = SkidSteerWheelType::RealWheel, const char* fp = ""); //TODO: Change order for required parameters
+    Moonranger(ChSystem* system, MoonrangerWheelType wheel_type = MoonrangerWheelType::RealWheel);
 
-    ~SkidSteer() {}
+    ~Moonranger() {}
 
     /// Get the containing system.
     ChSystem* GetSystem() const { return m_system; }
@@ -204,22 +200,23 @@ class CH_MODELS_API SkidSteer {
     /// Enable/disable visualization of rover wheels (default: true).
     void SetWheelVisualization(bool state);
 
-    void SetSpeedDriver(std::shared_ptr<SkidSteerSpeedDriver> driver) {
+    void SetSpeedDriver(std::shared_ptr<MoonrangerSpeedDriver> driver) {
         m_driver = driver;
-        m_driver->skidsteer = this;
+        m_driver->moonranger = this;
     }
 
-    /// Initialize the SkidSteer rover at the specified position.
+    /// Initialize the Moonranger rover at the specified position.
     void Initialize(const ChFrame<>& pos);
 
     /// Get the rover chassis.
-    std::shared_ptr<SkidSteerChassis> GetChassis() const { return m_chassis; }
+    std::shared_ptr<MoonrangerChassis> GetChassis() const { return m_chassis; }
 
     /// Get all rover wheels.
-    std::array<std::shared_ptr<SkidSteerWheel>, 4> GetWheels() const { return m_wheels; }
+    std::array<std::shared_ptr<MoonrangerWheel>, 4> GetWheels() const { return m_wheels; }
 
     /// Get the specified rover wheel.
-    std::shared_ptr<SkidSteerWheel> GetWheel(SkidSteerWheelID id) const { return m_wheels[id]; }
+    std::shared_ptr<MoonrangerWheel> GetWheel(MoonrangerWheelID id) const { return m_wheels[id]; }
+
 
     /// Get chassis position.
     ChVector<> GetChassisPos() const { return m_chassis->GetPos(); }
@@ -234,25 +231,25 @@ class CH_MODELS_API SkidSteer {
     ChVector<> GetChassisAcc() const { return m_chassis->GetLinAcc(); }
 
     /// Get wheel speed.
-    ChVector<> GetWheelLinVel(SkidSteerWheelID id) const { return m_wheels[id]->GetLinVel(); }
+    ChVector<> GetWheelLinVel(MoonrangerWheelID id) const { return m_wheels[id]->GetLinVel(); }
 
     /// Get wheel angular velocity.
-    ChVector<> GetWheelAngVel(SkidSteerWheelID id) const { return m_wheels[id]->GetAngVel(); }
+    ChVector<> GetWheelAngVel(MoonrangerWheelID id) const { return m_wheels[id]->GetAngVel(); }
 
     /// Get wheel contact force.
-    ChVector<> GetWheelContactForce(SkidSteerWheelID id) const;
+    ChVector<> GetWheelContactForce(MoonrangerWheelID id) const;
 
     /// Get wheel contact torque.
-    ChVector<> GetWheelContactTorque(SkidSteerWheelID id) const;
+    ChVector<> GetWheelContactTorque(MoonrangerWheelID id) const;
 
     /// Get wheel total applied force.
-    ChVector<> GetWheelAppliedForce(SkidSteerWheelID id) const;
+    ChVector<> GetWheelAppliedForce(MoonrangerWheelID id) const;
 
     /// Get wheel tractive torque - if DC control set to off
-    double GetWheelTracTorque(SkidSteerWheelID id) const;
+    double GetWheelTracTorque(MoonrangerWheelID id) const;
 
     /// Get wheel total applied torque.
-    ChVector<> GetWheelAppliedTorque(SkidSteerWheelID id) const;
+    ChVector<> GetWheelAppliedTorque(MoonrangerWheelID id) const;
 
     /// Get total rover mass.
     double GetRoverMass() const;
@@ -262,57 +259,54 @@ class CH_MODELS_API SkidSteer {
 
     /// Get drive motor function.
     /// This will return an empty pointer if the associated driver uses torque control.
-    std::shared_ptr<ChFunction_Setpoint> GetDriveMotorFunc(SkidSteerWheelID id) const {
-        return m_drive_motor_funcs[id];
-    }
+    std::shared_ptr<ChFunction_Setpoint> GetDriveMotorFunc(MoonrangerWheelID id) const { return m_drive_motor_funcs[id]; }
+
 
     /// Get drive motor.
     /// This will return an empty pointer if the associated driver uses torque control.
-    std::shared_ptr<ChLinkMotorRotation> GetDriveMotor(SkidSteerWheelID id) const { return m_drive_motors[id]; }
+    std::shared_ptr<ChLinkMotorRotation> GetDriveMotor(MoonrangerWheelID id) const { return m_drive_motors[id]; }
 
-    /// SkidSteer update function.
+
+    /// Moonranger update function.
     /// This function must be called before each integration step.
     void Update();
 
-    /// Update the rover parameters. DEPRECATED
-    void UpdateParameters(const SkidSteerParameters& new_params);
-
-    /// Get the rover parameters. DEPRECATED
-    const SkidSteerParameters& GetParameters() const { return m_params; }
-
-
-    SkidSteerParameters m_params;  ///< rover parameters
-
   private:
     /// Create the rover parts.
-    void Create(SkidSteerWheelType wheel_type);
+    void Create(MoonrangerWheelType wheel_type);
 
     ChSystem* m_system;  ///< pointer to the Chrono system
 
     bool m_chassis_fixed;  ///< fix chassis to ground
 
-
-    std::shared_ptr<SkidSteerChassis> m_chassis;              ///< rover chassis
-    std::array<std::shared_ptr<SkidSteerWheel>, 4> m_wheels;  ///< rover wheels (LF, RF, LR, RB)
+    std::shared_ptr<MoonrangerChassis> m_chassis;                     ///< rover chassis
+    std::array<std::shared_ptr<MoonrangerWheel>, 4> m_wheels;         ///< rover wheels (LF, RF, LR, RB)
 
     std::array<std::shared_ptr<ChLinkMotorRotation>, 4> m_drive_motors;  ///< drive motors
 
     std::array<std::shared_ptr<ChFunction_Setpoint>, 4> m_drive_motor_funcs;  ///< drive motor functions
 
-    std::shared_ptr<SkidSteerSpeedDriver> m_driver;  ///< rover driver system
+
+    std::shared_ptr<MoonrangerSpeedDriver> m_driver;  ///< rover driver system
 
     std::shared_ptr<ChMaterialSurface> m_default_material;  ///< common contact material for all non-wheel parts
     std::shared_ptr<ChMaterialSurface> m_wheel_material;    ///< wheel contact material (shared across limbs)
 
     static const double m_max_steer_angle;  ///< maximum steering angle
+
 };
 
 // -----------------------------------------------------------------------------
 
-/// Concrete SkidSteer speed driver.
+
+
+/// Concrete Moonranger speed driver.
 /// This driver applies the same angular speed (ramped from 0 to a prescribed value) to all wheels.
 
-/// @} robot_models_SkidSteer
 
-}  // namespace SkidSteer
+/// @} robot_models_moonranger
+
+}  // namespace moonranger
 }  // namespace chrono
+
+#endif

@@ -9,7 +9,7 @@
 // http://projectchrono.org/license-chrono.txt.
 //
 // =============================================================================
-// Authors: Jason Zhou, Radu Serban, Sidney Nimako
+// Authors: Jason Zhou, Radu Serban
 // =============================================================================
 //
 // NASA VIPER Lunar Rover Model Class.
@@ -45,33 +45,36 @@
 
 #include "chrono/physics/ChInertiaUtils.h"
 
-#include "chrono_models/robot/skidsteer/skidsteer.h"
+#include "chrono_models/robot/moonranger/Moonranger.h"
 
 namespace chrono {
-namespace skidsteer {
+namespace moonranger {
 
 // =============================================================================
 
-// initilize rover wheels
-// const double wheel_x = m_params.wheel_x;
-// const double wheel_y = m_params.wheel_y;
-// const double wheel_z = m_params.wheel_z;
-// const double chassis_dim_x = m_params.chassis_dim_x;
-// const double chassis_dim_y = m_params.chassis_dim_y;
-// const double chassis_dim_z = m_params.chassis_dim_z;
+// const double Moonranger::m_max_steer_angle = CH_C_PI / 6;
+// initialize rover wheels
+const double wheel_x =  0.2222;
+const double wheel_y =  0.29207;
+const double wheel_z = -0.1805;
+// const double chassis_dim_x = 0.25;
+// const double chassis_dim_y = 0.175;
+// const double chassis_dim_z = 0.14;
+
+
 
 // =============================================================================
 
 // Default contact material for rover parts
-std::shared_ptr<ChMaterialSurface> DefaultContactMaterial(ChContactMethod contact_method, SkidSteerParameters m_params) {
-    float mu = m_params.wheel_mu;  // coefficient of friction
-    float cr = m_params.cr;  // coefficient of restitution
-    float Y = m_params.Y;    // Young's modulus
-    float nu = m_params.nu;  // Poisson ratio
-    float kn = m_params.kn;  // normal stiffness
-    float gn = m_params.gn;  // normal viscous damping
-    float kt = m_params.kt;  // tangential stiffness
-    float gt = m_params.gt;  // tangential viscous damping
+std::shared_ptr<ChMaterialSurface> DefaultContactMaterial(ChContactMethod contact_method) {
+    float mu = 0.4f;   // coefficient of friction
+    float cr = 0.0f;   // coefficient of restitution
+    float Y = 2e7f;    // Young's modulus
+    float nu = 0.3f;   // Poisson ratio
+    float kn = 2e5f;   // normal stiffness
+    float gn = 40.0f;  // normal viscous damping
+    float kt = 2e5f;   // tangential stiffness
+    float gt = 20.0f;  // tangential viscous damping
 
     switch (contact_method) {
         case ChContactMethod::NSC: {
@@ -97,11 +100,12 @@ std::shared_ptr<ChMaterialSurface> DefaultContactMaterial(ChContactMethod contac
     }
 }
 
+
 // Add a rotational speed motor between two bodies at the given position and orientation
 // (expressed in and relative to the chassis frame).
 std::shared_ptr<ChLinkMotorRotationSpeed> AddMotorSpeed(std::shared_ptr<ChBody> body1,
                                                         std::shared_ptr<ChBody> body2,
-                                                        std::shared_ptr<SkidSteerChassis> chassis,
+                                                        std::shared_ptr<MoonrangerChassis> chassis,
                                                         const ChVector<>& rel_pos,
                                                         const ChQuaternion<>& rel_rot) {
     // Express relative frame in global
@@ -119,7 +123,7 @@ std::shared_ptr<ChLinkMotorRotationSpeed> AddMotorSpeed(std::shared_ptr<ChBody> 
 // (expressed in and relative to the chassis frame).
 std::shared_ptr<ChLinkMotorRotationAngle> AddMotorAngle(std::shared_ptr<ChBody> body1,
                                                         std::shared_ptr<ChBody> body2,
-                                                        std::shared_ptr<SkidSteerChassis> chassis,
+                                                        std::shared_ptr<MoonrangerChassis> chassis,
                                                         const ChVector<>& rel_pos,
                                                         const ChQuaternion<>& rel_rot) {
     // Express relative frame in global
@@ -137,7 +141,7 @@ std::shared_ptr<ChLinkMotorRotationAngle> AddMotorAngle(std::shared_ptr<ChBody> 
 // (expressed in and relative to the chassis frame).
 std::shared_ptr<ChLinkMotorRotationTorque> AddMotorTorque(std::shared_ptr<ChBody> body1,
                                                           std::shared_ptr<ChBody> body2,
-                                                          std::shared_ptr<SkidSteerChassis> chassis,
+                                                          std::shared_ptr<MoonrangerChassis> chassis,
                                                           const ChVector<>& rel_pos,
                                                           const ChQuaternion<>& rel_rot) {
     // Express relative frame in global
@@ -151,14 +155,14 @@ std::shared_ptr<ChLinkMotorRotationTorque> AddMotorTorque(std::shared_ptr<ChBody
     return motor;
 }
 
-// Base class for all SkidSteer Part
-SkidSteerPart::SkidSteerPart(const std::string& name,
-                             const ChFrame<>& rel_pos,
-                             std::shared_ptr<ChMaterialSurface> mat,
-                             bool collide)
+// Base class for all Moonranger Part
+MoonrangerPart::MoonrangerPart(const std::string& name,
+                     const ChFrame<>& rel_pos,
+                     std::shared_ptr<ChMaterialSurface> mat,
+                     bool collide)
     : m_name(name), m_pos(rel_pos), m_mat(mat), m_collide(collide), m_visualize(true) {}
 
-void SkidSteerPart::Construct(ChSystem* system) {
+void MoonrangerPart::Construct(ChSystem* system) {
     m_body = chrono_types::make_shared<ChBodyAuxRef>();
     m_body->SetNameString(m_name + "_body");
     m_body->SetMass(m_mass);
@@ -167,11 +171,10 @@ void SkidSteerPart::Construct(ChSystem* system) {
 
     // Add visualization shape
     if (m_visualize) {
-        //TODO: Fully parametrize
-        auto vis_mesh_file = m_mesh_name;
+        auto vis_mesh_file = GetChronoDataFile("robot/moonranger/obj/" + m_mesh_name + ".obj");
         auto trimesh_vis = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(vis_mesh_file, true, true);
 
-        // scale mesh
+            // scale mesh
         trimesh_vis->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetA());  // translate/rotate/scale mesh
         trimesh_vis->RepairDuplicateVertexes(1e-9);                          // if meshes are not watertight
 
@@ -181,11 +184,11 @@ void SkidSteerPart::Construct(ChSystem* system) {
         trimesh_shape->SetMutable(false);
         trimesh_shape->SetColor(m_color);
         m_body->AddVisualShape(trimesh_shape);
-
     }
+
     // Add collision shape
     if (m_collide) {
-        auto col_mesh_file = m_mesh_name;
+        auto col_mesh_file = GetChronoDataFile("robot/moonranger/col/" + m_mesh_name + ".obj");
 
         auto trimesh_col = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(col_mesh_file, false, false);
 
@@ -200,8 +203,8 @@ void SkidSteerPart::Construct(ChSystem* system) {
     system->AddBody(m_body);
 }
 
-void SkidSteerPart::CalcMassProperties(double density) {
-    auto mesh_filename = m_mesh_name;
+void MoonrangerPart::CalcMassProperties(double density) {
+    auto mesh_filename = GetChronoDataFile("robot/moonranger/col/" + m_mesh_name + ".obj");
     auto trimesh_col = geometry::ChTriangleMeshConnected::CreateFromWavefrontFile(mesh_filename, false, false);
     trimesh_col->Transform(m_mesh_xform.GetPos(), m_mesh_xform.GetA());  // translate/rotate/scale mesh
     trimesh_col->RepairDuplicateVertexes(1e-9);                          // if meshes are not watertight
@@ -217,7 +220,7 @@ void SkidSteerPart::CalcMassProperties(double density) {
     m_cog = ChFrame<>(cog_pos, cog_rot);
 }
 
-void SkidSteerPart::Initialize(std::shared_ptr<ChBodyAuxRef> chassis) {
+void MoonrangerPart::Initialize(std::shared_ptr<ChBodyAuxRef> chassis) {
     Construct(chassis->GetSystem());
 
     // Set absolute position
@@ -228,21 +231,19 @@ void SkidSteerPart::Initialize(std::shared_ptr<ChBodyAuxRef> chassis) {
 // =============================================================================
 
 // Rover Chassis
-SkidSteerChassis::SkidSteerChassis(const std::string& name, 
-                                    std::shared_ptr<ChMaterialSurface> mat, 
-                                    std::string m_mesh_name, double m_mass)
-    : SkidSteerPart(name, ChFrame<>(VNULL, QUNIT), mat, false) {
-    m_mesh_name = m_mesh_name;
-    m_mass = m_mass;
+MoonrangerChassis::MoonrangerChassis(const std::string& name, std::shared_ptr<ChMaterialSurface> mat)
+    : MoonrangerPart(name, ChFrame<>(VNULL, QUNIT), mat, false) {
+    m_mesh_name = "moonranger_chassis";
     m_color = ChColor(1.0f, 1.0f, 1.0f);
-
-    m_inertia = ChVector<>(1e-2, 0.014, 0.015);  // TODO: ask heather what to put for inertia?
+    
+    m_mass = 2.186; // weight of the chassis
+    m_inertia = ChVector<>(1e-2, 0.014, 0.015); // TODO: ask heather what to put for inertia?
 
     m_visualize = false;
     m_collide = false;
 }
 
-void SkidSteerChassis::Initialize(ChSystem* system, const ChFrame<>& pos) {
+void MoonrangerChassis::Initialize(ChSystem* system, const ChFrame<>& pos) {
     Construct(system);
 
     m_body->SetFrame_REF_to_abs(pos);
@@ -250,30 +251,27 @@ void SkidSteerChassis::Initialize(ChSystem* system, const ChFrame<>& pos) {
 
 // =============================================================================
 
-// SkidSteer Wheel
-SkidSteerWheel::SkidSteerWheel(const std::string& name,
-                               const ChFrame<>& rel_pos,
-                               std::shared_ptr<ChMaterialSurface> mat,
-                               SkidSteerWheelType wheel_type,
-                               std::string wheel_mesh_name,
-                               double m_mass
-                               )
-    : SkidSteerPart(name, rel_pos, mat, true) {
+// Moonranger Wheel
+MoonrangerWheel::MoonrangerWheel(const std::string& name,
+                       const ChFrame<>& rel_pos,
+                       std::shared_ptr<ChMaterialSurface> mat,
+                       MoonrangerWheelType wheel_type)
+    : MoonrangerPart(name, rel_pos, mat, true) {
     switch (wheel_type) {
-        case SkidSteerWheelType::RealWheel:
-            m_mesh_name = wheel_mesh_name;
+        case MoonrangerWheelType::RealWheel:
+            m_mesh_name = "moonranger_wheel";
             break;
-        case SkidSteerWheelType::SimpleWheel:
-            m_mesh_name = wheel_mesh_name;
+        case MoonrangerWheelType::SimpleWheel:
+            m_mesh_name = "moonranger_wheel";
             break;
-        case SkidSteerWheelType::CylWheel:
-            m_mesh_name = wheel_mesh_name;
+        case MoonrangerWheelType::CylWheel:
+            m_mesh_name = "moonranger_wheel";
             break;
     }
 
     m_color = ChColor(0.4f, 0.7f, 0.4f);
-    m_mass = m_mass;                                 // weight of the wheel
-    m_inertia = ChVector<double>(8.74e-4, 8.77e-4, 16.81e-4);  // principal inertia
+    m_mass = 0.02844; // weight of the wheel
+    m_inertia = ChVector<double>(8.74e-4, 8.77e-4, 16.81e-4);  // principal inertia 
 
     ChMatrix33<> A;
     A.setZero();
@@ -284,13 +282,13 @@ SkidSteerWheel::SkidSteerWheel(const std::string& name,
     A(1, 2) = 1;
 
     m_cog = ChFrame<>(ChVector<>(0, 0.00426, 0), A.Get_A_quaternion());
+
 }
 
 // =============================================================================
 
 // Rover model
-SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, const char* fp)
-    : m_system(system), m_chassis_fixed(false) {
+Moonranger::Moonranger(ChSystem* system, MoonrangerWheelType wheel_type) : m_system(system), m_chassis_fixed(false) {
     // Set default collision model envelope commensurate with model dimensions.
     // Note that an SMC system automatically sets envelope to 0.
     auto contact_method = m_system->GetContactMethod();
@@ -300,55 +298,48 @@ SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, const char
     }
 
     // Create the contact materials
-    m_default_material = DefaultContactMaterial(contact_method, m_params);
-    m_wheel_material = DefaultContactMaterial(contact_method, m_params);
-
-    ChStreamInAsciiFile mfilei(fp);
-    ChArchiveInJSON marchivei(mfilei);
-    SkidSteerParameters skid_steer_params;
-    marchivei >> CHNVP(skid_steer_params);
-    m_params = skid_steer_params;
+    m_default_material = DefaultContactMaterial(contact_method);
+    m_wheel_material = DefaultContactMaterial(contact_method);
 
     Create(wheel_type);
 }
 
-
-void SkidSteer::Create(SkidSteerWheelType wheel_type) {
-    // initilize rover wheels
-    const double wheel_x = m_params.wheel_x;
-    const double wheel_y = m_params.wheel_y;
-    const double wheel_z = m_params.wheel_z;
+void Moonranger::Create(MoonrangerWheelType wheel_type) {
     // create rover chassis
-    m_chassis = chrono_types::make_shared<SkidSteerChassis>("chassis", m_default_material, m_params.chassis_mesh_name, m_params.chassis_mass);
+    m_chassis = chrono_types::make_shared<MoonrangerChassis>("chassis", m_default_material);
 
-    m_wheels[LF] = chrono_types::make_shared<SkidSteerWheel>(
-        "wheel_LF", ChFrame<>(ChVector<>(+wheel_x, +wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type, m_params.wheel_mesh_name, m_params.wheel_mass);
-    m_wheels[RF] = chrono_types::make_shared<SkidSteerWheel>(
-        "wheel_RF", ChFrame<>(ChVector<>(+wheel_x, -wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type, m_params.wheel_mesh_name, m_params.wheel_mass);
-    m_wheels[LB] = chrono_types::make_shared<SkidSteerWheel>(
-        "wheel_LB", ChFrame<>(ChVector<>(-wheel_x, +wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type, m_params.wheel_mesh_name, m_params.wheel_mass);
-    m_wheels[RB] = chrono_types::make_shared<SkidSteerWheel>(
-        "wheel_RB", ChFrame<>(ChVector<>(-wheel_x, -wheel_y, wheel_z), QUNIT), m_wheel_material, wheel_type, m_params.wheel_mesh_name, m_params.wheel_mass);
+
+    m_wheels[LF] = chrono_types::make_shared<MoonrangerWheel>(
+        "wheel_LF", ChFrame<>(ChVector<>(+wheel_x, +wheel_y, wheel_z), QUNIT),
+                                                           m_wheel_material, wheel_type);
+    m_wheels[RF] = chrono_types::make_shared<MoonrangerWheel>(
+        "wheel_RF", ChFrame<>(ChVector<>(+wheel_x, -wheel_y, wheel_z), QUNIT),
+                                                           m_wheel_material, wheel_type);
+    m_wheels[LB] = chrono_types::make_shared<MoonrangerWheel>(
+        "wheel_LB", ChFrame<>(ChVector<>(-wheel_x, +wheel_y, wheel_z), QUNIT),
+                                                           m_wheel_material, wheel_type);
+    m_wheels[RB] = chrono_types::make_shared<MoonrangerWheel>(
+        "wheel_RB", ChFrame<>(ChVector<>(-wheel_x, -wheel_y, wheel_z), QUNIT),
+                                                           m_wheel_material, wheel_type);
 
     m_wheels[RF]->m_mesh_xform = ChFrame<>(VNULL, Q_from_AngZ(CH_C_PI));
     m_wheels[RB]->m_mesh_xform = ChFrame<>(VNULL, Q_from_AngZ(CH_C_PI));
+
+
+
+
 }
 
-void SkidSteer::Initialize(const ChFrame<>& pos) {
-    double wheel_x = m_params.wheel_x;
-    double wheel_y = m_params.wheel_y;
-    double wheel_z = m_params.wheel_z;
-
+void Moonranger::Initialize(const ChFrame<>& pos) {
     assert(m_driver);
-   
+
     m_chassis->Initialize(m_system, pos);
-  
     m_chassis->GetBody()->SetBodyFixed(m_chassis_fixed);
- 
 
     for (int i = 0; i < 4; i++) {
         m_wheels[i]->Initialize(m_chassis->GetBody());
     }
+
 
     ChVector<> wheel_rel_pos[] = {
         ChVector<>(+wheel_x, +wheel_y, wheel_z),  // LF
@@ -357,9 +348,11 @@ void SkidSteer::Initialize(const ChFrame<>& pos) {
         ChVector<>(-wheel_x, -wheel_y, wheel_z)   // RB
     };
 
+
     ChQuaternion<> z2x = Q_from_AngY(CH_C_PI_2);
 
     for (int i = 0; i < 4; i++) {
+
         ChQuaternion<> z2y;
         z2y.Q_from_AngAxis(CH_C_PI / 2, ChVector<>(1, 0, 0));
 
@@ -367,48 +360,50 @@ void SkidSteer::Initialize(const ChFrame<>& pos) {
         m_drive_motors[i] =
             AddMotorSpeed(m_chassis->GetBody(), m_wheels[i]->GetBody(), m_chassis, wheel_rel_pos[i], z2y);
         m_drive_motors[i]->SetMotorFunction(m_drive_motor_funcs[i]);
+
     }
+
 }
 
-void SkidSteer::SetWheelContactMaterial(std::shared_ptr<ChMaterialSurface> mat) {
+void Moonranger::SetWheelContactMaterial(std::shared_ptr<ChMaterialSurface> mat) {
     for (auto& wheel : m_wheels)
         wheel->m_mat = mat;
 }
 
-void SkidSteer::SetChassisFixed(bool fixed) {
+void Moonranger::SetChassisFixed(bool fixed) {
     m_chassis_fixed = fixed;
 }
 
-void SkidSteer::SetChassisVisualization(bool state) {
+void Moonranger::SetChassisVisualization(bool state) {
     m_chassis->SetVisualize(state);
 }
 
-void SkidSteer::SetWheelVisualization(bool state) {
+void Moonranger::SetWheelVisualization(bool state) {
     for (auto& wheel : m_wheels)
         wheel->SetVisualize(state);
 }
 
-ChVector<> SkidSteer::GetWheelContactForce(SkidSteerWheelID id) const {
+ChVector<> Moonranger::GetWheelContactForce(MoonrangerWheelID id) const {
     return m_wheels[id]->GetBody()->GetContactForce();
 }
 
-ChVector<> SkidSteer::GetWheelContactTorque(SkidSteerWheelID id) const {
+ChVector<> Moonranger::GetWheelContactTorque(MoonrangerWheelID id) const {
     return m_wheels[id]->GetBody()->GetContactTorque();
 }
 
-ChVector<> SkidSteer::GetWheelAppliedForce(SkidSteerWheelID id) const {
+ChVector<> Moonranger::GetWheelAppliedForce(MoonrangerWheelID id) const {
     return m_wheels[id]->GetBody()->GetAppliedForce();
 }
 
-ChVector<> SkidSteer::GetWheelAppliedTorque(SkidSteerWheelID id) const {
+ChVector<> Moonranger::GetWheelAppliedTorque(MoonrangerWheelID id) const {
     return m_wheels[id]->GetBody()->GetAppliedTorque();
 }
 
-double SkidSteer::GetWheelTracTorque(SkidSteerWheelID id) const {
+double Moonranger::GetWheelTracTorque(MoonrangerWheelID id) const {
     return m_drive_motors[id]->GetMotorTorque();
 }
 
-double SkidSteer::GetRoverMass() const {
+double Moonranger::GetRoverMass() const {
     double tot_mass = m_chassis->GetBody()->GetMass();
     for (int i = 0; i < 4; i++) {
         tot_mass += m_wheels[i]->GetBody()->GetMass();
@@ -416,11 +411,11 @@ double SkidSteer::GetRoverMass() const {
     return tot_mass;
 }
 
-double SkidSteer::GetWheelMass() const {
+double Moonranger::GetWheelMass() const {
     return m_wheels[0]->GetBody()->GetMass();
 }
 
-void SkidSteer::Update() {
+void Moonranger::Update() {
     double time = m_system->GetChTime();
     m_driver->Update(time);
 
@@ -433,14 +428,15 @@ void SkidSteer::Update() {
 }
 // =============================================================================
 
-SkidSteerSpeedDriver::SkidSteerSpeedDriver(double time_ramp, double speed) : m_ramp(time_ramp), m_speed(speed) {}
 
-void SkidSteerSpeedDriver::Update(double time) {
+MoonrangerSpeedDriver::MoonrangerSpeedDriver(double time_ramp, double speed) : m_ramp(time_ramp), m_speed(speed) {}
+
+void MoonrangerSpeedDriver::Update(double time) {
     double speed = m_speed;
     if (time < m_ramp)
         speed = m_speed * (time / m_ramp);
     drive_speeds = {speed, speed, speed, speed};
 }
 
-}  // namespace SkidSteer
+}  // namespace moonranger
 }  // namespace chrono
