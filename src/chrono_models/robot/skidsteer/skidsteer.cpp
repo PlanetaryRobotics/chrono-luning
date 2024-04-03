@@ -29,6 +29,8 @@
 
 #include <cmath>
 
+#include <iostream>
+
 #include "chrono/assets/ChVisualShapeBox.h"
 #include "chrono/physics/ChBodyEasy.h"
 #include "chrono/assets/ChVisualShapeCylinder.h"
@@ -230,10 +232,10 @@ void SkidSteerPart::Initialize(std::shared_ptr<ChBodyAuxRef> chassis) {
 // Rover Chassis
 SkidSteerChassis::SkidSteerChassis(const std::string& name, 
                                     std::shared_ptr<ChMaterialSurface> mat, 
-                                    std::string m_mesh_name, double m_mass)
+                                    std::string m_mesh_name, double mass)
     : SkidSteerPart(name, ChFrame<>(VNULL, QUNIT), mat, false) {
     m_mesh_name = m_mesh_name;
-    m_mass = m_mass;
+    m_mass = mass;
     m_color = ChColor(1.0f, 1.0f, 1.0f);
 
     m_inertia = ChVector<>(1e-2, 0.014, 0.015);  // TODO: ask heather what to put for inertia?
@@ -256,7 +258,7 @@ SkidSteerWheel::SkidSteerWheel(const std::string& name,
                                std::shared_ptr<ChMaterialSurface> mat,
                                SkidSteerWheelType wheel_type,
                                std::string wheel_mesh_name,
-                               double m_mass
+                               double mass
                                )
     : SkidSteerPart(name, rel_pos, mat, true) {
     switch (wheel_type) {
@@ -272,7 +274,7 @@ SkidSteerWheel::SkidSteerWheel(const std::string& name,
     }
 
     m_color = ChColor(0.4f, 0.7f, 0.4f);
-    m_mass = m_mass;                                 // weight of the wheel
+    m_mass = mass;                                 // weight of the wheel
     m_inertia = ChVector<double>(8.74e-4, 8.77e-4, 16.81e-4);  // principal inertia
 
     ChMatrix33<> A;
@@ -318,6 +320,9 @@ void SkidSteer::Create(SkidSteerWheelType wheel_type) {
     const double wheel_x = m_params.wheel_x;
     const double wheel_y = m_params.wheel_y;
     const double wheel_z = m_params.wheel_z;
+    std::cout << "Making chassis" << std::endl;
+    std::cout << m_params.chassis_mass << std::endl;
+    
     // create rover chassis
     m_chassis = chrono_types::make_shared<SkidSteerChassis>("chassis", m_default_material, m_params.chassis_mesh_name, m_params.chassis_mass);
 
