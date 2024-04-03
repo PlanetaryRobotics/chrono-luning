@@ -135,7 +135,7 @@ class CH_MODELS_API SkidSteerChassis : public SkidSteerPart {
   public:
     SkidSteerChassis(const std::string& name,                ///< part name
                      std::shared_ptr<ChMaterialSurface> mat,  ///< contact material
-                     std::string m_mesh_name,                 /// < Mesh name
+                     std::string mesh_name,                 /// < Mesh name
                      double mass                            /// < Mass of the chassis
     );
     ~SkidSteerChassis() {}

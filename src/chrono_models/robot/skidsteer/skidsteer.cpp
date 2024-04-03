@@ -232,9 +232,9 @@ void SkidSteerPart::Initialize(std::shared_ptr<ChBodyAuxRef> chassis) {
 // Rover Chassis
 SkidSteerChassis::SkidSteerChassis(const std::string& name, 
                                     std::shared_ptr<ChMaterialSurface> mat, 
-                                    std::string m_mesh_name, double mass)
+                                    std::string mesh_name, double mass)
     : SkidSteerPart(name, ChFrame<>(VNULL, QUNIT), mat, false) {
-    m_mesh_name = m_mesh_name;
+    m_mesh_name = mesh_name;
     m_mass = mass;
     m_color = ChColor(1.0f, 1.0f, 1.0f);
 
