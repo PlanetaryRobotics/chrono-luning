@@ -291,7 +291,7 @@ SkidSteerWheel::SkidSteerWheel(const std::string& name,
 // =============================================================================
 
 // Rover model
-SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, const char* fp)
+SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, std::string fp)
     : m_system(system), m_chassis_fixed(false) {
     // Set default collision model envelope commensurate with model dimensions.
     // Note that an SMC system automatically sets envelope to 0.
@@ -305,7 +305,10 @@ SkidSteer::SkidSteer(ChSystem* system, SkidSteerWheelType wheel_type, const char
     m_default_material = DefaultContactMaterial(contact_method, m_params);
     m_wheel_material = DefaultContactMaterial(contact_method, m_params);
 
-    ChStreamInAsciiFile mfilei(fp);
+    char* f = new char[fp.length() + 1];
+    strcpy(f, fp.c_str());
+
+    ChStreamInAsciiFile mfilei(f);
     ChArchiveInJSON marchivei(mfilei);
     SkidSteerParameters skid_steer_params;
     marchivei >> CHNVP(skid_steer_params);

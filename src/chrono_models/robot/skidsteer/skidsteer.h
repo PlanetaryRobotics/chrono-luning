@@ -185,7 +185,7 @@ class CH_MODELS_API SkidSteerSpeedDriver {
 class CH_MODELS_API SkidSteer {
   public:
     SkidSteer(ChSystem* system,
-              SkidSteerWheelType wheel_type = SkidSteerWheelType::RealWheel, const char* fp = ""); //TODO: Change order for required parameters
+              SkidSteerWheelType wheel_type = SkidSteerWheelType::RealWheel, std::string fp = ""); //TODO: Change order for required parameters
 
     ~SkidSteer() {}
 
