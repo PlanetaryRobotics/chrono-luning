@@ -48,7 +48,7 @@ set(CRM_IRIS_FILES
 source_group("iris" FILES ${CRM_IRIS_FILES})
 
 #-----------------------------------------------------------------------------
-set(CRM_IRIS_FILES
+set(CRM_MR_FILES
     moonranger/Moonranger.h
     moonranger/Moonranger.h
 )
@@ -57,12 +57,12 @@ source_group("moonranger" FILES ${CRM_MR_FILES})
 
 #-----------------------------------------------------------------------------
 
-set(CRM_IRIS_FILES
+set(CRM_SKIDSTEER_FILES
     skidsteer/skidsteer.cpp
     skidsteer/skidsteer.h
 )
 
-source_group("moonranger" FILES ${CRM_MR_FILES})
+source_group("skidsteer" FILES ${CRM_SKIDSTEER_FILES})
 
 #-----------------------------------------------------------------------------
 
@@ -114,7 +114,9 @@ add_library(ChronoModels_robot
             ${CRM_VIPER_FILES}
             ${CRM_TURTLEBOT_FILES}
             ${CRM_COPTERS_FILES}
-            ${CRM_IRIS_FILES}		
+            ${CRM_IRIS_FILES}
+            ${CRM_MR_FILES}
+            ${CRM_SKIDSTEER_FILES}		
             )
 
 set_target_properties(ChronoModels_robot PROPERTIES
