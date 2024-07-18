@@ -236,7 +236,7 @@ MoonrangerChassis::MoonrangerChassis(const std::string& name, std::shared_ptr<Ch
     m_mesh_name = "moonranger_chassis";
     m_color = ChColor(1.0f, 1.0f, 1.0f);
     
-    m_mass = 2.186; // weight of the chassis
+    m_mass = 17.048; // weight of the chassis
     m_inertia = ChVector<>(1e-2, 0.014, 0.015); // TODO: ask heather what to put for inertia?
 
     m_visualize = false;
@@ -270,7 +270,7 @@ MoonrangerWheel::MoonrangerWheel(const std::string& name,
     }
 
     m_color = ChColor(0.4f, 0.7f, 0.4f);
-    m_mass = 0.02844; // weight of the wheel
+    m_mass = 0.238; // weight of the wheel
     m_inertia = ChVector<double>(8.74e-4, 8.77e-4, 16.81e-4);  // principal inertia 
 
     ChMatrix33<> A;
